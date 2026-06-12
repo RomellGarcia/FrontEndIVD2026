@@ -1,11 +1,12 @@
+import { resultadosAPI, perfilEmpresaAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Typography, Box, Paper, Table, TableBody, TableCell, 
-  TableHead, TableRow, IconButton, Chip, Dialog, DialogTitle, 
+  Container, Typography, Box, Paper, Table, TableBody, TableCell,
+  TableHead, TableRow, IconButton, Chip, Dialog, DialogTitle,
   DialogContent, DialogActions, Grid, Card, CardContent, Button,
   CircularProgress, Alert
 } from '@mui/material';
-import { 
+import {
   Assessment as AssessmentIcon,
   Visibility as VisibilityIcon,
   PictureAsPdf as PdfIcon,
@@ -39,21 +40,21 @@ const ReportesEntrenador = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       console.log('🔍 Entrenador ID:', user.id);
       console.log('🔍 Usuario:', user);
-      
+
       // Obtener resultados de los atletas asignados al entrenador
-      const response = await axios.get(`http://localhost:5000/api/resultados/entrenador/${user.id}`);
+      const response = await resultadosAPI.getByEntrenador(user.id);
       console.log('📊 Respuesta de la API:', response.data);
-      
-      const sortedResultados = response.data.sort((a, b) => new Date(b.fechaEvento) - new Date(a.fechaEvento));
+
+      const sortedResultados = (response.data.resultados || []).sort((a, b) => new Date(b.evento_fecha) - new Date(a.evento_fecha));
       setResultados(sortedResultados);
       console.log('✅ Resultados cargados exitosamente:', sortedResultados.length);
     } catch (error) {
       console.error('❌ Error al obtener resultados:', error);
       console.error('❌ Detalles del error:', error.response?.data || error.message);
-      
+
       if (error.response?.status === 404) {
         setError('Entrenador no encontrado. Verifique su información.');
       } else if (error.response?.status === 500) {
@@ -68,10 +69,10 @@ const ReportesEntrenador = () => {
 
   const fetchLogo = async () => {
     try {
-              const response = await axios.get('http://localhost:5000/api/configuracion/logo');
-      if (response.data && response.data.perfil.logoUrl) {
-        console.log('✅ Logo cargado exitosamente:', response.data.perfil.logoUrl);
-        setLogoUrl(response.data.perfil.logoUrl);
+      const response = await perfilEmpresaAPI.get();
+      if (response.data && response.data.perfil.logo) {
+        console.log('✅ Logo cargado exitosamente:', response.data.perfil.logo);
+        setLogoUrl(response.data.perfil.logo);
       } else {
         console.warn('⚠️ No se encontró URL del logo en la respuesta');
       }
@@ -101,20 +102,20 @@ const ReportesEntrenador = () => {
 
       // Crear nuevo documento PDF
       const doc = new jsPDF();
-      
+
       // Variables para posicionamiento
       let y = 15;
       const margin = 20;
       const pageWidth = doc.internal.pageSize.width;
       const contentWidth = pageWidth - (2 * margin);
-      
+
       // Función para agregar texto con wrap
       const addText = (text, x, y, maxWidth) => {
         const lines = doc.splitTextToSize(text, maxWidth);
         doc.text(lines, x, y);
         return y + (lines.length * 5);
       };
-      
+
       // Función para agregar título centrado
       const addCenteredTitle = (text, y, fontSize = 16) => {
         doc.setFontSize(fontSize);
@@ -126,7 +127,7 @@ const ReportesEntrenador = () => {
         doc.setFont('helvetica', 'normal');
         return y + 8;
       };
-      
+
       // Función para agregar subtítulo
       const addSubtitle = (text, y, fontSize = 12) => {
         doc.setFontSize(fontSize);
@@ -158,14 +159,14 @@ const ReportesEntrenador = () => {
       y = addCenteredTitle('INSTITUTO VERACRUZANO DEL DEPORTE', y, 16);
       y = addCenteredTitle('Gobierno del Estado de Veracruz', y, 10);
       y = addCenteredTitle('REPORTE DE RESULTADOS DEL ENTRENADOR', y, 14);
-      
+
       y += 10;
-      
+
       // Línea horizontal marrón separando el encabezado
       doc.setDrawColor(128, 0, 32);
       doc.line(margin, y, pageWidth - margin, y);
       y += 12;
-      
+
       // Fecha del reporte
       const fechaActual = new Date().toLocaleDateString('es-ES', {
         year: 'numeric',
@@ -176,7 +177,7 @@ const ReportesEntrenador = () => {
       doc.setFontSize(9);
       doc.text(`Veracruz, Ver. a ${fechaActual}`, pageWidth - margin - doc.getTextWidth(`Veracruz, Ver. a ${fechaActual}`), y);
       doc.setFontSize(10);
-      
+
       y += 10;
 
       // Título del evento (centrado y en marrón)
@@ -190,35 +191,37 @@ const ReportesEntrenador = () => {
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
-      
+
       y += 10;
 
       // Información del Atleta
       y = addSubtitle('INFORMACIÓN DEL ATLETA:', y, 12);
-      
+
       const infoAtleta = [
         { label: 'Nombre Completo:', value: resultado.nombreAtleta || 'No especificado' },
         { label: 'Categoría:', value: resultado.categoria || 'No especificada' },
-        { label: 'Sexo:', value: resultado.sexo === 'masculino' ? 'Masculino' : 
-                                  resultado.sexo === 'femenino' ? 'Femenino' : 'No especificado' },
+        {
+          label: 'Sexo:', value: resultado.sexo === 'masculino' ? 'Masculino' :
+            resultado.sexo === 'femenino' ? 'Femenino' : 'No especificado'
+        },
         { label: 'Municipio:', value: resultado.municipio || 'No especificado' },
         { label: 'Club:', value: resultado.club || 'No especificado' },
         { label: 'Año Competitivo:', value: resultado.añoCompetitivo || 'No especificado' }
       ];
-      
+
       infoAtleta.forEach(detalle => {
         const labelText = `• ${detalle.label}`;
         const valueText = detalle.value;
-        
+
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.text(labelText, margin, y);
         doc.setFont('helvetica', 'normal');
-        
+
         const labelWidth = doc.getTextWidth(labelText);
         const valueX = margin + labelWidth + 3;
         const valueWidth = contentWidth - labelWidth - 3;
-        
+
         y = addText(valueText, valueX, y, valueWidth);
         y += 3;
       });
@@ -227,30 +230,32 @@ const ReportesEntrenador = () => {
 
       // Información del Evento
       y = addSubtitle('INFORMACIÓN DEL EVENTO:', y, 12);
-      
+
       const infoEvento = [
-        { label: 'Fecha del Evento:', value: resultado.fechaEvento ? new Date(resultado.fechaEvento).toLocaleDateString('es-ES', {
+        {
+          label: 'Fecha del Evento:', value: resultado.fechaEvento ? new Date(resultado.fechaEvento).toLocaleDateString('es-ES', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
-          }) : 'No especificada' },
+          }) : 'No especificada'
+        },
         { label: 'Convocatoria:', value: `#${parseInt(resultado.convocatoriaIndex) + 1}` },
         { label: 'Lugar de Entrenamiento:', value: resultado.lugarEntrenamiento || 'No especificado' }
       ];
-      
+
       infoEvento.forEach(detalle => {
         const labelText = `• ${detalle.label}`;
         const valueText = detalle.value;
-        
+
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.text(labelText, margin, y);
         doc.setFont('helvetica', 'normal');
-        
+
         const labelWidth = doc.getTextWidth(labelText);
         const valueX = margin + labelWidth + 3;
         const valueWidth = contentWidth - labelWidth - 3;
-        
+
         y = addText(valueText, valueX, y, valueWidth);
         y += 3;
       });
@@ -259,7 +264,7 @@ const ReportesEntrenador = () => {
 
       // Pruebas y Marcas
       y = addSubtitle('PRUEBAS Y MARCAS:', y, 12);
-      
+
       if (resultado.pruebas && resultado.pruebas.length > 0) {
         resultado.pruebas.forEach((prueba, index) => {
           if (prueba.nombre && prueba.marca) {
@@ -278,13 +283,13 @@ const ReportesEntrenador = () => {
       doc.setDrawColor(200, 200, 200);
       doc.line(margin, y, pageWidth - margin, y);
       y += 6;
-      
+
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
       doc.text('Este reporte es oficial y ha sido emitido por el Instituto Veracruzano del Deporte.', pageWidth / 2, y, { align: 'center' });
       y += 4;
       doc.text(`Documento generado el ${fechaActual}`, pageWidth / 2, y, { align: 'center' });
-      
+
       // Descargar el PDF
       const fileName = `Resultado_Entrenador_${resultado.nombreAtleta || 'atleta'}_${resultado.nombreEvento || 'evento'}.pdf`;
       doc.save(fileName);
@@ -450,9 +455,9 @@ const ReportesEntrenador = () => {
                     {getMejorMarca(resultado.pruebas)}
                   </TableCell>
                   <TableCell sx={{ color: '#333333' }}>
-                    <Chip 
-                      label={resultado.categoria || 'Sin categoría'} 
-                      size="small" 
+                    <Chip
+                      label={resultado.categoria || 'Sin categoría'}
+                      size="small"
                       sx={{ backgroundColor: '#E3F2FD', color: '#1976D2' }}
                     />
                   </TableCell>
@@ -476,8 +481,8 @@ const ReportesEntrenador = () => {
       )}
 
       {/* Modal de Detalles */}
-      <Dialog 
-        open={modalDetallesOpen} 
+      <Dialog
+        open={modalDetallesOpen}
         onClose={handleCloseModal}
         maxWidth="md"
         fullWidth
@@ -609,14 +614,14 @@ const ReportesEntrenador = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button 
+          <Button
             onClick={handleCloseModal}
             variant="outlined"
             sx={{ color: '#800020', borderColor: '#800020' }}
           >
             Cerrar
           </Button>
-          <Button 
+          <Button
             onClick={() => handleDownloadPDF(resultadoSeleccionado)}
             variant="contained"
             startIcon={<PdfIcon />}
