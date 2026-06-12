@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { atletasAPI, clubesAPI, eventosAPI, resultadosAPI } from '../api/index.js';
 
 const PaginaPrincipalAdministrativa = () => {
   const navigate = useNavigate();
@@ -67,29 +68,28 @@ const PaginaPrincipalAdministrativa = () => {
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      
+
       // Cargar estadísticas generales
       const [atletasRes, clubesRes, eventosRes, resultadosRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/atletas'),
-                  axios.get('http://localhost:5000/api/clubes'),
-                  axios.get('http://localhost:5000/api/eventos'),
-                  axios.get('http://localhost:5000/api/resultados')
+        atletasAPI.getAll(),
+        clubesAPI.getAll(),
+        eventosAPI.getAll(),
+        resultadosAPI.getAll()
       ]);
 
-      const atletas = atletasRes.data;
-      const clubes = clubesRes.data;
-      const eventos = eventosRes.data;
-      const resultados = resultadosRes.data;
-
+      const atletas = atletasRes.data.atletas || [];
+      const clubes = clubesRes.data.clubes || [];
+      const eventos = eventosRes.data.eventos || [];
+      const resultados = resultadosRes.data.resultados || [];
       // Calcular estadísticas
       const fechaHace7Dias = new Date();
       fechaHace7Dias.setDate(fechaHace7Dias.getDate() - 7);
 
-      const atletasRecientes = atletas.filter(atleta => 
+      const atletasRecientes = atletas.filter(atleta =>
         new Date(atleta.fechaRegistro || atleta.createdAt) >= fechaHace7Dias
       ).length;
 
-      const clubesRecientes = clubes.filter(club => 
+      const clubesRecientes = clubes.filter(club =>
         new Date(club.fechaCreacion || club.createdAt) >= fechaHace7Dias
       ).length;
 
@@ -190,8 +190,8 @@ const PaginaPrincipalAdministrativa = () => {
       <Container maxWidth="xl">
         {/* Header */}
         <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
-                Panel Administrativo
-              </Typography>
+          Panel Administrativo
+        </Typography>
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
@@ -202,7 +202,7 @@ const PaginaPrincipalAdministrativa = () => {
         {/* Estadísticas Principales */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
+            <Card sx={{
               background: 'linear-gradient(135deg, #800020 0%, #7A4069 100%)',
               color: 'white',
               '&:hover': { transform: 'translateY(-4px)', transition: 'transform 0.3s ease' }
@@ -229,7 +229,7 @@ const PaginaPrincipalAdministrativa = () => {
           </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
+            <Card sx={{
               background: 'linear-gradient(135deg, #7A4069 0%, #800020 100%)',
               color: 'white',
               '&:hover': { transform: 'translateY(-4px)', transition: 'transform 0.3s ease' }
@@ -256,7 +256,7 @@ const PaginaPrincipalAdministrativa = () => {
           </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
+            <Card sx={{
               background: 'linear-gradient(135deg, #2E7D32 0%, #388E3C 100%)',
               color: 'white',
               '&:hover': { transform: 'translateY(-4px)', transition: 'transform 0.3s ease' }
@@ -282,32 +282,32 @@ const PaginaPrincipalAdministrativa = () => {
             </Card>
           </Grid>
 
-                     <Grid item xs={12} sm={6} md={3}>
-             <Card sx={{ 
-               background: 'linear-gradient(135deg, #7A4069 0%, #800020 100%)',
-               color: 'white',
-               '&:hover': { transform: 'translateY(-4px)', transition: 'transform 0.3s ease' }
-             }}>
-               <CardContent>
-                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                   <Box>
-                     <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                       {stats.totalResultados}
-                     </Typography>
-                     <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                       Resultados Registrados
-                     </Typography>
-                     <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                       Marcas y tiempos
-              </Typography>
-            </Box>
-                   <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56 }}>
-                     <TrophyIcon />
-                   </Avatar>
-                 </Box>
-               </CardContent>
-             </Card>
-           </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{
+              background: 'linear-gradient(135deg, #7A4069 0%, #800020 100%)',
+              color: 'white',
+              '&:hover': { transform: 'translateY(-4px)', transition: 'transform 0.3s ease' }
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                      {stats.totalResultados}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Resultados Registrados
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      Marcas y tiempos
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 56, height: 56 }}>
+                    <TrophyIcon />
+                  </Avatar>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
 
         {/* Acciones Rápidas */}
@@ -317,11 +317,11 @@ const PaginaPrincipalAdministrativa = () => {
               Vista Rápida
             </Typography>
           </Grid>
-         
+
         </Grid>
 
         {/* Actividad Reciente */}
-            <Grid container spacing={3}>
+        <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Card sx={{ height: '100%' }}>
               <CardContent>
@@ -342,9 +342,9 @@ const PaginaPrincipalAdministrativa = () => {
                           primary={`${atleta.nombre} ${atleta.apellidopa} ${atleta.apellidoma}`}
                           secondary={`CURP: ${atleta.curp} • Registrado: ${formatearFecha(atleta.fechaRegistro || atleta.createdAt)}`}
                         />
-                        <Chip 
-                          label={atleta.sexo} 
-                          size="small" 
+                        <Chip
+                          label={atleta.sexo}
+                          size="small"
                           color={atleta.sexo === 'masculino' ? 'primary' : 'secondary'}
                         />
                       </ListItem>
@@ -381,9 +381,9 @@ const PaginaPrincipalAdministrativa = () => {
                           primary={club.nombre}
                           secondary={`${club.direccion} • Registrado: ${formatearFecha(club.fechaCreacion || club.createdAt)}`}
                         />
-                        <Chip 
-                          label={club.estado || 'activo'} 
-                          size="small" 
+                        <Chip
+                          label={club.estado || 'activo'}
+                          size="small"
                           color={obtenerColorEstado(club.estado)}
                         />
                       </ListItem>
@@ -430,9 +430,9 @@ const PaginaPrincipalAdministrativa = () => {
                             </Box>
                           }
                         />
-                        <Chip 
-                          label={evento.estado ? 'Activo' : 'Inactivo'} 
-                          size="small" 
+                        <Chip
+                          label={evento.estado ? 'Activo' : 'Inactivo'}
+                          size="small"
                           color={evento.estado ? 'success' : 'error'}
                         />
                       </ListItem>
@@ -449,103 +449,103 @@ const PaginaPrincipalAdministrativa = () => {
             </Card>
           </Grid>
 
-                     <Grid item xs={12} md={6}>
-             <Card sx={{ height: '100%' }}>
-               <CardContent>
-                 <Typography variant="h6" sx={{ color: '#7A4069', fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center' }}>
-                   <TrophyIcon sx={{ mr: 1 }} />
-                   Resultados Recientes
-                 </Typography>
-                 <List>
-                   {recentActivity.resultados.map((resultado, index) => (
-                     <React.Fragment key={resultado._id}>
-                       <ListItem>
-                         <ListItemAvatar>
-                           <Avatar sx={{ bgcolor: '#7A4069' }}>
-                             <TrophyIcon />
-                           </Avatar>
-                         </ListItemAvatar>
-                         <ListItemText
-                           primary={resultado.nombreAtleta}
-                           secondary={
-                             <Box>
-                               <Typography variant="body2" component="span">
-                                 {resultado.nombreEvento} • {resultado.disciplina}
-                               </Typography>
-                               <br />
-                               <Typography variant="caption" component="span">
-                                 Posición: {resultado.posicion} • Registrado: {formatearFecha(resultado.fechaRegistro)}
-                               </Typography>
-                             </Box>
-                           }
-                         />
-                         <Chip 
-                           label={`${resultado.posicion}°`} 
-                           size="small" 
-                           color={resultado.posicion <= 3 ? 'success' : 'default'}
-                         />
-                       </ListItem>
-                       {index < recentActivity.resultados.length - 1 && <Divider />}
-                     </React.Fragment>
-                   ))}
-                   {recentActivity.resultados.length === 0 && (
-                     <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                       No hay resultados recientes
-                     </Typography>
-                   )}
-                 </List>
-               </CardContent>
-             </Card>
-           </Grid>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ color: '#7A4069', fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <TrophyIcon sx={{ mr: 1 }} />
+                  Resultados Recientes
+                </Typography>
+                <List>
+                  {recentActivity.resultados.map((resultado, index) => (
+                    <React.Fragment key={resultado._id}>
+                      <ListItem>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: '#7A4069' }}>
+                            <TrophyIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={resultado.nombreAtleta}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" component="span">
+                                {resultado.nombreEvento} • {resultado.disciplina}
+                              </Typography>
+                              <br />
+                              <Typography variant="caption" component="span">
+                                Posición: {resultado.posicion} • Registrado: {formatearFecha(resultado.fechaRegistro)}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <Chip
+                          label={`${resultado.posicion}°`}
+                          size="small"
+                          color={resultado.posicion <= 3 ? 'success' : 'default'}
+                        />
+                      </ListItem>
+                      {index < recentActivity.resultados.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                  {recentActivity.resultados.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                      No hay resultados recientes
+                    </Typography>
+                  )}
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
 
-           <Grid item xs={12} md={6}>
-             <Card sx={{ height: '100%' }}>
-                    <CardContent>
-                 <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center' }}>
-                   <AssessmentIcon sx={{ mr: 1 }} />
-                   Ver Reportes
-                 </Typography>
-                 <Box sx={{ 
-                   display: 'flex', 
-                   flexDirection: 'column', 
-                   alignItems: 'center', 
-                   justifyContent: 'center', 
-                   height: '200px',
-                   textAlign: 'center'
-                 }}>
-                   <Avatar sx={{ bgcolor: '#800020', width: 80, height: 80, mb: 2 }}>
-                     <AssessmentIcon sx={{ fontSize: 40 }} />
-                   </Avatar>
-                   <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 1 }}>
-                     Análisis y Estadísticas
-                      </Typography>
-                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 300 }}>
-                     Accede a reportes detallados, estadísticas del sistema y análisis de rendimiento
-                      </Typography>
-                      <Button
-                        variant="contained"
-                     startIcon={<AssessmentIcon />}
-                     onClick={() => handleQuickAction('reportes')}
-                     sx={{
-                       bgcolor: '#800020',
-                       color: 'white',
-                       '&:hover': {
-                         bgcolor: '#7A4069',
-                         transform: 'translateY(-2px)',
-                         boxShadow: '0 4px 12px rgba(128, 0, 32, 0.3)',
-                       },
-                       transition: 'all 0.3s ease'
-                     }}
-                   >
-                     Ver  Reportes
-                      </Button>
-                 </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-            </Grid>
-        </Container>
-      </Box>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <AssessmentIcon sx={{ mr: 1 }} />
+                  Ver Reportes
+                </Typography>
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '200px',
+                  textAlign: 'center'
+                }}>
+                  <Avatar sx={{ bgcolor: '#800020', width: 80, height: 80, mb: 2 }}>
+                    <AssessmentIcon sx={{ fontSize: 40 }} />
+                  </Avatar>
+                  <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 1 }}>
+                    Análisis y Estadísticas
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 300 }}>
+                    Accede a reportes detallados, estadísticas del sistema y análisis de rendimiento
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<AssessmentIcon />}
+                    onClick={() => handleQuickAction('reportes')}
+                    sx={{
+                      bgcolor: '#800020',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: '#7A4069',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 12px rgba(128, 0, 32, 0.3)',
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    Ver  Reportes
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Container>
+    </Box>
   );
 };
 

@@ -60,6 +60,7 @@ function Login() {
       const { access_token, usuario } = response.data
       console.log('access_token:', access_token ? access_token.substring(0, 30) : 'NO EXISTE')
       console.log('usuario:', usuario)
+      console.log('rol:', usuario.rol)
 
       // Guardar en AuthContext — adaptamos al formato que ya espera tu login()
       login(usuario.curp || usuario.email, usuario.rol, { ...usuario, token: access_token })
@@ -69,6 +70,7 @@ function Login() {
         club: '/club',
         entrenador: '/entrenador',
         administrador: '/administrador',
+        admin: '/administrador',
       }
       navigate(rutas[usuario.rol] || '/')
 
