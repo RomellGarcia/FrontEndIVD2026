@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { atletasAPI, clubesAPI, eventosAPI } from '../api/index.js';
-import Swal from 'sweetalert2';
 import { useAuth } from '../components/common/AuthContext.jsx';
 import {
   Box,
@@ -10,11 +8,9 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActions,
   Button,
   Chip,
   Avatar,
-  Paper,
   List,
   ListItem,
   ListItemText,
@@ -23,7 +19,6 @@ import {
   CircularProgress,
   Alert,
   IconButton,
-  Badge,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,27 +27,87 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TableRow
+  TableRow,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Person as PersonIcon,
-  Sports as SportsIcon,
   Event as EventIcon,
   Group as GroupIcon,
-  TrendingUp as TrendingUpIcon,
   CalendarToday as CalendarIcon,
-  LocationOn as LocationIcon,
   EmojiEvents as TrophyIcon,
   School as SchoolIcon,
   DirectionsRun as RunIcon,
   Visibility as ViewIcon,
-  Add as AddIcon,
   CheckCircle as CheckIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
 } from '@mui/icons-material';
+
+const BURGUNDY = '#800020';
+const PURPLE = '#7A4069';
+const CREAM = '#F5E8C7';
+
+const StatCard = ({ icon, value, label, bgcolor }) => (
+  <Card
+    sx={{
+      bgcolor,
+      color: 'white',
+      borderRadius: 3,
+      height: '100%',
+      minHeight: { xs: 130, sm: 150, md: 160 },
+    }}
+  >
+    <CardContent
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        py: { xs: 2, md: 3 },
+        px: 2,
+        gap: 0.5,
+        '&:last-child': { pb: { xs: 2, md: 3 } },
+      }}
+    >
+      <Box sx={{ fontSize: { xs: 32, md: 40 }, lineHeight: 1, mb: 0.5, display: 'flex' }}>
+        {icon}
+      </Box>
+      <Typography
+        variant="h4"
+        sx={{
+          fontWeight: 'bold',
+          fontSize: { xs: '1.4rem', md: '2rem' },
+          lineHeight: 1.1,
+          textAlign: 'center',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: '100%',
+        }}
+      >
+        {value}
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          opacity: 0.9,
+          textAlign: 'center',
+          fontSize: { xs: '0.7rem', md: '0.8rem' },
+        }}
+      >
+        {label}
+      </Typography>
+    </CardContent>
+  </Card>
+);
 
 const PaginaPrincipalAtleta = () => {
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [atletaData, setAtletaData] = useState(null);
@@ -60,86 +115,58 @@ const PaginaPrincipalAtleta = () => {
   const [eventosProximos, setEventosProximos] = useState([]);
   const [eventosParticipacion, setEventosParticipacion] = useState([]);
   const [modalClubesOpen, setModalClubesOpen] = useState(false);
-
   const [estadisticas, setEstadisticas] = useState({
     totalEventos: 0,
     eventosGanados: 0,
     sesionesCompletadas: 0,
-    clubActual: null
+    clubActual: null,
   });
 
   useEffect(() => {
-    if (user) {
-      cargarDatosAtleta();
-    }
+    if (user) cargarDatosAtleta();
   }, [user]);
 
-  // Recalcular estadísticas cuando cambien los datos
   useEffect(() => {
-    if (atletaData) {
-      calcularEstadisticas(atletaData, eventosParticipacion);
-    }
+    if (atletaData) calcularEstadisticas(atletaData, eventosParticipacion);
   }, [atletaData, eventosParticipacion]);
 
   const cargarDatosAtleta = async () => {
     try {
       setLoading(true);
       setError('');
-      const userId = user._id || user.id;
 
-      console.log('Cargando datos para atleta:', userId);
+      const atletaResponse = await atletasAPI.getPerfil();
+      const atleta = atletaResponse.data.atleta;
+      setAtletaData(atleta);
 
-      // Cargar datos del atleta
-      const atletaResponse = await atletasAPI.getPerfil()
-      const atleta = atletaResponse.data.atleta  // ← extraer .atleta
-      setAtletaData(atleta)
-
-      // Cargar clubes disponibles
       try {
-        const clubesResponse = await clubesAPI.getAll()
-        console.log('Clubes cargados:', clubesResponse.data.clubes?.length)
-        setClubesDisponibles((clubesResponse.data.clubes || []).slice(0, 6))
-
-      } catch (error) {
-        console.log('Error al cargar clubes:', error.message);
+        const clubesResponse = await clubesAPI.getAll();
+        setClubesDisponibles((clubesResponse.data.clubes || []).slice(0, 6));
+      } catch {
         setClubesDisponibles([]);
       }
 
-      // Cargar eventos próximos (convocatorias para el atleta)
       try {
-        const edad = calcularEdad(atleta.fecha_nacimiento)
-        const genero = atleta.genero?.toLowerCase()
-
-        console.log('Edad y género del atleta:', { edad, genero });
-
+        const edad = calcularEdad(atleta.fecha_nacimiento);
+        const genero = atleta.genero?.toLowerCase();
         if (edad && genero) {
-          const eventosResponse = await eventosAPI.getMisConvocatorias()
-          setEventosProximos((eventosResponse.data.convocatorias || []).slice(0, 4))
+          const eventosResponse = await eventosAPI.getMisConvocatorias();
+          setEventosProximos((eventosResponse.data.convocatorias || []).slice(0, 4));
         } else {
-          console.log('No se pudo calcular edad o género');
           setEventosProximos([]);
         }
-      } catch (error) {
-        console.log('Error al cargar eventos próximos:', error.message);
+      } catch {
         setEventosProximos([]);
       }
 
-      // Cargar eventos en los que participa
       try {
-        const participacionResponse = await eventosAPI.getMisInscripciones()
-        console.log('Participaciones cargadas:', participacionResponse.data.inscripciones?.length)
-        setEventosParticipacion((participacionResponse.data.inscripciones || []).slice(0, 3))
-      } catch (error) {
-        console.log('Error al cargar participaciones:', error.message);
+        const participacionResponse = await eventosAPI.getMisInscripciones();
+        setEventosParticipacion((participacionResponse.data.inscripciones || []).slice(0, 3));
+      } catch {
         setEventosParticipacion([]);
       }
-
-      // Las estadísticas se calcularán automáticamente con useEffect
-
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-      console.error('Error response:', error.response?.data);
-      setError(`Error al cargar los datos del atleta: ${error.response?.data?.error || error.message}`);
+    } catch (err) {
+      setError(`Error al cargar los datos del atleta: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);
     }
@@ -147,240 +174,235 @@ const PaginaPrincipalAtleta = () => {
 
   const calcularEdad = (fechaNacimiento) => {
     if (!fechaNacimiento) return null;
-    const fechaNac = new Date(fechaNacimiento);
-    const fechaActual = new Date();
-    let edad = fechaActual.getFullYear() - fechaNac.getFullYear();
-    const mes = fechaActual.getMonth() - fechaNac.getMonth();
-    if (mes < 0 || (mes === 0 && fechaActual.getDate() < fechaNac.getDate())) {
-      edad--;
-    }
+    const hoy = new Date();
+    const nac = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const mes = hoy.getMonth() - nac.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nac.getDate())) edad--;
     return edad;
   };
 
   const calcularEstadisticas = (atleta, participaciones = []) => {
-    const stats = {
+    setEstadisticas({
       totalEventos: participaciones.length,
-      eventosGanados: participaciones.filter(p => p.resultado === 'ganador').length,
+      eventosGanados: participaciones.filter((p) => p.resultado === 'ganador').length,
       sesionesCompletadas: 0,
-      clubActual: atleta.club_nombre || 'Sin Club'  // ← club_nombre del JOIN
-    }
-    setEstadisticas(stats)
-  }
+      clubActual: atleta.club_nombre || 'Sin Club',
+    });
+  };
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
     try {
-      const fechaObj = new Date(fecha);
-      return fechaObj.toLocaleDateString('es-ES', {
+      return new Date(fecha).toLocaleDateString('es-ES', {
         weekday: 'short',
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       });
-    } catch (error) {
+    } catch {
       return 'Fecha inválida';
     }
   };
 
-  const obtenerColorEstado = (estado) => {
-    switch (estado) {
-      case 'activo': return 'success';
-      case 'pendiente': return 'warning';
-      case 'completada': return 'info';
-      default: return 'default';
-    }
-  };
-
-  const handleVerClubes = () => {
-    setModalClubesOpen(true);
-  };
-
-  const handleCerrarModalClubes = () => {
-    setModalClubesOpen(false);
-  };
-
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          bgcolor: CREAM,
+        }}
+      >
+        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-        <Box display="flex" justifyContent="center">
-          <Button
-            variant="contained"
-            onClick={cargarDatosAtleta}
-            sx={{
-              bgcolor: '#800020',
-              '&:hover': { bgcolor: '#600018' }
-            }}
-          >
-            🔄 Intentar de Nuevo
-          </Button>
-        </Box>
-      </Container>
+      <Box sx={{ bgcolor: CREAM, minHeight: '100vh', py: 4 }}>
+        <Container maxWidth="lg">
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Button
+              variant="contained"
+              onClick={cargarDatosAtleta}
+              sx={{ bgcolor: BURGUNDY, '&:hover': { bgcolor: '#600018' } }}
+            >
+              Intentar de Nuevo
+            </Button>
+          </Box>
+        </Container>
+      </Box>
     );
   }
 
-  return (
-    <>
-      <style>
-        {`
-          body {
-            margin: 0;
-            padding: 0;
-          }
-        `}
-      </style>
-      <Container maxWidth="xl" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
+  const statCards = [
+    {
+      icon: <EventIcon fontSize="inherit" />,
+      value: estadisticas.totalEventos,
+      label: 'Eventos Participados',
+      bgcolor: BURGUNDY,
+    },
+    {
+      icon: <TrophyIcon fontSize="inherit" />,
+      value: estadisticas.eventosGanados,
+      label: 'Victorias',
+      bgcolor: PURPLE,
+    },
+    {
+      icon: <RunIcon fontSize="inherit" />,
+      value: estadisticas.sesionesCompletadas,
+      label: 'Sesiones Completadas',
+      bgcolor: '#2E7D32',
+    },
+    {
+      icon: <GroupIcon fontSize="inherit" />,
+      value: estadisticas.clubActual,
+      label: 'Club Actual',
+      bgcolor: '#1565C0',
+    },
+  ];
 
-        {/* Header con información del atleta */}
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Avatar sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: '#800020' }}>
-            <PersonIcon sx={{ fontSize: 40 }} />
+  return (
+    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%' }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
+
+        {/* Header */}
+        <Box sx={{ textAlign: 'center', mb: { xs: 3, md: 4 } }}>
+          <Avatar
+            sx={{
+              width: { xs: 64, md: 80 },
+              height: { xs: 64, md: 80 },
+              mx: 'auto',
+              mb: 1.5,
+              bgcolor: BURGUNDY,
+            }}
+          >
+            <PersonIcon sx={{ fontSize: { xs: 32, md: 40 } }} />
           </Avatar>
-          <Typography variant="h4" sx={{ color: '#800020', fontWeight: 'bold', mb: 1 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              color: BURGUNDY,
+              fontWeight: 'bold',
+              mb: 0.5,
+              fontSize: { xs: '1.5rem', md: '2.125rem' },
+            }}
+          >
             ¡Bienvenido, {atletaData?.nombre}!
           </Typography>
-          <Typography variant="h6" sx={{ color: '#7A4069', mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{ color: PURPLE, fontSize: { xs: '0.95rem', md: '1.25rem' } }}
+          >
             Tu centro de control deportivo personal
           </Typography>
         </Box>
 
-        {/* Estadísticas rápidas */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ bgcolor: '#800020', color: 'white' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <EventIcon sx={{ fontSize: 40, mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {estadisticas.totalEventos}
-                </Typography>
-                <Typography variant="body2">
-                  Eventos Participados
-                </Typography>
-              </CardContent>
-            </Card>
+        {/* Stat cards */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            mb: { xs: 3, md: 4 },
+          }}
+        >
+          <Grid
+            container
+            spacing={{ xs: 2, md: 3 }}
+            sx={{ maxWidth: { xs: '100%', sm: 600, md: 900 } }}
+          >
+            {statCards.map((stat, i) => (
+              <Grid item xs={6} sm={3} key={i}>
+                <StatCard {...stat} />
+              </Grid>
+            ))}
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ bgcolor: '#7A4069', color: 'white' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <TrophyIcon sx={{ fontSize: 40, mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {estadisticas.eventosGanados}
-                </Typography>
-                <Typography variant="body2">
-                  Victorias
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ bgcolor: '#2E7D32', color: 'white' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <RunIcon sx={{ fontSize: 40, mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {estadisticas.sesionesCompletadas}
-                </Typography>
-                <Typography variant="body2">
-                  Sesiones Completadas
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ bgcolor: '#1976D2', color: 'white' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <GroupIcon sx={{ fontSize: 40, mb: 1 }} />
-                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                  {estadisticas.clubActual}
-                </Typography>
-                <Typography variant="body2">
-                  Estado Club
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        </Box>
 
-        <Grid container spacing={4}>
+        {/* Main content */}
+        <Grid container spacing={{ xs: 2, md: 3 }}>
+
           {/* Clubes Disponibles */}
           <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={3}>
-                  <GroupIcon sx={{ fontSize: 30, color: '#800020', mr: 2 }} />
-                  <Typography variant="h5" sx={{ color: '#800020', fontWeight: 'bold' }}>
+            <Card sx={{ borderRadius: 3, height: '100%' }}>
+              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Avatar sx={{ bgcolor: BURGUNDY, mr: 1.5, width: 36, height: 36 }}>
+                    <GroupIcon fontSize="small" />
+                  </Avatar>
+                  <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
                     Clubes Disponibles
                   </Typography>
                 </Box>
 
                 {clubesDisponibles.length === 0 ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', color: '#7A4069' }}>
+                  <Typography variant="body2" sx={{ textAlign: 'center', color: PURPLE, py: 3 }}>
                     No hay clubes disponibles en este momento.
                   </Typography>
                 ) : (
-                  <List>
-                    {clubesDisponibles.slice(0, 3).map((club, index) => (
-                      <React.Fragment key={club.id}>
-                        <ListItem>
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: '#7A4069' }}>
-                              <SchoolIcon />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#800020' }}>
-                                {club.nombre}
-                              </Typography>
-                            }
-                            secondaryTypographyProps={{ component: 'div' }}  // ← agrega esto
-                            secondary={
-                              <Box>
-                                <Typography variant="body2" component="span" sx={{ color: '#7A4069', display: 'block' }}>
-                                  📍 {club.direccion}
+                  <>
+                    <List disablePadding>
+                      {clubesDisponibles.slice(0, 3).map((club, index) => (
+                        <React.Fragment key={club.id}>
+                          <ListItem disableGutters alignItems="flex-start" sx={{ py: 1.5 }}>
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: PURPLE, width: 38, height: 38 }}>
+                                <SchoolIcon fontSize="small" />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={
+                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
+                                  {club.nombre}
                                 </Typography>
-                                <Typography variant="body2" component="span" sx={{ color: '#7A4069', display: 'block' }}>
-                                  📞 {club.telefono}
-                                </Typography>
-                                {club.descripcion && (
-                                  <Typography variant="body2" component="span" sx={{ color: '#7A4069', display: 'block', mt: 1 }}>
-                                    {club.descripcion.substring(0, 100)}...
+                              }
+                              secondaryTypographyProps={{ component: 'div' }}
+                              secondary={
+                                <Box>
+                                  {club.direccion && (
+                                    <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
+                                      📍 {club.direccion}
+                                    </Typography>
+                                  )}
+                                  <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
+                                    📞 {club.telefono}
                                   </Typography>
-                                )}
-                              </Box>
-                            }
-                          />
-                        </ListItem>
-                        {index < Math.min(3, clubesDisponibles.length) - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                )}
-
-                {clubesDisponibles.length > 0 && (
-                  <Box sx={{ textAlign: 'center', mt: 2 }}>
-                    <Button
-                      variant="outlined"
-                      onClick={handleVerClubes}
-                      startIcon={<ViewIcon />}
-                      sx={{
-                        borderColor: '#800020',
-                        color: '#800020',
-                        '&:hover': { borderColor: '#600018', backgroundColor: '#F5E8C7' }
-                      }}
-                    >
-                      Ver Todos los Clubes
-                    </Button>
-                  </Box>
+                                  {club.descripcion && (
+                                    <Typography variant="caption" sx={{ color: PURPLE, display: 'block', mt: 0.5 }}>
+                                      {club.descripcion.substring(0, 80)}…
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                          {index < 2 && <Divider />}
+                        </React.Fragment>
+                      ))}
+                    </List>
+                    <Box sx={{ textAlign: 'center', mt: 2 }}>
+                      <Button
+                        variant="outlined"
+                        onClick={() => setModalClubesOpen(true)}
+                        startIcon={<ViewIcon />}
+                        size={isMobile ? 'small' : 'medium'}
+                        sx={{
+                          borderColor: BURGUNDY,
+                          color: BURGUNDY,
+                          '&:hover': { borderColor: '#600018', backgroundColor: CREAM },
+                        }}
+                      >
+                        Ver Todos los Clubes
+                      </Button>
+                    </Box>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -388,51 +410,54 @@ const PaginaPrincipalAtleta = () => {
 
           {/* Próximos Eventos */}
           <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={3}>
-                  <CalendarIcon sx={{ fontSize: 30, color: '#800020', mr: 2 }} />
-                  <Typography variant="h5" sx={{ color: '#800020', fontWeight: 'bold' }}>
+            <Card sx={{ borderRadius: 3, height: '100%' }}>
+              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Avatar sx={{ bgcolor: BURGUNDY, mr: 1.5, width: 36, height: 36 }}>
+                    <CalendarIcon fontSize="small" />
+                  </Avatar>
+                  <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
                     Próximos Eventos
                   </Typography>
                 </Box>
 
                 {eventosProximos.length === 0 ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', color: '#7A4069' }}>
+                  <Typography variant="body2" sx={{ textAlign: 'center', color: PURPLE, py: 3 }}>
                     No hay eventos próximos disponibles para tu categoría.
                   </Typography>
                 ) : (
-                  <List>
+                  <List disablePadding>
                     {eventosProximos.map((evento, index) => (
                       <React.Fragment key={evento.id}>
-                        <ListItem>
+                        <ListItem disableGutters alignItems="flex-start" sx={{ py: 1.5 }}>
                           <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: '#7A4069' }}>
-                              <EventIcon />
+                            <Avatar sx={{ bgcolor: PURPLE, width: 38, height: 38 }}>
+                              <EventIcon fontSize="small" />
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText
                             primary={
-                              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#800020' }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
                                 {evento.titulo}
                               </Typography>
                             }
+                            secondaryTypographyProps={{ component: 'div' }}
                             secondary={
                               <Box>
-                                <Typography variant="body2" sx={{ color: '#7A4069' }}>
+                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
                                   📅 {formatearFecha(evento.fecha)}
                                 </Typography>
-                                <Typography variant="body2" sx={{ color: '#7A4069' }}>
+                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
                                   📍 {evento.lugar}
                                 </Typography>
-                                <Typography variant="body2" sx={{ color: '#7A4069' }}>
-                                  🏃 {evento.disciplina} - {evento.categoria}
+                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
+                                  🏃 {evento.disciplina} — {evento.categoria}
                                 </Typography>
                                 <Chip
                                   label={evento.estado ? 'Abierto' : 'Cerrado'}
                                   color={evento.estado ? 'success' : 'error'}
                                   size="small"
-                                  sx={{ mt: 1 }}
+                                  sx={{ mt: 0.5 }}
                                 />
                               </Box>
                             }
@@ -447,50 +472,53 @@ const PaginaPrincipalAtleta = () => {
             </Card>
           </Grid>
 
-          {/* Eventos de Participación */}
+          {/* Mis Participaciones */}
           <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={3}>
-                  <CheckIcon sx={{ fontSize: 30, color: '#800020', mr: 2 }} />
-                  <Typography variant="h5" sx={{ color: '#800020', fontWeight: 'bold' }}>
+            <Card sx={{ borderRadius: 3, height: '100%' }}>
+              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Avatar sx={{ bgcolor: BURGUNDY, mr: 1.5, width: 36, height: 36 }}>
+                    <CheckIcon fontSize="small" />
+                  </Avatar>
+                  <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
                     Mis Participaciones
                   </Typography>
                 </Box>
 
                 {eventosParticipacion.length === 0 ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', color: '#7A4069' }}>
+                  <Typography variant="body2" sx={{ textAlign: 'center', color: PURPLE, py: 3 }}>
                     No estás participando en ningún evento actualmente.
                   </Typography>
                 ) : (
-                  <List>
+                  <List disablePadding>
                     {eventosParticipacion.map((participacion, index) => (
                       <React.Fragment key={participacion.id}>
-                        <ListItem>
+                        <ListItem disableGutters alignItems="flex-start" sx={{ py: 1.5 }}>
                           <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: '#2E7D32' }}>
-                              <TrophyIcon />
+                            <Avatar sx={{ bgcolor: '#2E7D32', width: 38, height: 38 }}>
+                              <TrophyIcon fontSize="small" />
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText
                             primary={
-                              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#800020' }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
                                 {participacion.evento?.titulo || 'Evento'}
                               </Typography>
                             }
+                            secondaryTypographyProps={{ component: 'div' }}
                             secondary={
                               <Box>
-                                <Typography variant="body2" sx={{ color: '#7A4069' }}>
+                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
                                   📅 {formatearFecha(participacion.fechaInscripcion)}
                                 </Typography>
-                                <Typography variant="body2" sx={{ color: '#7A4069' }}>
+                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
                                   🏃 {participacion.evento?.disciplina || 'N/A'}
                                 </Typography>
                                 <Chip
                                   label={participacion.validado ? 'Validado' : 'Pendiente'}
                                   color={participacion.validado ? 'success' : 'warning'}
                                   size="small"
-                                  sx={{ mt: 1 }}
+                                  sx={{ mt: 0.5 }}
                                 />
                               </Box>
                             }
@@ -502,7 +530,10 @@ const PaginaPrincipalAtleta = () => {
                             sx={{
                               borderColor: '#2E7D32',
                               color: '#2E7D32',
-                              '&:hover': { borderColor: '#1B5E20', backgroundColor: '#F5E8C7' }
+                              alignSelf: 'center',
+                              ml: 1,
+                              flexShrink: 0,
+                              '&:hover': { borderColor: '#1B5E20', backgroundColor: CREAM },
                             }}
                           >
                             Ver
@@ -517,73 +548,111 @@ const PaginaPrincipalAtleta = () => {
             </Card>
           </Grid>
         </Grid>
+      </Container>
 
-        {/* Modal de Clubes Disponibles */}
-        <Dialog
-          open={modalClubesOpen}
-          onClose={handleCerrarModalClubes}
-          maxWidth="lg"
-          fullWidth
-        >
-          <DialogTitle>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-                🏢 Clubes Disponibles
-              </Typography>
-              <IconButton onClick={handleCerrarModalClubes} color="primary">
-                <CloseIcon />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            {clubesDisponibles.length === 0 ? (
-              <Typography variant="body2" sx={{ textAlign: 'center', p: 3, color: '#7A4069' }}>
-                No hay clubes disponibles en este momento.
-              </Typography>
-            ) : (
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell><strong>Club</strong></TableCell>
-                    <TableCell><strong>Estado</strong></TableCell>
-                    <TableCell><strong>Teléfono</strong></TableCell>
-                    <TableCell><strong>Descripción</strong></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {clubesDisponibles.map((club) => (
-                    <TableRow key={club.id}>
-                      <TableCell>
-                        <Box display="flex" alignItems="center">
-                          <Avatar sx={{ bgcolor: '#7A4069', mr: 2 }}>
-                            <SchoolIcon />
-                          </Avatar>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#800020' }}>
-                            {club.nombre}
+      {/* Modal Clubes */}
+      <Dialog
+        open={modalClubesOpen}
+        onClose={() => setModalClubesOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
+              Clubes Disponibles
+            </Typography>
+            <IconButton onClick={() => setModalClubesOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {clubesDisponibles.length === 0 ? (
+            <Typography variant="body2" sx={{ textAlign: 'center', p: 3, color: PURPLE }}>
+              No hay clubes disponibles en este momento.
+            </Typography>
+          ) : isMobile ? (
+            <List disablePadding>
+              {clubesDisponibles.map((club, index) => (
+                <React.Fragment key={club.id}>
+                  <ListItem disableGutters sx={{ py: 2 }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: PURPLE }}>
+                        <SchoolIcon />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
+                          {club.nombre}
+                        </Typography>
+                      }
+                      secondaryTypographyProps={{ component: 'div' }}
+                      secondary={
+                        <Box>
+                          <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
+                            {club.estadoNacimiento} · {club.telefono}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
+                            {club.descripcion || 'Sin descripción disponible'}
                           </Typography>
                         </Box>
-                      </TableCell>
-                      <TableCell>{club.estadoNacimiento}</TableCell>
-                      <TableCell>{club.telefono}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ maxWidth: 300 }}>
-                          {club.descripcion || 'Sin descripción disponible'}
+                      }
+                    />
+                  </ListItem>
+                  {index < clubesDisponibles.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Club</strong></TableCell>
+                  <TableCell><strong>Estado</strong></TableCell>
+                  <TableCell><strong>Teléfono</strong></TableCell>
+                  <TableCell><strong>Descripción</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {clubesDisponibles.map((club) => (
+                  <TableRow key={club.id}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar sx={{ bgcolor: PURPLE, width: 32, height: 32 }}>
+                          <SchoolIcon fontSize="small" />
+                        </Avatar>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
+                          {club.nombre}
                         </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCerrarModalClubes} sx={{ color: '#7A4069' }}>
-              Cerrar
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
-    </>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{club.estadoNacimiento}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{club.telefono}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ maxWidth: 280 }}>
+                        {club.descripcion || 'Sin descripción disponible'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalClubesOpen(false)} sx={{ color: PURPLE }}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 

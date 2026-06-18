@@ -733,7 +733,8 @@ const ConvocatoriasAtleta = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
+  <Box sx={{ bgcolor: '#F5E8C7', minHeight: '100vh', width: '100%' }}>
+<Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold' }}>
         Convocatorias Disponibles
       </Typography>
@@ -905,6 +906,7 @@ const ConvocatoriasAtleta = () => {
         </DialogActions>
       </Dialog>
     </Container>
+    </Box>
   );
 };
 
