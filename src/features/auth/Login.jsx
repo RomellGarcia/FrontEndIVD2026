@@ -1,69 +1,89 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
 import { useAuth } from '../../components/common/AuthContext.jsx';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import {
+  Box,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography,
+  InputAdornment,
+  IconButton,
+  Card,
+  CardContent,
+  Avatar,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import {
+  Visibility,
+  VisibilityOff,
+  Login as LoginIcon,
+  SportsMartialArts as SportIcon,
+} from '@mui/icons-material';
 
 const MySwal = withReactContent(Swal);
 
-// URL base del backend
-const API_BASE_URL = "http://localhost:5000";
+const BURGUNDY = '#800020';
+const PURPLE = '#7A4069';
+const CREAM = '#F5E8C7';
+
+const API_BASE_URL = 'http://localhost:5000';
+
+/* MUI sx reutilizable para TextFields */
+const fieldSx = {
+  '& .MuiInputLabel-root': { color: PURPLE },
+  '& .MuiInputLabel-root.Mui-focused': { color: BURGUNDY },
+  '& .MuiOutlinedInput-root': {
+    bgcolor: '#fff',
+    '& fieldset': { borderColor: '#ccc' },
+    '&:hover fieldset': { borderColor: BURGUNDY },
+    '&.Mui-focused fieldset': { borderColor: BURGUNDY },
+  },
+  '& input:-webkit-autofill, & input:-webkit-autofill:hover, & input:-webkit-autofill:focus': {
+    WebkitBoxShadow: '0 0 0 100px #fff inset',
+    WebkitTextFillColor: '#333',
+    caretColor: '#333',
+  },
+};
 
 function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [rol, setRol] = useState("atleta");
-  const [curp, setCurp] = useState("");
-  const [correo, setCorreo] = useState("");
-  const [password, setPassword] = useState("");
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const [rol, setRol] = useState('atleta');
+  const [curp, setCurp] = useState('');
+  const [correo, setCorreo] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  // Hook para detectar cambios en el tamaño de pantalla
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const handleTogglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  // Cambia estas líneas en handleSubmit:
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    if (Object.keys(formErrors).length > 0) {
-      MySwal.fire({ icon: 'error', title: 'Errores en el formulario', text: 'Por favor, corrige los errores antes de continuar.' })
-      return
-    }
+    e.preventDefault();
 
     try {
-      // Atleta usa CURP, los demás usan correo
-      const payload = rol === 'atleta'
-        ? { curp: curp.toUpperCase(), password }
-        : { email: correo, password }
+      const payload =
+        rol === 'atleta'
+          ? { curp: curp.toUpperCase(), password }
+          : { email: correo, password };
 
       const response = await axios.post(`${API_BASE_URL}/api/auth/login`, payload, {
-        withCredentials: true
-      })
+        withCredentials: true,
+      });
 
-      const { access_token, usuario } = response.data
-      console.log('access_token:', access_token ? access_token.substring(0, 30) : 'NO EXISTE')
-      console.log('usuario:', usuario)
-      console.log('rol:', usuario.rol)
+      const { access_token, usuario } = response.data;
 
-      // Guardar en AuthContext — adaptamos al formato que ya espera tu login()
-      login(usuario.curp || usuario.email, usuario.rol, { ...usuario, token: access_token })
+      login(usuario.curp || usuario.email, usuario.rol, {
+        ...usuario,
+        token: access_token,
+      });
 
       const rutas = {
         atleta: '/atleta',
@@ -71,191 +91,214 @@ function Login() {
         entrenador: '/entrenador',
         administrador: '/administrador',
         admin: '/administrador',
-      }
-      navigate(rutas[usuario.rol] || '/')
+      };
+      navigate(rutas[usuario.rol] || '/');
 
-      MySwal.fire({ icon: 'success', title: 'Éxito', text: 'Inicio de sesión exitoso' })
-
+      MySwal.fire({ icon: 'success', title: 'Éxito', text: 'Inicio de sesión exitoso' });
     } catch (error) {
-      const serverError = error.response?.data?.error
+      const serverError = error.response?.data?.error;
       if (serverError === 'La CURP ingresada no existe') {
-        MySwal.fire({ icon: 'error', title: 'Usuario No Encontrado', text: 'La CURP ingresada no existe.' })
+        MySwal.fire({ icon: 'error', title: 'Usuario No Encontrado', text: 'La CURP ingresada no existe.' });
       } else if (serverError === 'Credenciales incorrectas') {
-        MySwal.fire({ icon: 'error', title: 'Error', text: 'Contraseña incorrecta.' })
+        MySwal.fire({ icon: 'error', title: 'Error', text: 'Contraseña incorrecta.' });
       } else {
-        MySwal.fire({ icon: 'error', title: 'Error', text: serverError || 'Error al iniciar sesión.' })
+        MySwal.fire({ icon: 'error', title: 'Error', text: serverError || 'Error al iniciar sesión.' });
       }
     }
-  }
-
-  const estilos = {
-    contenedorPrincipal: {
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      backgroundColor: '#FFFFFF', // Fondo blanco puro en lugar de imagen
-      padding: isMobile ? '10px' : '20px',
-    },
-    contenedorLogin: {
-      backgroundColor: '#F5E8C7', // Beige claro para el contenedor
-      borderRadius: isMobile ? '12px' : '8px',
-      boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
-      display: 'flex',
-      maxWidth: isMobile ? '100%' : '400px',
-      width: '100%',
-      padding: isMobile ? '20px' : '25px',
-      flexDirection: 'column',
-    },
-    contenedorFormulario: {
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-    },
-    titulo: {
-      fontSize: isMobile ? '20px' : '24px',
-      marginBottom: isMobile ? '16px' : '20px',
-      color: '#800020', // Granada/vino para el título
-      textAlign: 'center',
-      fontWeight: '600',
-      fontFamily: "'Arial', 'Helvetica', sans-serif",
-    },
-    campo: {
-      marginBottom: isMobile ? '20px' : '15px',
-      position: 'relative',
-    },
-    etiqueta: {
-      display: 'block',
-      marginBottom: '5px',
-      fontWeight: '500',
-      color: '#333333',
-      fontFamily: "'Arial', 'Helvetica', sans-serif",
-      fontSize: isMobile ? '16px' : '14px',
-    },
-    input: {
-      width: '100%',
-      padding: isMobile ? '14px 40px 14px 14px' : '10px 40px 10px 10px',
-      borderRadius: '5px',
-      border: '1px solid #B0BEC5',
-      fontSize: isMobile ? '16px' : '14px',
-      boxSizing: 'border-box',
-      fontFamily: "'Arial', 'Helvetica', sans-serif",
-      minHeight: isMobile ? '44px' : 'auto',
-    },
-    boton: {
-      backgroundColor: '#800020', // Granada/vino para el botón
-      color: '#FFFFFF',
-      border: 'none',
-      borderRadius: '5px',
-      padding: isMobile ? '16px' : '10px',
-      fontSize: isMobile ? '16px' : '14px',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'background-color 0.3s',
-      fontFamily: "'Arial', 'Helvetica', sans-serif",
-      minHeight: isMobile ? '44px' : 'auto',
-      '&:hover': {
-        backgroundColor: '#A52A2A', // Tono más claro para hover
-      },
-    },
-    enlace: {
-      display: 'block',
-      marginTop: isMobile ? '16px' : '12px',
-      textDecoration: 'none',
-      color: '#7A4069', // Morado medio para enlaces
-      fontSize: isMobile ? '14px' : '12px',
-      textAlign: 'center',
-      fontFamily: "'Arial', 'Helvetica', sans-serif",
-    },
-    error: {
-      color: '#D32F2F', // Rojo oscuro para errores
-      fontSize: isMobile ? '14px' : '12px',
-      marginTop: '5px',
-      fontFamily: "'Arial', 'Helvetica', sans-serif",
-    },
-    icono: {
-      position: 'absolute',
-      top: '50%',
-      right: '12px',
-      transform: 'translateY(-50%)',
-      cursor: 'pointer',
-      color: '#666',
-    },
   };
 
   return (
-    <div style={estilos.contenedorPrincipal}>
-      <div style={estilos.contenedorLogin}>
-        <div style={estilos.contenedorFormulario}>
-          <h2 style={estilos.titulo}>Iniciar Sesión</h2>
-          <form onSubmit={handleSubmit}>
-            <FormControl fullWidth sx={{ mb: 2, '& .MuiInputLabel-root': { color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }, '& .MuiInputLabel-root.Mui-focused': { color: '#800020' }, '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#7A4069' }, '&:hover fieldset': { borderColor: '#800020' }, '&.Mui-focused fieldset': { borderColor: '#800020' } } }}>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        bgcolor: CREAM,
+        px: 2,
+      }}
+    >
+      <Card
+        sx={{
+          width: '100%',
+          maxWidth: 460,
+          borderRadius: 4,
+          boxShadow: '0 8px 32px rgba(128,0,32,0.12)',
+          overflow: 'visible',
+        }}
+      >
+        {/* ── Header burgundy ── */}
+        <Box
+          sx={{
+            bgcolor: BURGUNDY,
+            py: { xs: 3, sm: 4 },
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            borderRadius: '16px 16px 0 0',
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 56,
+              height: 56,
+              bgcolor: 'rgba(255,255,255,0.15)',
+              mb: 1.5,
+            }}
+          >
+            <SportIcon sx={{ fontSize: 30, color: '#fff' }} />
+          </Avatar>
+          <Typography
+            variant="h5"
+            sx={{
+              color: '#fff',
+              fontWeight: 'bold',
+              fontSize: { xs: '1.2rem', sm: '1.4rem' },
+            }}
+          >
+            Instituto Veracruzano
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}
+          >
+            del Deporte
+          </Typography>
+        </Box>
+
+        {/* ── Form ── */}
+        <CardContent sx={{ px: { xs: 3, sm: 4 }, py: { xs: 3, sm: 4 } }}>
+          <Typography
+            variant="h6"
+            sx={{
+              color: BURGUNDY,
+              fontWeight: 'bold',
+              textAlign: 'center',
+              mb: 3,
+            }}
+          >
+            Iniciar Sesión
+          </Typography>
+
+          <Box component="form" onSubmit={handleSubmit}>
+            {/* Selector de rol */}
+            <FormControl fullWidth sx={{ mb: 2.5, ...fieldSx }}>
               <InputLabel>Rol</InputLabel>
-              <Select value={rol} onChange={e => setRol(e.target.value)} label="Rol" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif", color: '#7A4069' }}>
+              <Select
+                value={rol}
+                onChange={(e) => setRol(e.target.value)}
+                label="Rol"
+              >
                 <MenuItem value="atleta">Atleta</MenuItem>
                 <MenuItem value="club">Club</MenuItem>
                 <MenuItem value="entrenador">Entrenador</MenuItem>
                 <MenuItem value="administrador">Administrador</MenuItem>
               </Select>
             </FormControl>
-            {rol === "atleta" ? (
+
+            {/* CURP o Correo según rol */}
+            {rol === 'atleta' ? (
               <TextField
                 fullWidth
                 label="CURP"
                 value={curp}
-                onChange={e => setCurp(e.target.value)}
-                sx={{ mb: 2, background: '#FFF', '& .MuiInputLabel-root': { color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }, '& .MuiInputLabel-root.Mui-focused': { color: '#800020' }, '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#7A4069' }, '&:hover fieldset': { borderColor: '#800020' }, '&.Mui-focused fieldset': { borderColor: '#800020' }, color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" } }}
+                onChange={(e) => setCurp(e.target.value)}
                 required
+                sx={{ mb: 2.5, ...fieldSx }}
+                inputProps={{ style: { textTransform: 'uppercase' } }}
               />
             ) : (
               <TextField
                 fullWidth
-                label="Correo"
-                value={correo}
-                onChange={e => setCorreo(e.target.value)}
-                sx={{ mb: 2, background: '#FFF', '& .MuiInputLabel-root': { color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }, '& .MuiInputLabel-root.Mui-focused': { color: '#800020' }, '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#7A4069' }, '&:hover fieldset': { borderColor: '#800020' }, '&.Mui-focused fieldset': { borderColor: '#800020' }, color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" } }}
-                required
+                label="Correo electrónico"
                 type="email"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                required
+                sx={{ mb: 2.5, ...fieldSx }}
               />
             )}
+
+            {/* Contraseña */}
             <TextField
               fullWidth
               label="Contraseña"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={e => setPassword(e.target.value)}
-              sx={{ mb: 2, '& .MuiInputLabel-root': { color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }, '& .MuiInputLabel-root.Mui-focused': { color: '#800020' }, '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#7A4069' }, '&:hover fieldset': { borderColor: '#800020' }, '&.Mui-focused fieldset': { borderColor: '#800020' }, color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" } }}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              InputProps={{
-                endAdornment: (
-                  <span style={{ cursor: 'pointer' }} onClick={handleTogglePasswordVisibility}>
-                    {showPassword ? <FaEyeSlash color="#800020" /> : <FaEye color="#800020" />}
-                  </span>
-                ),
+              sx={{ mb: 3, ...fieldSx }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        sx={{ color: BURGUNDY }}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
-            <Button type="submit" variant="contained" fullWidth style={estilos.boton}>
+
+            {/* Botón */}
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              startIcon={<LoginIcon />}
+              sx={{
+                bgcolor: BURGUNDY,
+                py: 1.2,
+                fontWeight: 'bold',
+                fontSize: '0.95rem',
+                borderRadius: 2,
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#600018' },
+              }}
+            >
               Iniciar Sesión
             </Button>
-            <Link to="/recuperar-correo" style={{
-              display: 'block',
-              marginTop: 16,
-              color: '#7A4069',
-              textAlign: 'center',
-              fontWeight: 'bold',
-              fontFamily: "'Arial', 'Helvetica', sans-serif",
-              fontSize: '14px',
-              textDecoration: 'underline',
-            }}>
-              ¿Olvidaste tu contraseña?
-            </Link>
-            <Link to="/registro" style={estilos.enlace}>Regístrate</Link>
 
-          </form>
-        </div>
-      </div>
-    </div>
+            {/* Links */}
+            <Box sx={{ textAlign: 'center', mt: 2.5 }}>
+              <Link
+                to="/recuperar-correo"
+                style={{
+                  color: BURGUNDY,
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </Box>
+
+            <Box sx={{ textAlign: 'center', mt: 1.5 }}>
+              <Typography variant="body2" component="span" sx={{ color: '#888' }}>
+                ¿No tienes cuenta?{' '}
+              </Typography>
+              <Link
+                to="/registro"
+                style={{
+                  color: PURPLE,
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  textDecoration: 'none',
+                }}
+              >
+                Regístrate
+              </Link>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
 
