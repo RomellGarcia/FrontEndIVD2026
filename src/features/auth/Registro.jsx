@@ -47,6 +47,7 @@ const PURPLE = '#7A4069';
 const CREAM = '#F5E8C7';
 const API_BASE_URL = 'http://localhost:5000';
 
+/* sx compartido — quita asterisco + autofill fix */
 const fieldSx = {
   '& .MuiInputLabel-root': { color: PURPLE },
   '& .MuiInputLabel-root.Mui-focused': { color: BURGUNDY },
@@ -243,38 +244,36 @@ function Registro() {
           email: formData.gmail,
           password: formData.password,
           rol: 'club',
-          descripcion: '',
-          estado: 'activo',
         };
       } else if (isEntrenador) {
         dataToSend = {
           nombre: formData.nombre,
-          apellidopa: formData.apellidopa,
-          apellidoma: formData.apellidoma,
+          apellido_paterno: formData.apellidopa,
+          apellido_materno: formData.apellidoma,
           curp: formData.curp,
-          fechaNacimiento: formData.fechaNacimiento,
-          sexo: formData.sexo,
-          estadoNacimiento: formData.estadoNacimiento,
+          fecha_nacimiento: formData.fechaNacimiento,
+          genero: formData.sexo,
+          estado_nacimiento: formData.estadoNacimiento,
           telefono: formData.telefono,
-          gmail: formData.gmail,
+          email: formData.gmail,
           password: formData.password,
           rol: 'entrenador',
           especialidades: formData.especialidades,
           certificaciones: formData.certificaciones,
-          añosExperiencia: formData.añosExperiencia,
-          ...(formData.clubId && { clubId: formData.clubId }),
+          anos_experiencia: formData.añosExperiencia,
+          ...(formData.clubId && { club_id: formData.clubId }),
         };
       } else {
         dataToSend = {
           nombre: formData.nombre,
-          apellidopa: formData.apellidopa,
-          apellidoma: formData.apellidoma,
+          apellido_paterno: formData.apellidopa,
+          apellido_materno: formData.apellidoma,
           curp: formData.curp,
-          fechaNacimiento: formData.fechaNacimiento,
-          sexo: formData.sexo,
-          estadoNacimiento: formData.estadoNacimiento,
+          fecha_nacimiento: formData.fechaNacimiento,
+          genero: formData.sexo,
+          estado_nacimiento: formData.estadoNacimiento,
           telefono: formData.telefono,
-          gmail: formData.gmail,
+          email: formData.gmail,
           password: formData.password,
           rol: 'atleta',
         };
@@ -282,7 +281,7 @@ function Registro() {
 
       await axios.post(endpoint, dataToSend, { headers: { 'Content-Type': 'application/json' } });
 
-      MySwal.fire({ icon: 'success', title: 'Registro exitoso', text: 'Tu cuenta ha sido creada.' }).then(() => {
+      MySwal.fire({ icon: 'success', title: 'Registro exitoso', text: 'Tu cuenta ha sido creada.', text: 'Para iniciar sesión, verifica tu correo electrónico. Revisa tu bandeja de entrada o spam.' }).then(() => {
         navigate('/login');
       });
     } catch (error) {
@@ -341,7 +340,7 @@ function Registro() {
         <CardContent sx={{ px: { xs: 2.5, sm: 4 }, py: { xs: 3, sm: 4 } }}>
           <Box component="form" onSubmit={handleSubmit}>
 
-            {/* Rol */}
+            {/* ── 1. Rol ── */}
             <FormControl fullWidth sx={{ mb: 3, ...fieldSx }} required>
               <InputLabel>¿Cómo deseas registrarte?</InputLabel>
               <Select name="rol" value={rol} onChange={handleChange} label="¿Cómo deseas registrarte?">
@@ -625,7 +624,7 @@ function Registro() {
                   />
                 </Box>
 
-                {/* Botón */}
+                {/* Boton */}
                 <Button
                   type="submit"
                   variant="contained"

@@ -19,7 +19,6 @@ import DetallesHabitacion from './features/publico/DetalleHabitacion.jsx'
 // Autenticación
 import Login from './features/auth/Login.jsx'
 import Registro from './features/auth/Registro.jsx'
-import RegistroEntrenador from './features/auth/RegistroEntrenador.jsx'
 import RecuperarCorreo from './features/auth/RecuperarCorreo.jsx'
 import VerificarCodigo from './features/auth/VerificarCodigo.jsx'
 import RestablecerPassword from './features/auth/RestablecerPassword.jsx'
@@ -87,7 +86,6 @@ const App = () => {
           <Route path="/" element={<LayoutConEncabezado><PaginaPrincipal /></LayoutConEncabezado>} />
           <Route path="/login" element={<LayoutConEncabezado><Login /></LayoutConEncabezado>} />
           <Route path="/registro" element={<LayoutConEncabezado><Registro /></LayoutConEncabezado>} />
-          <Route path="/registro-entrenador" element={<LayoutConEncabezado><RegistroEntrenador /></LayoutConEncabezado>} />
           <Route path="/hotelesp" element={<LayoutConEncabezado><HotelesP /></LayoutConEncabezado>} />
           <Route path="/cuartosp/:idHotel" element={<LayoutConEncabezado><CuartosPWrapper /></LayoutConEncabezado>} />
           <Route path="/detalles-habitacion/:idHabitacion" element={<LayoutConEncabezado><DetallesHabitacion /></LayoutConEncabezado>} />
