@@ -1,30 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Button,
-  Container,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Paper,
-  Modal,
-  TextField,
-  Typography,
-  IconButton,
-  CircularProgress,
-  Alert,
-  MenuItem,
+  Box, Button, Container, Table, TableBody, TableCell, TableHead, TableRow,
+  Paper, TextField, Typography, IconButton, CircularProgress, Alert, MenuItem,
+  Avatar, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Pagination,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
+  Close as CloseIcon, Event as EventIcon, CalendarToday as CalendarIcon,
+} from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { es } from 'date-fns/locale';
 import axios from 'axios';
-import { useAuth } from '../../components/common/AuthContext.jsx'; // Ajusta la ruta
+import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
+
+const BURGUNDY = '#800020';
+const PURPLE = '#7A4069';
+const CREAM = '#F5E8C7';
+
+const fieldSx = {
+  '& .MuiInputLabel-root': { color: PURPLE },
+  '& .MuiInputLabel-root.Mui-focused': { color: BURGUNDY },
+  '& .MuiOutlinedInput-root': {
+    bgcolor: '#FAFAFA', borderRadius: 2,
+    '& fieldset': { borderColor: '#ddd' },
+    '&:hover fieldset': { borderColor: BURGUNDY },
+    '&.Mui-focused fieldset': { borderColor: BURGUNDY },
+  },
+};
 
 const Convocatoria = () => {
   const { user } = useAuth();
@@ -32,65 +38,67 @@ const Convocatoria = () => {
   const [convocatorias, setConvocatorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [openModal, setOpenModal] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({ nombre: '', fecha: null, descripcion: '', estado: 'abierta' });
   const [editIndex, setEditIndex] = useState(null);
+  const [page, setPage] = useState(1);
+  const porPagina = 8;
 
   useEffect(() => {
-    if (!user?.id) {
-      navigate('/login');
-      return;
-    }
+    if (!user?.id) { navigate('/login'); return; }
     fetchConvocatorias();
   }, [user, navigate]);
 
   const fetchConvocatorias = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`https://backendd-q0zc.onrender.com/api/convocatorias?clubId=${user.id}`, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      setConvocatorias(response.data);
+      const response = await axios.get(`http://localhost:5000/api/convocatorias?clubId=${user.id}`);
+      setConvocatorias(response.data.convocatorias || []);
       setError('');
-    } catch (error) {
-      console.error('Error al obtener convocatorias:', error);
-      setError('Error al cargar las convocatorias. Intente de nuevo.');
-    } finally {
-      setLoading(false);
-    }
+    } catch {
+      setError('Error al cargar las convocatorias.');
+    } finally { setLoading(false); }
   };
 
   const handleAddOrEdit = async () => {
     try {
       const url = editIndex !== null
-        ? `https://backendd-q0zc.onrender.com/api/convocatorias/${convocatorias[editIndex]._id}`
-        : `https://backendd-q0zc.onrender.com/api/convocatorias`;
+        ? `http://localhost:5000/api/convocatorias/${convocatorias[editIndex]._id || convocatorias[editIndex].id}`
+        : `http://localhost:5000/api/convocatorias`;
       const method = editIndex !== null ? 'put' : 'post';
-      await axios({
-        method,
-        url,
-        data: { ...formData, clubId: user.id },
-        headers: { 'Content-Type': 'application/json' },
-      });
-      setOpenModal(false);
-      setFormData({ nombre: '', fecha: null, descripcion: '', estado: 'abierta' });
-      setEditIndex(null);
+      await axios({ method, url, data: { ...formData, clubId: user.id } });
+      handleCloseModal();
       fetchConvocatorias();
-    } catch (error) {
-      console.error('Error al guardar convocatoria:', error);
-      setError('Error al guardar la convocatoria. Intente de nuevo.');
+      Swal.fire({
+        icon: 'success',
+        title: editIndex !== null ? 'Convocatoria actualizada' : 'Convocatoria creada',
+        confirmButtonColor: BURGUNDY,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch {
+      setError('Error al guardar la convocatoria.');
     }
   };
 
   const handleDelete = async (index) => {
+    const result = await Swal.fire({
+      title: '¿Eliminar convocatoria?',
+      text: 'Esta acción no se puede deshacer',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: BURGUNDY,
+      cancelButtonColor: PURPLE,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+
     try {
-      await axios.delete(`https://backendd-q0zc.onrender.com/api/convocatorias/${convocatorias[index]._id}`);
-      const newConvocatorias = convocatorias.filter((_, i) => i !== index);
-      setConvocatorias(newConvocatorias);
-      setError('');
-    } catch (error) {
-      console.error('Error al eliminar convocatoria:', error);
-      setError('Error al eliminar la convocatoria. Intente de nuevo.');
+      await axios.delete(`http://localhost:5000/api/convocatorias/${convocatorias[index]._id || convocatorias[index].id}`);
+      setConvocatorias(prev => prev.filter((_, i) => i !== index));
+    } catch {
+      setError('Error al eliminar la convocatoria.');
     }
   };
 
@@ -102,171 +110,213 @@ const Convocatoria = () => {
       setFormData({ nombre: '', fecha: null, descripcion: '', estado: 'abierta' });
       setEditIndex(null);
     }
-    setOpenModal(true);
+    setModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    setOpenModal(false);
+    setModalOpen(false);
     setFormData({ nombre: '', fecha: null, descripcion: '', estado: 'abierta' });
     setEditIndex(null);
   };
 
+  const fmt = (fecha) => {
+    if (!fecha) return '—';
+    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const convocatoriasPaginadas = convocatorias.slice((page - 1) * porPagina, page * porPagina);
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
+        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold' }}>
-        Gestión de Convocatorias
-      </Typography>
+    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 3, md: 5 } }}>
 
-      {error && (
-        <Box sx={{ mb: 2 }}>
-          <Alert severity="error" onClose={() => setError('')}>
+        {/* ── Header ── */}
+        <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, textAlign: 'center', mb: .5 }}>
+          Gestión de Convocatorias
+        </Typography>
+        <Typography variant="body1" sx={{ color: PURPLE, textAlign: 'center', mb: 4, opacity: .8 }}>
+          Administra las convocatorias de tu club
+        </Typography>
+
+        {error && (
+          <Alert severity="error" onClose={() => setError('')} sx={{ mb: 3, borderRadius: 2 }}>
             {error}
           </Alert>
-        </Box>
-      )}
+        )}
 
-      <Box sx={{ mb: 2, textAlign: 'right' }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenModal()}
-          sx={{
-            background: '#800020',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            '&:hover': {
-              background: '#7A4069',
-              transform: 'translateY(-2px)',
-              boxShadow: '0 4px 12px rgba(122, 64, 105, 0.3)',
-            },
-          }}
-        >
-          Agregar Convocatoria
-        </Button>
-      </Box>
-
-      <Paper elevation={3} sx={{ p: 2, borderRadius: '12px', background: '#FFFFFF' }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Nombre</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Fecha</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Descripción</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Estado</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {convocatorias.map((convocatoria, index) => (
-              <TableRow key={index} sx={{ '&:hover': { backgroundColor: '#FAFAFF' }, transition: 'background-color 0.3s' }}>
-                <TableCell sx={{ color: '#333333' }}>{convocatoria.nombre}</TableCell>
-                <TableCell sx={{ color: '#333333' }}>{new Date(convocatoria.fecha).toLocaleDateString('es-ES')}</TableCell>
-                <TableCell sx={{ color: '#333333' }}>{convocatoria.descripcion}</TableCell>
-                <TableCell sx={{ color: '#333333' }}>{convocatoria.estado}</TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpenModal(index)} color="primary" sx={{ '&:hover': { backgroundColor: 'rgba(128, 0, 32, 0.1)' } }}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleDelete(index)} color="error" sx={{ '&:hover': { backgroundColor: 'rgba(211, 47, 47, 0.1)' } }}>
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
-
-      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
-        <Modal open={openModal} onClose={handleCloseModal}>
-          <Box
+        {/* Botón agregar */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenModal()}
             sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 400,
-              bgcolor: '#FFFFFF',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
-              p: 4,
-              borderRadius: '12px',
-              fontFamily: "'Arial', 'Helvetica', sans-serif",
+              bgcolor: BURGUNDY, borderRadius: 2,
+              textTransform: 'none', fontWeight: 600,
+              '&:hover': { bgcolor: '#600018' },
             }}
           >
-            <Typography variant="h6" gutterBottom sx={{ color: '#800020', fontWeight: 'bold' }}>
-              {editIndex !== null ? 'Editar Convocatoria' : 'Agregar Convocatoria'}
+            Nueva Convocatoria
+          </Button>
+        </Box>
+
+        {/* Tabla */}
+        {convocatorias.length === 0 ? (
+          <Paper sx={{ borderRadius: 3, textAlign: 'center', py: 6, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+            <Avatar sx={{ bgcolor: `${PURPLE}14`, width: 64, height: 64, mx: 'auto', mb: 2 }}>
+              <EventIcon sx={{ fontSize: 32, color: PURPLE }} />
+            </Avatar>
+            <Typography variant="h6" sx={{ color: PURPLE }}>Sin convocatorias</Typography>
+            <Typography variant="body2" sx={{ color: '#999', mt: .5, mb: 3 }}>
+              Crea tu primera convocatoria para invitar atletas a participar
             </Typography>
-            <TextField
-              fullWidth
-              label="Nombre"
-              name="nombre"
-              value={formData.nombre}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-              sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#FAFAFF', '&:hover fieldset': { borderColor: '#7A4069' }, '&.Mui-focused fieldset': { borderColor: '#7A4069', boxShadow: '0 0 8px rgba(122, 64, 105, 0.3)' } }, '& .MuiInputLabel-root': { color: '#7A4069', fontWeight: '500' }, '& .MuiInputLabel-root.Mui-focused': { color: '#7A4069' } }}
-            />
-            <DatePicker
-              label="Fecha"
-              value={formData.fecha ? new Date(formData.fecha) : null}
-              onChange={(newValue) => setFormData({ ...formData, fecha: newValue })}
-              slotProps={{ textField: { fullWidth: true, sx: { mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#FAFAFF', '&:hover fieldset': { borderColor: '#7A4069' }, '&.Mui-focused fieldset': { borderColor: '#7A4069', boxShadow: '0 0 8px rgba(122, 64, 105, 0.3)' } }, '& .MuiInputLabel-root': { color: '#7A4069', fontWeight: '500' }, '& .MuiInputLabel-root.Mui-focused': { color: '#7A4069' } } }}}
-            />
-            <TextField
-              fullWidth
-              label="Descripción"
-              name="descripcion"
-              value={formData.descripcion}
-              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-              multiline
-              rows={3}
-              sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#FAFAFF', '&:hover fieldset': { borderColor: '#7A4069' }, '&.Mui-focused fieldset': { borderColor: '#7A4069', boxShadow: '0 0 8px rgba(122, 64, 105, 0.3)' } }, '& .MuiInputLabel-root': { color: '#7A4069', fontWeight: '500' }, '& .MuiInputLabel-root.Mui-focused': { color: '#7A4069' } }}
-            />
-            <TextField
-              fullWidth
-              select
-              label="Estado"
-              name="estado"
-              value={formData.estado}
-              onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-              sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#FAFAFF', '&:hover fieldset': { borderColor: '#7A4069' }, '&.Mui-focused fieldset': { borderColor: '#7A4069', boxShadow: '0 0 8px rgba(122, 64, 105, 0.3)' } }, '& .MuiInputLabel-root': { color: '#7A4069', fontWeight: '500' }, '& .MuiInputLabel-root.Mui-focused': { color: '#7A4069' } }}
-            >
-              <MenuItem value="abierta">Abierta</MenuItem>
-              <MenuItem value="cerrada">Cerrada</MenuItem>
-            </TextField>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-              <Button onClick={handleCloseModal} variant="outlined" sx={{ color: '#7A4069', borderColor: '#7A4069', '&:hover': { borderColor: '#D32F2F', color: '#D32F2F' } }}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleAddOrEdit}
-                variant="contained"
-                sx={{
-                  background: '#800020',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  '&:hover': {
-                    background: '#7A4069',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(122, 64, 105, 0.3)',
-                  },
-                }}
-              >
-                Guardar
-              </Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal()}
+              sx={{ bgcolor: BURGUNDY, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#600018' } }}>
+              Crear Convocatoria
+            </Button>
+          </Paper>
+        ) : (
+          <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: `${BURGUNDY}08` }}>
+                  {['Nombre', 'Fecha', 'Descripción', 'Estado', 'Acciones'].map((h) => (
+                    <TableCell key={h} sx={{ fontWeight: 700, color: BURGUNDY, py: 2 }}>{h}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {convocatoriasPaginadas.map((conv, index) => {
+                  const realIndex = (page - 1) * porPagina + index;
+                  return (
+                    <TableRow key={conv._id || conv.id || index} hover sx={{ '&:hover': { bgcolor: `${CREAM}66` } }}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Avatar sx={{ bgcolor: BURGUNDY, width: 36, height: 36 }}>
+                            <EventIcon sx={{ fontSize: 18 }} />
+                          </Avatar>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
+                            {conv.nombre}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5 }}>
+                          <CalendarIcon sx={{ fontSize: 14, color: BURGUNDY }} />
+                          {fmt(conv.fecha)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ color: '#555', maxWidth: 250 }}>
+                          {conv.descripcion ? (conv.descripcion.length > 60 ? conv.descripcion.substring(0, 60) + '...' : conv.descripcion) : '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={conv.estado === 'abierta' ? 'Abierta' : 'Cerrada'}
+                          color={conv.estado === 'abierta' ? 'success' : 'error'}
+                          size="small"
+                          sx={{ fontWeight: 600, fontSize: '.72rem' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: .5 }}>
+                          <IconButton size="small" onClick={() => handleOpenModal(realIndex)}
+                            sx={{ color: BURGUNDY, '&:hover': { bgcolor: `${BURGUNDY}08` } }}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDelete(realIndex)}
+                            sx={{ color: '#D32F2F', '&:hover': { bgcolor: 'rgba(211,47,47,.08)' } }}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {convocatorias.length > porPagina && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: '1px solid #eee' }}>
+                <Pagination
+                  count={Math.ceil(convocatorias.length / porPagina)}
+                  page={page} onChange={(e, v) => setPage(v)}
+                  sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: BURGUNDY, color: '#fff' } }}
+                />
+              </Box>
+            )}
+          </Paper>
+        )}
+      </Container>
+
+      {/* Modal Crear/Editar */}
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+        <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Avatar sx={{ bgcolor: BURGUNDY, width: 36, height: 36 }}>
+                  {editIndex !== null ? <EditIcon sx={{ fontSize: 20 }} /> : <AddIcon sx={{ fontSize: 20 }} />}
+                </Avatar>
+                <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 700 }}>
+                  {editIndex !== null ? 'Editar Convocatoria' : 'Nueva Convocatoria'}
+                </Typography>
+              </Box>
+              <IconButton onClick={handleCloseModal} size="small">
+                <CloseIcon />
+              </IconButton>
             </Box>
-          </Box>
-        </Modal>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+              <TextField
+                fullWidth label="Nombre" value={formData.nombre}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                sx={fieldSx}
+              />
+              <DatePicker
+                label="Fecha"
+                value={formData.fecha ? new Date(formData.fecha) : null}
+                onChange={(v) => setFormData({ ...formData, fecha: v })}
+                slotProps={{ textField: { fullWidth: true, sx: fieldSx } }}
+              />
+              <TextField
+                fullWidth label="Descripción" value={formData.descripcion}
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                multiline rows={3} sx={fieldSx}
+              />
+              <TextField
+                fullWidth select label="Estado" value={formData.estado}
+                onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+                sx={fieldSx}
+              >
+                <MenuItem value="abierta">Abierta</MenuItem>
+                <MenuItem value="cerrada">Cerrada</MenuItem>
+              </TextField>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button onClick={handleCloseModal} variant="outlined"
+              sx={{ color: PURPLE, borderColor: PURPLE, textTransform: 'none', fontWeight: 600 }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddOrEdit} variant="contained"
+              sx={{ bgcolor: BURGUNDY, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#600018' } }}>
+              {editIndex !== null ? 'Guardar Cambios' : 'Crear Convocatoria'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </LocalizationProvider>
-    </Container>
+    </Box>
   );
 };
 

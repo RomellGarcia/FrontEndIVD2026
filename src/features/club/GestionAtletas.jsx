@@ -5,8 +5,6 @@ import {
   Typography,
   Paper,
   Grid,
-  Card,
-  CardContent,
   Button,
   IconButton,
   Alert,
@@ -14,7 +12,6 @@ import {
   Avatar,
   List,
   ListItem,
-  ListItemText,
   ListItemSecondaryAction,
   CircularProgress,
   Dialog,
@@ -28,7 +25,10 @@ import {
   TableRow,
   TableContainer,
   Tabs,
-  Tab
+  Tab,
+  Divider,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -38,12 +38,69 @@ import {
   Group as GroupIcon,
   PersonRemove as PersonRemoveIcon,
   Warning as WarningIcon,
-  FitnessCenter as FitnessCenterIcon
+  FitnessCenter as FitnessCenterIcon,
+  SportsBaseball as SportsIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { entrenadoresAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+
+// --- Constantes de estilo ---
+const BURGUNDY = '#800020';
+const PURPLE = '#7A4069';
+const CREAM = '#e4e4e5';
+const GREEN = '#2E7D32';
+
+const SectionCard = ({ icon, title, color, action, children }) => (
+  <Card sx={{
+    borderRadius: 3,
+    height: '100%',
+    boxShadow: '0 2px 12px rgba(0,0,0,.06)',
+    display: 'flex',
+    flexDirection: 'column',
+    bgcolor: '#fff',
+  }}>
+    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar sx={{ bgcolor: color, width: 36, height: 36 }}>{icon}</Avatar>
+          <Typography variant="h6" sx={{ color, fontWeight: 'bold' }}>{title}</Typography>
+        </Box>
+        {action}
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+      <Box sx={{ flex: 1 }}>{children}</Box>
+    </CardContent>
+  </Card>
+);
+
+const ListItemCustom = ({ primary, secondary, actions }) => (
+  <ListItem
+    sx={{
+      border: '1px solid #e0e0e0',
+      borderRadius: 2,
+      mb: 1,
+      py: 1.5,
+      px: 2,
+      '&:hover': { backgroundColor: '#f9f9f9' },
+    }}
+  >
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Typography variant="body1" sx={{ fontWeight: 600, color: BURGUNDY, component: 'span' }}>
+        {primary}
+      </Typography>
+      <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
+        {secondary}
+      </Box>
+    </Box>
+    {actions && (
+      <ListItemSecondaryAction sx={{ position: 'relative', transform: 'none', right: 0, top: 0 }}>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>{actions}</Box>
+      </ListItemSecondaryAction>
+    )}
+  </ListItem>
+);
 
 const GestionAtletas = () => {
   const { user } = useAuth();
@@ -61,40 +118,92 @@ const GestionAtletas = () => {
   const [modalExpulsionEntrenadorOpen, setModalExpulsionEntrenadorOpen] = useState(false);
   const [entrenadorAExpulsar, setEntrenadorAExpulsar] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
+  const [clubId, setClubId] = useState(null);
 
   useEffect(() => {
     if (!user?.id) {
       navigate('/login');
       return;
     }
-    fetchAtletas();
-    fetchSolicitudes();
-    fetchEntrenadores();
-    fetchSolicitudesEntrenadores();
+    obtenerClubIdYcargar();
   }, [user, navigate]);
 
-  const fetchAtletas = async () => {
+  const obtenerClubIdYcargar = async () => {
     try {
-      setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/atletas?club_id=${user.id}`);
-      setAtletas(response.data);
-      setError('');
+      const response = await axios.get('http://localhost:5000/api/clubes');
+      let clubes = response.data.clubes || response.data || [];
+      if (!Array.isArray(clubes)) clubes = [clubes];
+      const club = clubes.find(c => c.email === user.email);
+      if (!club) {
+        setError('No se encontró un club asociado a este usuario.');
+        setLoading(false);
+        return;
+      }
+      const idClub = club.id || club._id;
+      setClubId(idClub);
+      await Promise.all([
+        fetchAtletas(idClub),
+        fetchSolicitudes(idClub),
+        fetchEntrenadores(idClub),
+        fetchSolicitudesEntrenadores(idClub),
+      ]);
+      setLoading(false);
     } catch (error) {
-      console.error('Error al obtener atletas:', error);
-      setError('Error al cargar los atletas. Intente de nuevo.');
-    } finally {
+      console.error('Error al obtener clubId:', error);
+      setError('Error al cargar los datos del club.');
       setLoading(false);
     }
   };
 
-  const fetchSolicitudes = async () => {
+  const getAuthHeaders = () => {
+    const token = user?.token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const fetchAtletas = async (idClub) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/atletas?club_id=${idClub}`, {
+        headers: getAuthHeaders(),
+      });
+      let data = response.data.atletas || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      const atletasNorm = data.map((a) => ({
+        id: a.id || a._id,
+        nombreCompleto: a.nombre
+          ? `${a.nombre} ${a.apellidopa || ''} ${a.apellidoma || ''}`.trim()
+          : a.usuario
+          ? `${a.usuario.nombre} ${a.usuario.apellido_paterno || ''} ${a.usuario.apellido_materno || ''}`.trim()
+          : 'Sin nombre',
+        curp: a.curp || a.usuario?.curp || 'N/A',
+        telefono: a.telefono || a.usuario?.telefono || 'N/A',
+        gmail: a.email || a.usuario?.email || 'N/A',
+        sexo: a.genero || a.usuario?.genero || 'N/A',
+        fechaNacimiento: a.fecha_nacimiento || a.usuario?.fecha_nacimiento || null,
+        fechaIngresoClub: a.fechaIngresoClub || a.createdAt || null,
+      }));
+      setAtletas(atletasNorm);
+      setError('');
+    } catch (error) {
+      console.error('Error al obtener atletas:', error);
+      setAtletas([]);
+      if (!error.response || error.response.status !== 401) {
+        setError('Error al cargar los atletas.');
+      }
+    }
+  };
+
+  const fetchSolicitudes = async (idClub) => {
     try {
       setLoadingSolicitudes(true);
-      const response = await axios.get(`http://localhost:5000/api/atletas/solicitudes-club?clubId=${user.id}`);
-      const solicitudesPendientes = response.data.filter(s => s.estado === 'pendiente');
-      setSolicitudes(solicitudesPendientes);
+      const response = await axios.get(`http://localhost:5000/api/atletas/solicitudes-club?clubId=${idClub}`, {
+        headers: getAuthHeaders(),
+      });
+      let data = response.data.solicitudes || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      const pendientes = data.filter((s) => s.estado === 'pendiente');
+      setSolicitudes(pendientes);
     } catch (error) {
-      console.error('Error al cargar solicitudes:', error);
+      console.error('Error al cargar solicitudes de atletas:', error);
       setSolicitudes([]);
     } finally {
       setLoadingSolicitudes(false);
@@ -103,10 +212,14 @@ const GestionAtletas = () => {
 
   const handleAceptarSolicitud = async (solicitudId) => {
     try {
-              await axios.put(`http://localhost:5000/api/atletas/solicitudes-club/${solicitudId}`, { estado: 'aceptada' });
+      await axios.put(
+        `http://localhost:5000/api/atletas/solicitudes-club/${solicitudId}`,
+        { estado: 'aceptada' },
+        { headers: getAuthHeaders() }
+      );
       setError('');
-      fetchSolicitudes();
-      fetchAtletas();
+      await fetchSolicitudes(clubId);
+      await fetchAtletas(clubId);
     } catch (error) {
       console.error('Error al aceptar solicitud:', error);
       setError('Error al procesar la solicitud. Intente de nuevo.');
@@ -115,9 +228,13 @@ const GestionAtletas = () => {
 
   const handleRechazarSolicitud = async (solicitudId) => {
     try {
-              await axios.put(`http://localhost:5000/api/atletas/solicitudes-club/${solicitudId}`, { estado: 'rechazada' });
+      await axios.put(
+        `http://localhost:5000/api/atletas/solicitudes-club/${solicitudId}`,
+        { estado: 'rechazada' },
+        { headers: getAuthHeaders() }
+      );
       setError('');
-      fetchSolicitudes();
+      await fetchSolicitudes(clubId);
     } catch (error) {
       console.error('Error al rechazar solicitud:', error);
       setError('Error al procesar la solicitud. Intente de nuevo.');
@@ -125,7 +242,6 @@ const GestionAtletas = () => {
   };
 
   const handleVerSolicitud = (solicitud) => {
-    // Aquí puedes implementar un modal para ver más detalles de la solicitud
     console.log('Ver solicitud:', solicitud);
   };
 
@@ -136,15 +252,15 @@ const GestionAtletas = () => {
 
   const confirmarExpulsion = async () => {
     try {
-      // Desasociar atleta del club (quitar clubId)
-              await axios.put(`http://localhost:5000/api/atletas/${atletaAExpulsar.id}/club`, {
-        clubId: null
-      });
-      
+      await axios.put(
+        `http://localhost:5000/api/atletas/${atletaAExpulsar.id}/club`,
+        { clubId: null },
+        { headers: getAuthHeaders() }
+      );
       setError('');
       setModalExpulsionOpen(false);
       setAtletaAExpulsar(null);
-      fetchAtletas();
+      await fetchAtletas(clubId);
     } catch (error) {
       console.error('Error al expulsar atleta:', error);
       setError('Error al expulsar al atleta. Intente de nuevo.');
@@ -156,90 +272,99 @@ const GestionAtletas = () => {
     setAtletaAExpulsar(null);
   };
 
-  const calcularEdad = (fechaNacimiento) => {
-    if (!fechaNacimiento) return 'N/A';
-    const fechaActual = new Date();
-    const fechaNac = new Date(fechaNacimiento);
-    const edad = fechaActual.getFullYear() - fechaNac.getFullYear();
-    const mes = fechaActual.getMonth() - fechaNac.getMonth();
-    return mes < 0 || (mes === 0 && fechaActual.getDate() < fechaNac.getDate()) ? edad - 1 : edad;
+  const calcularEdad = (fecha) => {
+    if (!fecha) return 'N/A';
+    const hoy = new Date();
+    const nac = new Date(fecha);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const m = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+    return edad;
   };
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'N/A';
-    
     try {
-      const fechaObj = new Date(fecha);
-      if (isNaN(fechaObj.getTime())) {
-        return 'N/A';
-      }
-      
-      return fechaObj.toLocaleDateString('es-ES', {
+      const d = new Date(fecha);
+      if (isNaN(d.getTime())) return 'N/A';
+      return d.toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
       });
-    } catch (error) {
+    } catch {
       return 'N/A';
     }
   };
 
-  // Funciones para manejar entrenadores
-  const fetchEntrenadores = async () => {
+  const fetchEntrenadores = async (idClub) => {
     try {
       setLoadingEntrenadores(true);
-      console.log('Buscando entrenadores para club:', user.id);
-      const response = await entrenadoresAPI.getByClub(user.id);
-      console.log('Entrenadores recibidos:', response.data);
-      setEntrenadores(response.data);
+      const response = await entrenadoresAPI.getByClub(idClub);
+      let data = response.data.entrenadores || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      const entrenadoresNorm = data.map((e) => ({
+        id: e.id || e._id,
+        nombreCompleto: e.nombre
+          ? `${e.nombre} ${e.apellidopa || ''} ${e.apellidoma || ''}`.trim()
+          : e.usuario
+          ? `${e.usuario.nombre} ${e.usuario.apellido_paterno || ''} ${e.usuario.apellido_materno || ''}`.trim()
+          : 'Sin nombre',
+        gmail: e.email || e.usuario?.email || 'N/A',
+        telefono: e.telefono || e.usuario?.telefono || 'N/A',
+        especialidades: e.especialidades || [],
+        añosExperiencia: e.anos_experiencia || e.añosExperiencia || 'N/A',
+      }));
+      setEntrenadores(entrenadoresNorm);
     } catch (error) {
       console.error('Error al obtener entrenadores:', error);
-      console.error('Detalles del error:', error.response?.data);
       setEntrenadores([]);
     } finally {
       setLoadingEntrenadores(false);
     }
   };
 
-  const fetchSolicitudesEntrenadores = async () => {
+  const fetchSolicitudesEntrenadores = async (idClub) => {
     try {
-      console.log('Buscando solicitudes de entrenadores para club:', user.id);
-      const response = await entrenadoresAPI.getSolicitudesByClub(user.id);
-      console.log('Solicitudes recibidas:', response.data);
-      const solicitudesPendientes = response.data.filter(s => s.estado === 'pendiente');
-      console.log('Solicitudes pendientes:', solicitudesPendientes);
-      setSolicitudesEntrenadores(solicitudesPendientes);
+      const response = await entrenadoresAPI.getSolicitudesByClub(idClub);
+      let data = response.data.solicitudes || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      const pendientes = data.filter((s) => s.estado === 'pendiente');
+      setSolicitudesEntrenadores(pendientes);
     } catch (error) {
       console.error('Error al cargar solicitudes de entrenadores:', error);
-      console.error('Detalles del error:', error.response?.data);
       setSolicitudesEntrenadores([]);
     }
   };
 
   const handleAceptarSolicitudEntrenador = async (solicitudId) => {
     try {
-      await axios.put(`http://localhost:5000/api/entrenadores/solicitudes/${solicitudId}`, { 
-        estado: 'aceptada' 
-      });
+      await axios.put(
+        `http://localhost:5000/api/entrenadores/solicitudes/${solicitudId}`,
+        { estado: 'aceptada' },
+        { headers: getAuthHeaders() }
+      );
       setError('');
-      fetchSolicitudesEntrenadores();
-      fetchEntrenadores();
+      await fetchSolicitudesEntrenadores(clubId);
+      await fetchEntrenadores(clubId);
     } catch (error) {
       console.error('Error al aceptar solicitud de entrenador:', error);
-      setError('Error al procesar la solicitud del entrenador. Intente de nuevo.');
+      setError('Error al procesar la solicitud del entrenador.');
     }
   };
 
   const handleRechazarSolicitudEntrenador = async (solicitudId) => {
     try {
-      await axios.put(`http://localhost:5000/api/entrenadores/solicitudes/${solicitudId}`, { 
-        estado: 'rechazada' 
-      });
+      await axios.put(
+        `http://localhost:5000/api/entrenadores/solicitudes/${solicitudId}`,
+        { estado: 'rechazada' },
+        { headers: getAuthHeaders() }
+      );
       setError('');
-      fetchSolicitudesEntrenadores();
+      await fetchSolicitudesEntrenadores(clubId);
     } catch (error) {
       console.error('Error al rechazar solicitud de entrenador:', error);
-      setError('Error al procesar la solicitud del entrenador. Intente de nuevo.');
+      setError('Error al procesar la solicitud del entrenador.');
     }
   };
 
@@ -250,15 +375,15 @@ const GestionAtletas = () => {
 
   const confirmarExpulsionEntrenador = async () => {
     try {
-      // Desasociar entrenador del club (quitar clubId)
-      await axios.put(`http://localhost:5000/api/auth/register/${entrenadorAExpulsar._id}`, {
-        clubId: null
-      });
-      
+      await axios.put(
+        `http://localhost:5000/api/entrenadores/${entrenadorAExpulsar.id}/club`,
+        { clubId: null },
+        { headers: getAuthHeaders() }
+      );
       setError('');
       setModalExpulsionEntrenadorOpen(false);
       setEntrenadorAExpulsar(null);
-      fetchEntrenadores();
+      await fetchEntrenadores(clubId);
     } catch (error) {
       console.error('Error al expulsar entrenador:', error);
       setError('Error al expulsar al entrenador. Intente de nuevo.');
@@ -276,518 +401,467 @@ const GestionAtletas = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
+        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
-        Gestionar
-      </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Pestañas */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={handleTabChange} sx={{ 
-          '& .MuiTab-root': { 
-            color: '#7A4069',
-            fontWeight: 'bold',
-            fontSize: '16px'
-          },
-          '& .Mui-selected': { 
-            color: '#800020 !important'
-          },
-          '& .MuiTabs-indicator': { 
-            backgroundColor: '#800020'
-          }
-        }}>
-          <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PeopleIcon />
-                Atletas
-              </Box>
-            } 
-          />
-          <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FitnessCenterIcon />
-                Entrenadores
-              </Box>
-            } 
-          />
-        </Tabs>
-      </Box>
-
-      {/* Contenido de la pestaña Atletas */}
-      {activeTab === 0 && (
-        <Grid container spacing={3}>
-        {/* Solicitudes de Atletas para unirse al Club */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 4, borderRadius: '12px', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-              <PersonAddIcon sx={{ color: '#800020' }} />
-              <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-          Solicitudes de Atletas para unirse al Club
+    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%', py: 4 }}>
+      <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 } }}>
+        {/* Título principal */}
+        <Typography
+          variant="h4"
+          align="center"
+          gutterBottom
+          sx={{ color: BURGUNDY, fontWeight: 800, mb: 4 }}
+        >
+          Gestión del Club
         </Typography>
-              {solicitudes.length > 0 && (
-                <Chip 
-                  label={solicitudes.length} 
-                  color="warning" 
-                  size="small"
-                />
-              )}
-            </Box>
 
-            {loadingSolicitudes ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                <CircularProgress size={30} />
-              </Box>
-            ) : solicitudes.length === 0 ? (
-              <Alert severity="info">
-                No hay solicitudes pendientes en este momento.
-              </Alert>
-        ) : (
-          <List>
-                {solicitudes.map((solicitud) => (
-                  <ListItem 
-                    key={solicitud._id} 
-                    sx={{ 
-                      border: '1px solid #e0e0e0', 
-                      borderRadius: '8px', 
-                      mb: 1,
-                      '&:hover': { backgroundColor: '#f5f5f5' }
-                    }}
-                  >
-                  <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ width: 32, height: 32, bgcolor: '#800020' }}>
-                            {solicitud.datosAtleta?.nombre?.charAt(0) || 'A'}
-                          </Avatar>
-                          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                            {solicitud.datosAtleta?.nombreCompleto || 'Atleta'}
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="textSecondary">
-                            <strong>Edad:</strong> {solicitud.datosAtleta?.edad || 'N/A'} años
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            <strong>Género:</strong> {solicitud.datosAtleta?.genero || 'N/A'}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            <strong>Fecha:</strong> {formatearFecha(solicitud.fechaSolicitud)}
-                          </Typography>
-                        </Box>
-                      }
-                  />
-                  <ListItemSecondaryAction>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <IconButton
-                          color="success"
-                          onClick={() => handleAceptarSolicitud(solicitud._id)}
-                          title="Aceptar solicitud"
-                        >
-                          <CheckIcon />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleRechazarSolicitud(solicitud._id)}
-                          title="Rechazar solicitud"
-                        >
-                          <CloseIcon />
-                        </IconButton>
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleVerSolicitud(solicitud)}
-                          title="Ver detalles"
-                        >
-                          <GroupIcon />
-                        </IconButton>
-                      </Box>
-                  </ListItemSecondaryAction>
-                </ListItem>
-                ))}
-          </List>
-        )}
-          </Paper>
-        </Grid>
-
-        {/* Atletas pertenecientes al club */}
-        <Grid item xs={12}>
-          <Paper elevation={3} sx={{ p: 4, borderRadius: '12px', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-              <PeopleIcon sx={{ color: '#800020' }} />
-              <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-                Atletas pertenecientes al club
-              </Typography>
-              {atletas.length > 0 && (
-                <Chip 
-                  label={atletas.length} 
-                  color="success" 
-                  size="small"
-                />
-        )}
-      </Box>
-
-            {atletas.length === 0 ? (
-              <Alert severity="info">
-                No hay atletas registrados en este club.
+        {error && (
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+            {error}
           </Alert>
-            ) : (
-              <TableContainer>
-        <Table>
-          <TableHead>
-                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Nombre Completo</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>CURP</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Teléfono</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Correo</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Género</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Estado</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Fecha de Ingreso</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-                    {atletas.map((atleta) => (
-                      <TableRow key={atleta._id} sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 32, height: 32, bgcolor: '#800020' }}>
-                              {atleta.nombre?.charAt(0) || 'A'}
-                            </Avatar>
-                            <Typography variant="body2">
-                              {atleta.nombre} {atleta.apellidopa} {atleta.apellidoma}
-                            </Typography>
+        )}
+
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            sx={{
+              '& .MuiTab-root': {
+                color: PURPLE,
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                textTransform: 'none',
+                minWidth: 120,
+              },
+              '& .Mui-selected': { color: `${BURGUNDY} !important` },
+              '& .MuiTabs-indicator': { backgroundColor: BURGUNDY },
+            }}
+          >
+            <Tab
+              label="Atletas"
+              icon={<PeopleIcon />}
+              iconPosition="start"
+            />
+            <Tab
+              label="Entrenadores"
+              icon={<FitnessCenterIcon />}
+              iconPosition="start"
+            />
+          </Tabs>
         </Box>
-                        </TableCell>
-                        <TableCell>{atleta.curp || 'N/A'}</TableCell>
-                        <TableCell>{atleta.telefono || 'N/A'}</TableCell>
-                        <TableCell>{atleta.gmail || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={atleta.sexo || 'N/A'} 
-                            size="small"
-                            color={atleta.sexo === 'masculino' ? 'primary' : 'secondary'}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label="Activo" 
-                            color="success" 
-                            size="small"
-                          />
-                        </TableCell>
-                                                 <TableCell>
-                           {atleta.fechaIngresoClub ? 
-                             formatearFecha(atleta.fechaIngresoClub) : 
-                             (atleta.createdAt ? formatearFecha(atleta.createdAt) : 'N/A')
-                           }
-                         </TableCell>
-                <TableCell>
-                          <IconButton
-                            color="error"
-                            onClick={() => handleExpulsarAtleta(atleta)}
-                            title="Expulsar del club"
-                            sx={{ 
-                              '&:hover': { 
-                                backgroundColor: 'rgba(244, 67, 54, 0.1)' 
-                              } 
-                            }}
-                          >
-                            <PersonRemoveIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-              </TableContainer>
-            )}
-      </Paper>
-        </Grid>
-      </Grid>
-      )}
 
-      {/* Contenido de la pestaña Entrenadores */}
-      {activeTab === 1 && (
-        <Grid container spacing={3}>
-          {/* Solicitudes de Entrenadores para unirse al Club */}
-          <Grid item xs={12} md={6}>
-            <Paper elevation={3} sx={{ p: 4, borderRadius: '12px', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                <FitnessCenterIcon sx={{ color: '#800020' }} />
-                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-                  Solicitudes de Entrenadores para unirse al Club
-                </Typography>
-                {solicitudesEntrenadores.length > 0 && (
-                  <Chip 
-                    label={solicitudesEntrenadores.length} 
-                    color="warning" 
-                    size="small"
-                  />
+        {activeTab === 0 && (
+          <Grid container spacing={3}>
+            {/* Solicitudes de atletas */}
+            <Grid item xs={12} md={6}>
+              <SectionCard
+                icon={<PersonAddIcon sx={{ fontSize: 20 }} />}
+                title="Solicitudes de Atletas"
+                color={BURGUNDY}
+                action={
+                  solicitudes.length > 0 && (
+                    <Chip
+                      label={solicitudes.length}
+                      color="warning"
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )
+                }
+              >
+                {loadingSolicitudes ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <CircularProgress size={30} sx={{ color: BURGUNDY }} />
+                  </Box>
+                ) : solicitudes.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                    No hay solicitudes pendientes.
+                  </Typography>
+                ) : (
+                  <List disablePadding>
+                    {solicitudes.map((s) => {
+                      const nombre = s.datosAtleta?.nombreCompleto || s.datosAtleta?.nombre || 'Atleta';
+                      return (
+                        <ListItemCustom
+                          key={s._id}
+                          primary={nombre}
+                          secondary={
+                            <Box component="span">
+                              <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
+                                <strong>Edad:</strong> {s.datosAtleta?.edad || 'N/A'} años
+                              </Typography>
+                              <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
+                                <strong>Género:</strong> {s.datosAtleta?.genero || 'N/A'}
+                              </Typography>
+                              <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
+                                <strong>Fecha:</strong> {formatearFecha(s.fechaSolicitud)}
+                              </Typography>
+                            </Box>
+                          }
+                          actions={
+                            <>
+                              <IconButton
+                                color="success"
+                                onClick={() => handleAceptarSolicitud(s._id)}
+                                title="Aceptar"
+                                size="small"
+                              >
+                                <CheckIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                color="error"
+                                onClick={() => handleRechazarSolicitud(s._id)}
+                                title="Rechazar"
+                                size="small"
+                              >
+                                <CloseIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                color="primary"
+                                onClick={() => handleVerSolicitud(s)}
+                                title="Ver detalles"
+                                size="small"
+                              >
+                                <GroupIcon fontSize="small" />
+                              </IconButton>
+                            </>
+                          }
+                        />
+                      );
+                    })}
+                  </List>
                 )}
-              </Box>
+              </SectionCard>
+            </Grid>
 
-              {loadingEntrenadores ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <CircularProgress size={30} />
-                </Box>
-              ) : solicitudesEntrenadores.length === 0 ? (
-                <Alert severity="info">
-                  No hay solicitudes de entrenadores pendientes en este momento.
-                </Alert>
-              ) : (
-                <List>
-                  {solicitudesEntrenadores.map((solicitud) => (
-                    <ListItem 
-                      key={solicitud._id} 
-                      sx={{ 
-                        border: '1px solid #e0e0e0', 
-                        borderRadius: 2, 
-                        mb: 2,
-                        backgroundColor: '#fafafa'
-                      }}
-                    >
-                      <ListItemText
-                        primary={
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#800020' }}>
-                            {solicitud.nombreEntrenador}
-                          </Typography>
-                        }
+            {/* Atletas del club */}
+            <Grid item xs={12}>
+              <SectionCard
+                icon={<PeopleIcon sx={{ fontSize: 20 }} />}
+                title="Atletas del Club"
+                color={PURPLE}
+                action={
+                  atletas.length > 0 && (
+                    <Chip
+                      label={`${atletas.length} atletas`}
+                      color="success"
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )
+                }
+              >
+                {atletas.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                    No hay atletas registrados.
+                  </Typography>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Nombre</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>CURP</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Teléfono</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Correo</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Género</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Edad</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Fecha Ingreso</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }} align="center">Acciones</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {atletas.map((a) => (
+                          <TableRow key={a.id} hover>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Avatar sx={{ width: 28, height: 28, bgcolor: BURGUNDY, fontSize: '0.75rem' }}>
+                                  {a.nombreCompleto.charAt(0)}
+                                </Avatar>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {a.nombreCompleto}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>{a.curp}</TableCell>
+                            <TableCell>{a.telefono}</TableCell>
+                            <TableCell>{a.gmail}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={a.sexo}
+                                size="small"
+                                color={a.sexo === 'masculino' ? 'primary' : 'secondary'}
+                                sx={{ fontSize: '0.7rem' }}
+                              />
+                            </TableCell>
+                            <TableCell>{calcularEdad(a.fechaNacimiento)} años</TableCell>
+                            <TableCell>{formatearFecha(a.fechaIngresoClub)}</TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                color="error"
+                                onClick={() => handleExpulsarAtleta(a)}
+                                title="Expulsar"
+                                size="small"
+                              >
+                                <PersonRemoveIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </SectionCard>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* Contenido pestaña Entrenadores */}
+        {activeTab === 1 && (
+          <Grid container spacing={3}>
+            {/* Solicitudes de entrenadores */}
+            <Grid item xs={12} md={6}>
+              <SectionCard
+                icon={<PersonAddIcon sx={{ fontSize: 20 }} />}
+                title="Solicitudes de Entrenadores"
+                color={BURGUNDY}
+                action={
+                  solicitudesEntrenadores.length > 0 && (
+                    <Chip
+                      label={solicitudesEntrenadores.length}
+                      color="warning"
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )
+                }
+              >
+                {loadingEntrenadores ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <CircularProgress size={30} sx={{ color: BURGUNDY }} />
+                  </Box>
+                ) : solicitudesEntrenadores.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                    No hay solicitudes de entrenadores pendientes.
+                  </Typography>
+                ) : (
+                  <List disablePadding>
+                    {solicitudesEntrenadores.map((s) => (
+                      <ListItemCustom
+                        key={s._id}
+                        primary={s.nombreEntrenador || 'Entrenador'}
                         secondary={
-                          <Box>
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              <strong>Email:</strong> {solicitud.emailEntrenador}
+                          <Box component="span">
+                            <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
+                              <strong>Email:</strong> {s.emailEntrenador || 'N/A'}
                             </Typography>
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              <strong>Teléfono:</strong> {solicitud.telefonoEntrenador}
+                            <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
+                              <strong>Teléfono:</strong> {s.telefonoEntrenador || 'N/A'}
                             </Typography>
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              <strong>Mensaje:</strong> {solicitud.mensaje}
+                            <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
+                              <strong>Mensaje:</strong> {s.mensaje || 'Sin mensaje'}
                             </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              {formatearFecha(solicitud.fechaSolicitud)}
+                            <Typography variant="caption" display="block" sx={{ color: '#888' }}>
+                              {formatearFecha(s.fechaSolicitud)}
                             </Typography>
                           </Box>
                         }
-                      />
-                      <ListItemSecondaryAction>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton
-                            color="success"
-                            onClick={() => handleAceptarSolicitudEntrenador(solicitud._id)}
-                            title="Aceptar solicitud"
-                            sx={{ 
-                              '&:hover': { 
-                                backgroundColor: 'rgba(76, 175, 80, 0.1)' 
-                              } 
-                            }}
-                          >
-                            <CheckIcon />
-                          </IconButton>
-                          <IconButton
-                            color="error"
-                            onClick={() => handleRechazarSolicitudEntrenador(solicitud._id)}
-                            title="Rechazar solicitud"
-          sx={{
-            '&:hover': {
-                                backgroundColor: 'rgba(244, 67, 54, 0.1)' 
-                              } 
-                            }}
-                          >
-                            <CloseIcon />
-                          </IconButton>
-                        </Box>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </Paper>
-          </Grid>
-
-          {/* Entrenadores pertenecientes al club */}
-          <Grid item xs={12}>
-            <Paper elevation={3} sx={{ p: 4, borderRadius: '12px', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                <FitnessCenterIcon sx={{ color: '#800020' }} />
-                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-                  Entrenadores pertenecientes al club
-                </Typography>
-                {entrenadores.length > 0 && (
-                  <Chip 
-                    label={entrenadores.length} 
-                    color="success" 
-                    size="small"
-                  />
-                )}
-      </Box>
-
-              {entrenadores.length === 0 ? (
-                <Alert severity="info">
-                  No hay entrenadores registrados en este club.
-                </Alert>
-              ) : (
-                <TableContainer>
-        <Table>
-          <TableHead>
-                      <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                        <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Nombre Completo</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Email</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Teléfono</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Especialidades</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Años de Experiencia</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Estado</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', color: '#800020' }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-                      {entrenadores.map((entrenador) => (
-                        <TableRow key={entrenador._id} sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Avatar sx={{ width: 32, height: 32, bgcolor: '#800020' }}>
-                                {entrenador.nombre?.charAt(0) || 'E'}
-                              </Avatar>
-                              <Typography variant="body2">
-                                {entrenador.nombre} {entrenador.apellidopa} {entrenador.apellidoma}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>{entrenador.gmail || 'N/A'}</TableCell>
-                          <TableCell>{entrenador.telefono || 'N/A'}</TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={entrenador.especialidades || 'N/A'} 
+                        actions={
+                          <>
+                            <IconButton
+                              color="success"
+                              onClick={() => handleAceptarSolicitudEntrenador(s._id)}
+                              title="Aceptar"
                               size="small"
-                              color="primary"
-                            />
-                          </TableCell>
-                          <TableCell>{entrenador.añosExperiencia || 'N/A'} años</TableCell>
-                          <TableCell>
-                            <Chip 
-                              label="Activo" 
-                              color="success" 
-                              size="small"
-                            />
-                          </TableCell>
-                <TableCell>
+                            >
+                              <CheckIcon fontSize="small" />
+                            </IconButton>
                             <IconButton
                               color="error"
-                              onClick={() => handleExpulsarEntrenador(entrenador)}
-                              title="Expulsar del club"
-                              sx={{ 
-                                '&:hover': { 
-                                  backgroundColor: 'rgba(244, 67, 54, 0.1)' 
-                                } 
-                              }}
+                              onClick={() => handleRechazarSolicitudEntrenador(s._id)}
+                              title="Rechazar"
+                              size="small"
                             >
-                              <PersonRemoveIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-                </TableContainer>
-              )}
-      </Paper>
-          </Grid>
-        </Grid>
-      )}
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </>
+                        }
+                      />
+                    ))}
+                  </List>
+                )}
+              </SectionCard>
+            </Grid>
 
-      {/* Modal de confirmación de expulsión */}
+            {/* Entrenadores del club */}
+            <Grid item xs={12}>
+              <SectionCard
+                icon={<FitnessCenterIcon sx={{ fontSize: 20 }} />}
+                title="Entrenadores del Club"
+                color={PURPLE}
+                action={
+                  entrenadores.length > 0 && (
+                    <Chip
+                      label={`${entrenadores.length} entrenadores`}
+                      color="success"
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )
+                }
+              >
+                {entrenadores.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                    No hay entrenadores registrados.
+                  </Typography>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Nombre</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Email</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Teléfono</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Especialidades</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Años Exp.</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }} align="center">Acciones</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {entrenadores.map((e) => (
+                          <TableRow key={e.id} hover>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Avatar sx={{ width: 28, height: 28, bgcolor: BURGUNDY, fontSize: '0.75rem' }}>
+                                  {e.nombreCompleto.charAt(0)}
+                                </Avatar>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {e.nombreCompleto}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>{e.gmail}</TableCell>
+                            <TableCell>{e.telefono}</TableCell>
+                            <TableCell>
+                              {Array.isArray(e.especialidades) && e.especialidades.length > 0 ? (
+                                e.especialidades.map((esp, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    label={esp.nombre || esp}
+                                    size="small"
+                                    color="primary"
+                                    sx={{ mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
+                                  />
+                                ))
+                              ) : (
+                                'N/A'
+                              )}
+                            </TableCell>
+                            <TableCell>{e.añosExperiencia}</TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                color="error"
+                                onClick={() => handleExpulsarEntrenador(e)}
+                                title="Expulsar"
+                                size="small"
+                              >
+                                <PersonRemoveIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </SectionCard>
+            </Grid>
+          </Grid>
+        )}
+      </Container>
+
+      {/* Diálogo confirmar expulsión atleta */}
       <Dialog open={modalExpulsionOpen} onClose={cancelarExpulsion} maxWidth="sm" fullWidth>
-        <DialogTitle>
+        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <WarningIcon sx={{ color: '#f57c00' }} />
-            <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-              Confirmar Expulsión
-            </Typography>
+            <WarningIcon sx={{ color: '#fff' }} />
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Confirmar Expulsión</Typography>
           </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ mt: 2 }}>
           <Typography variant="body1" paragraph>
             ¿Estás seguro de que quieres expulsar a{' '}
-            <strong>{atletaAExpulsar?.nombre} {atletaAExpulsar?.apellidopa} {atletaAExpulsar?.apellidoma}</strong> del club?
+            <strong>{atletaAExpulsar?.nombreCompleto}</strong> del club?
           </Typography>
           <Typography variant="body2" color="textSecondary">
             Esta acción:
           </Typography>
           <ul>
             <li>Desvinculará al atleta del club</li>
-            <li>El atleta quedará como atleta independiente</li>
+            <li>El atleta quedará como independiente</li>
             <li>No se podrá deshacer automáticamente</li>
           </ul>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={cancelarExpulsion} color="primary">
-              Cancelar
-            </Button>
-            <Button
-            onClick={confirmarExpulsion} 
-            color="error" 
-              variant="contained"
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={cancelarExpulsion} sx={{ color: PURPLE, fontWeight: 600 }}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={confirmarExpulsion}
+            color="error"
+            variant="contained"
             startIcon={<PersonRemoveIcon />}
+            sx={{ bgcolor: '#d32f2f', '&:hover': { bgcolor: '#b71c1c' } }}
           >
             Confirmar Expulsión
-            </Button>
+          </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Modal de confirmación de expulsión de entrenador */}
+      {/* Diálogo confirmar expulsión entrenador */}
       <Dialog open={modalExpulsionEntrenadorOpen} onClose={cancelarExpulsionEntrenador} maxWidth="sm" fullWidth>
-        <DialogTitle>
+        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <WarningIcon sx={{ color: '#f57c00' }} />
-            <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-              Confirmar Expulsión de Entrenador
-            </Typography>
+            <WarningIcon sx={{ color: '#fff' }} />
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Confirmar Expulsión de Entrenador</Typography>
           </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ mt: 2 }}>
           <Typography variant="body1" paragraph>
             ¿Estás seguro de que quieres expulsar a{' '}
-            <strong>{entrenadorAExpulsar?.nombre} {entrenadorAExpulsar?.apellidopa} {entrenadorAExpulsar?.apellidoma}</strong> del club?
+            <strong>{entrenadorAExpulsar?.nombreCompleto}</strong> del club?
           </Typography>
           <Typography variant="body2" color="textSecondary">
             Esta acción:
           </Typography>
           <ul>
             <li>Desvinculará al entrenador del club</li>
-            <li>El entrenador quedará como entrenador independiente</li>
+            <li>El entrenador quedará como independiente</li>
             <li>No se podrá deshacer automáticamente</li>
           </ul>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={cancelarExpulsionEntrenador} color="primary">
-              Cancelar
-            </Button>
-            <Button
-            onClick={confirmarExpulsionEntrenador} 
-            color="error" 
-              variant="contained"
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={cancelarExpulsionEntrenador} sx={{ color: PURPLE, fontWeight: 600 }}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={confirmarExpulsionEntrenador}
+            color="error"
+            variant="contained"
             startIcon={<PersonRemoveIcon />}
+            sx={{ bgcolor: '#d32f2f', '&:hover': { bgcolor: '#b71c1c' } }}
           >
             Confirmar Expulsión
-            </Button>
+          </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 };
 

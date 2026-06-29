@@ -38,13 +38,15 @@ import {
   Lock as LockIcon,
   School as SchoolIcon,
   Work as WorkIcon,
+  LocationOn as LocationIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 
 const MySwal = withReactContent(Swal);
 
 const BURGUNDY = '#800020';
 const PURPLE = '#7A4069';
-const CREAM = '#F5E8C7';
+const CREAM = '#ffffff';
 const API_BASE_URL = 'http://localhost:5000';
 
 /* sx compartido — quita asterisco + autofill fix */
@@ -113,6 +115,7 @@ function Registro() {
     fechaNacimiento: '',
     sexo: '',
     estadoNacimiento: '',
+    municipio: '',
     telefono: '',
     gmail: '',
     password: '',
@@ -121,6 +124,9 @@ function Registro() {
     certificaciones: [],
     añosExperiencia: '',
     clubId: '',
+    // Nuevos campos para club
+    direccion: '',
+    descripcion: '',
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -176,6 +182,15 @@ function Registro() {
         else delete errors[name];
         break;
       }
+      case 'municipio':
+        if (value && !/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]{2,100}$/.test(value))
+          errors[name] = 'Solo letras, mínimo 2 caracteres.';
+        else delete errors[name];
+        break;
+      case 'direccion':
+        if (value && value.length < 3) errors[name] = 'Mínimo 3 caracteres.';
+        else delete errors[name];
+        break;
       case 'password':
         if (value.length < 8 || value.length > 15) errors[name] = 'Entre 8 y 15 caracteres.';
         else delete errors[name];
@@ -236,13 +251,13 @@ function Registro() {
       let dataToSend;
 
       if (isClub) {
-        endpoint = `${API_BASE_URL}/api/clubes`;
         dataToSend = {
           nombre: formData.nombre,
-          direccion: '',
+          direccion: formData.direccion.trim(),
           telefono: formData.telefono,
           email: formData.gmail,
           password: formData.password,
+          descripcion: formData.descripcion.trim(),
           rol: 'club',
         };
       } else if (isEntrenador) {
@@ -254,6 +269,7 @@ function Registro() {
           fecha_nacimiento: formData.fechaNacimiento,
           genero: formData.sexo,
           estado_nacimiento: formData.estadoNacimiento,
+          municipio: formData.municipio,
           telefono: formData.telefono,
           email: formData.gmail,
           password: formData.password,
@@ -272,6 +288,7 @@ function Registro() {
           fecha_nacimiento: formData.fechaNacimiento,
           genero: formData.sexo,
           estado_nacimiento: formData.estadoNacimiento,
+          municipio: formData.municipio,
           telefono: formData.telefono,
           email: formData.gmail,
           password: formData.password,
@@ -281,7 +298,11 @@ function Registro() {
 
       await axios.post(endpoint, dataToSend, { headers: { 'Content-Type': 'application/json' } });
 
-      MySwal.fire({ icon: 'success', title: 'Registro exitoso', text: 'Tu cuenta ha sido creada.', text: 'Para iniciar sesión, verifica tu correo electrónico. Revisa tu bandeja de entrada o spam.' }).then(() => {
+      MySwal.fire({
+        icon: 'success',
+        title: 'Registro exitoso',
+        text: 'Para iniciar sesión, verifica tu correo electrónico. Revisa tu bandeja de entrada o spam.',
+      }).then(() => {
         navigate('/login');
       });
     } catch (error) {
@@ -372,6 +393,43 @@ function Registro() {
                     sx={{ ...fieldSx, ...(isClub && { gridColumn: '1 / -1' }) }}
                   />
 
+                  {isClub && (
+                    <>
+                      <TextField
+                        fullWidth
+                        label="Dirección"
+                        name="direccion"
+                        value={formData.direccion}
+                        onChange={handleChange}
+                        required
+                        error={!!formErrors.direccion}
+                        helperText={formErrors.direccion}
+                        sx={{ ...fieldSx, gridColumn: '1 / -1' }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start"><LocationIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                          ),
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Descripción (Opcional)"
+                        name="descripcion"
+                        value={formData.descripcion}
+                        onChange={handleChange}
+                        multiline
+                        rows={3}
+                        placeholder="Breve descripción de tu club..."
+                        sx={{ ...fieldSx, gridColumn: '1 / -1' }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start"><DescriptionIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                          ),
+                        }}
+                      />
+                    </>
+                  )}
+
                   {showPersonalFields && (
                     <>
                       <TextField
@@ -440,6 +498,16 @@ function Registro() {
                           ))}
                         </Select>
                       </FormControl>
+                      <TextField
+                        fullWidth
+                        label="Municipio"
+                        name="municipio"
+                        value={formData.municipio}
+                        onChange={handleChange}
+                        error={!!formErrors.municipio}
+                        helperText={formErrors.municipio || 'Municipio donde resides actualmente'}
+                        sx={fieldSx}
+                      />
                     </>
                   )}
                 </Box>

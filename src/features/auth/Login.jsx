@@ -32,7 +32,7 @@ const MySwal = withReactContent(Swal);
 
 const BURGUNDY = '#800020';
 const PURPLE = '#7A4069';
-const CREAM = '#F5E8C7';
+const CREAM = '#e4e4e5';
 
 const API_BASE_URL = 'http://localhost:5000';
 
@@ -71,8 +71,8 @@ function Login() {
     try {
       const payload =
         rol === 'atleta'
-          ? { curp: curp.toUpperCase(), password }
-          : { email: correo, password };
+          ? { curp: curp.toUpperCase(), password, rol }
+          : { email: correo, password, rol };
 
       const response = await axios.post(`${API_BASE_URL}/api/auth/login`, payload, {
         withCredentials: true,
@@ -96,14 +96,11 @@ function Login() {
 
       MySwal.fire({ icon: 'success', title: 'Éxito', text: 'Inicio de sesión exitoso' });
     } catch (error) {
-      const serverError = error.response?.data?.error;
-      if (serverError === 'La CURP ingresada no existe') {
-        MySwal.fire({ icon: 'error', title: 'Usuario No Encontrado', text: 'La CURP ingresada no existe.' });
-      } else if (serverError === 'Credenciales incorrectas') {
-        MySwal.fire({ icon: 'error', title: 'Error', text: 'Contraseña incorrecta.' });
-      } else {
-        MySwal.fire({ icon: 'error', title: 'Error', text: serverError || 'Error al iniciar sesión.' });
-      }
+      MySwal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Verifique sus credenciales e intente de nuevo.',
+      });
     }
   };
 

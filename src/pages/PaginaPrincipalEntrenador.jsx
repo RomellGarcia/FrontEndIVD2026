@@ -1,406 +1,456 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Container, Typography, Grid, Card, CardContent, CardActions, Button, 
-  Chip, Avatar, CircularProgress, Alert, Paper, Divider
+  Box, Container, Typography, Card, CardContent, Button,
+  Chip, Avatar, CircularProgress, Alert, Divider, List,
+  ListItem, ListItemText, ListItemAvatar,
 } from '@mui/material';
 import {
   People as PeopleIcon, Event as EventIcon, TrendingUp as TrendingUpIcon,
   Assessment as AssessmentIcon, Group as GroupIcon, CalendarToday as CalendarIcon,
-  Sports as SportsIcon, Work as WorkIcon, School as SchoolIcon, Person as PersonIcon
+  Sports as SportsIcon, Work as WorkIcon, Person as PersonIcon,
+  LocationOn as LocationIcon, School as SchoolIcon,
+  FitnessCenter as FitnessIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
-import { entrenadorAPI } from '../api/index.js';
 import { useAuth } from '../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+
+const BURGUNDY = '#800020';
+const PURPLE   = '#7A4069';
+const CREAM    = '#F5E8C7';
+const GREEN    = '#2E7D32';
+
+/* ── Tarjeta de estadística ── */
+const StatCard = ({ icon, value, label, sub, gradient }) => (
+  <Card sx={{
+    background: gradient,
+    color: '#fff',
+    borderRadius: 3,
+    transition: 'transform .2s, box-shadow .2s',
+    '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 24px rgba(0,0,0,.15)' },
+  }}>
+    <CardContent sx={{ py: 3, px: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography variant="h3" sx={{ fontWeight: 800, lineHeight: 1 }}>{value}</Typography>
+          <Typography variant="body1" sx={{ opacity: .95, mt: .5, fontWeight: 600 }}>{label}</Typography>
+          {sub && <Typography variant="caption" sx={{ opacity: .75 }}>{sub}</Typography>}
+        </Box>
+        <Avatar sx={{ bgcolor: 'rgba(255,255,255,.18)', width: 56, height: 56 }}>{icon}</Avatar>
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+/* ── Sección con título ── */
+const SectionCard = ({ icon, title, color, children, action }) => (
+  <Card sx={{
+    borderRadius: 3,
+    height: '100%',
+    boxShadow: '0 2px 12px rgba(0,0,0,.06)',
+    display: 'flex',
+    flexDirection: 'column',
+  }}>
+    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar sx={{ bgcolor: color, width: 36, height: 36 }}>{icon}</Avatar>
+          <Typography variant="h6" sx={{ color, fontWeight: 'bold' }}>{title}</Typography>
+        </Box>
+        {action}
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+      <Box sx={{ flex: 1 }}>{children}</Box>
+    </CardContent>
+  </Card>
+);
+
+/* ── Tarjeta de acción rápida ── */
+const ActionCard = ({ icon, title, subtitle, color, onClick }) => (
+  <Card sx={{
+    borderRadius: 2.5,
+    border: '2px solid transparent',
+    cursor: 'pointer',
+    transition: 'all .25s ease',
+    '&:hover': {
+      borderColor: color,
+      transform: 'translateY(-3px)',
+      boxShadow: `0 8px 20px ${color}22`,
+    },
+  }}
+  onClick={onClick}
+  >
+    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2.5 }}>
+      <Avatar sx={{ bgcolor: `${color}14`, width: 48, height: 48 }}>
+        {React.cloneElement(icon, { sx: { color, fontSize: 24 } })}
+      </Avatar>
+      <Box>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, color }}>{title}</Typography>
+        <Typography variant="caption" sx={{ color: '#888' }}>{subtitle}</Typography>
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 const PaginaPrincipalEntrenador = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState({
-    atletasActivos: 0,
-    eventosProximos: 0
-  });
-  const [recentActivity, setRecentActivity] = useState([]);
+  const [stats, setStats] = useState({ atletasActivos: 0, eventosProximos: 0 });
   const [clubInfo, setClubInfo] = useState(null);
   const [atletasClub, setAtletasClub] = useState([]);
+  const [eventosProximos, setEventosProximos] = useState([]);
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      cargarDatos();
-    }
+    if (!isAuthenticated()) { navigate('/login', { replace: true }); return; }
+    if (user && (!user.id || !user.nombre)) { navigate('/login', { replace: true }); return; }
+    cargarDatos();
   }, [user]);
-
-  // Agregar validación para redirigir si no hay usuario
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      navigate('/login', { replace: true });
-      return;
-    }
-  }, [user, navigate, isAuthenticated]);
-
-  // Validación adicional para asegurar que el usuario tenga las propiedades necesarias
-  useEffect(() => {
-    if (user && (!user.id || !user.nombre)) {
-      console.log('Usuario incompleto, redirigiendo a login');
-      navigate('/login', { replace: true });
-      return;
-    }
-  }, [user, navigate]);
 
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      
-      // Verificar que user existe antes de continuar
-      if (!isAuthenticated()) {
-        setError('Usuario no autenticado');
-        return;
-      }
-      
-      // Cargar información del club si está asignado
+      if (!isAuthenticated()) { setError('Usuario no autenticado'); return; }
+
+      // Club info
       if (user.clubId) {
-        const clubResponse = await axios.get(`http://localhost:5000/api/clubes/${user.clubId}`);
-        setClubInfo(clubResponse.data);
-        
-        // Cargar atletas del club asignado
         try {
-          const atletasResponse = await axios.get(`http://localhost:5000/api/atletas?club_id=${user.clubId}`);
-          setAtletasClub(atletasResponse.data);
-          // Contar atletas activos (que tengan estado activo o similar)
-          const atletasActivos = atletasResponse.data.filter(atleta => 
-            atleta.estado === 'activo' || atleta.estado === 'Activo' || !atleta.estado
-          ).length;
-          setStats(prev => ({ ...prev, atletasActivos }));
-        } catch (atletasError) {
-          console.error('Error al cargar atletas del club:', atletasError);
+          const clubRes = await axios.get(`http://localhost:5000/api/clubes/${user.clubId}`);
+          setClubInfo(clubRes.data.club || clubRes.data);
+        } catch { setClubInfo(null); }
+
+        // Atletas del club
+        try {
+          const atletasRes = await axios.get(`http://localhost:5000/api/clubes/${user.clubId}/atletas`);
+          const lista = atletasRes.data.atletas || atletasRes.data || [];
+          setAtletasClub(lista);
+          setStats(prev => ({ ...prev, atletasActivos: lista.length }));
+        } catch {
+          setAtletasClub([]);
           setStats(prev => ({ ...prev, atletasActivos: 0 }));
         }
       }
 
-      // Cargar eventos próximos
+      // Eventos próximos
       try {
-        const eventosResponse = await axios.get('http://localhost:5000/api/eventos');
-        const eventosFuturos = eventosResponse.data.filter(evento => {
-          const fechaEvento = new Date(evento.fecha);
-          const fechaActual = new Date();
-          return fechaEvento >= fechaActual;
-        });
-        setStats(prev => ({ ...prev, eventosProximos: eventosFuturos.length }));
-      } catch (eventosError) {
-        console.error('Error al cargar eventos:', eventosError);
+        const eventosRes = await axios.get('http://localhost:5000/api/eventos');
+        const todos = eventosRes.data.eventos || eventosRes.data || [];
+        const futuros = todos
+          .filter(e => new Date(e.fecha) >= new Date())
+          .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        setEventosProximos(futuros.slice(0, 5));
+        setStats(prev => ({ ...prev, eventosProximos: futuros.length }));
+      } catch {
+        setEventosProximos([]);
         setStats(prev => ({ ...prev, eventosProximos: 0 }));
       }
-
-      // Cargar actividad reciente
-              const activityResponse = await entrenadorAPI.getActividad();
-      setRecentActivity(activityResponse.data);
-
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
+    } catch (err) {
+      console.error('Error al cargar datos:', err);
       setError('Error al cargar los datos del dashboard');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickAction = (action) => {
-    switch (action) {
-      case 'gestionarAtletas':
-        navigate('/entrenador/gestionar-atletas');
-        break;
-      case 'verReportes':
-        navigate('/entrenador/reportes');
-        break;
-      case 'eventos':
-        navigate('/entrenador/eventos');
-        break;
-      default:
-        break;
-    }
+  const fmt = (fecha) => {
+    if (!fecha) return '—';
+    const d = new Date(fecha);
+    return isNaN(d) ? '—' : d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  if (!isAuthenticated()) {
-    return null; // No renderizar nada si no hay usuario autenticado
-  }
+  if (!isAuthenticated()) return null;
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
+        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
       </Box>
     );
   }
 
   return (
-    <>
-      <style>
-        {`
-          body {
-            margin: 0;
-            padding: 0;
-          }
-        `}
-      </style>
-      <Container maxWidth="xl" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
-        {/* Header con información del entrenador */}
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Avatar sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: '#800020' }}>
-            <PersonIcon sx={{ fontSize: 40 }} />
+    <Box sx={{ minHeight: '100vh', bgcolor: CREAM, py: { xs: 3, md: 5 } }}>
+      <Container maxWidth="lg">
+
+        {/* ── Header ── */}
+        <Box sx={{ textAlign: 'center', mb: 5 }}>
+          <Avatar sx={{
+            width: 88, height: 88, mx: 'auto', mb: 2,
+            bgcolor: BURGUNDY, fontSize: '2rem', fontWeight: 'bold',
+          }}>
+            {user?.nombre?.[0]}{user?.apellido_paterno?.[0] || ''}
           </Avatar>
-          <Typography variant="h4" sx={{ color: '#800020', fontWeight: 'bold', mb: 1, fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-            ¡Bienvenido, {user?.nombre} {user?.apellidopa}!
+          <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, mb: .5 }}>
+            ¡Bienvenido, {user?.nombre}!
           </Typography>
-          <Typography variant="h6" sx={{ color: '#7A4069', mb: 3, fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
+          <Typography variant="body1" sx={{ color: PURPLE, opacity: .8, mb: 1.5 }}>
             Panel de Entrenador
           </Typography>
           {clubInfo && (
-            <Chip 
-              label={`Club: ${clubInfo.nombre}`} 
-              sx={{ backgroundColor: '#2E7D32', color: 'white', fontWeight: 'bold' }}
+            <Chip
+              icon={<GroupIcon sx={{ fontSize: 16 }} />}
+              label={clubInfo.nombre}
+              sx={{
+                bgcolor: 'rgba(46,125,50,.1)', color: GREEN,
+                fontWeight: 600, '& .MuiChip-icon': { color: GREEN },
+              }}
             />
           )}
         </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
+        {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-        {/* Estadísticas Principales - Mismo diseño que atleta */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={6}>
-            <Card sx={{ bgcolor: '#800020', color: 'white', height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <TrendingUpIcon sx={{ fontSize: 40, mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                  {stats.atletasActivos}
+        {/* ── Estadísticas ── */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 3, mb: 4,
+        }}>
+          <StatCard
+            icon={<PeopleIcon />}
+            value={stats.atletasActivos}
+            label="Atletas del Club"
+            sub={clubInfo ? `Club ${clubInfo.nombre}` : 'Sin club asignado'}
+            gradient={`linear-gradient(135deg, ${BURGUNDY} 0%, ${PURPLE} 100%)`}
+          />
+          <StatCard
+            icon={<EventIcon />}
+            value={stats.eventosProximos}
+            label="Eventos Próximos"
+            sub="Competencias por venir"
+            gradient={`linear-gradient(135deg, ${GREEN} 0%, #43A047 100%)`}
+          />
+        </Box>
+
+        {/* ── Acciones rápidas ── */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+          gap: 2, mb: 4,
+        }}>
+          <ActionCard
+            icon={<GroupIcon />}
+            title="Gestionar Atletas"
+            subtitle="Ver y administrar atletas asignados"
+            color={BURGUNDY}
+            onClick={() => navigate('/entrenador/gestionar-atletas')}
+          />
+          <ActionCard
+            icon={<EventIcon />}
+            title="Ver Eventos"
+            subtitle="Consultar competencias y calendario"
+            color={GREEN}
+            onClick={() => navigate('/entrenador/eventos')}
+          />
+          <ActionCard
+            icon={<AssessmentIcon />}
+            title="Ver Reportes"
+            subtitle="Análisis de rendimiento del equipo"
+            color={PURPLE}
+            onClick={() => navigate('/entrenador/reportes')}
+          />
+        </Box>
+
+        {/* ── Contenido principal ── */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gap: 3, mb: 4,
+        }}>
+          {/* Atletas del club */}
+          <SectionCard
+            icon={<PeopleIcon sx={{ fontSize: 20 }} />}
+            title="Atletas del Club"
+            color={BURGUNDY}
+          >
+            {atletasClub.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Avatar sx={{ bgcolor: `${BURGUNDY}12`, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
+                  <PeopleIcon sx={{ color: BURGUNDY }} />
+                </Avatar>
+                <Typography variant="body2" sx={{ color: '#999' }}>
+                  {clubInfo ? 'No hay atletas en tu club aún' : 'No tienes un club asignado'}
                 </Typography>
-                <Typography variant="body2" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                  Atletas Activos del Club
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} sm={6} md={6}>
-            <Card sx={{ bgcolor: '#7A4069', color: 'white', height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <EventIcon sx={{ fontSize: 40, mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                  {stats.eventosProximos}
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                  Eventos Próximos
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Acciones Rápidas y Actividad Reciente - Mismo diseño que atleta */}
-        <Grid container spacing={4} sx={{ mb: 4 }}>
-          {/* Acciones Rápidas */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={3}>
-                  <GroupIcon sx={{ fontSize: 30, color: '#800020', mr: 2 }} />
-                  <Typography variant="h5" sx={{ color: '#800020', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                    Acciones Rápidas
-                  </Typography>
-                </Box>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Card sx={{ 
-                      border: '2px solid #F5E8C7', 
-                      '&:hover': { borderColor: '#800020', transform: 'translateY(-2px)' },
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer'
-                    }} onClick={() => handleQuickAction('gestionarAtletas')}>
-                      <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                        <GroupIcon sx={{ fontSize: 40, color: '#800020', mb: 2 }} />
-                        <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          Gestionar Atletas
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          Ver y gestionar atletas asignados
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Card sx={{ 
-                      border: '2px solid #F5E8C7', 
-                      '&:hover': { borderColor: '#2E7D32', transform: 'translateY(-2px)' },
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer'
-                    }} onClick={() => handleQuickAction('eventos')}>
-                      <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                        <EventIcon sx={{ fontSize: 40, color: '#2E7D32', mb: 2 }} />
-                        <Typography variant="h6" sx={{ color: '#2E7D32', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          Ver Eventos
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          Consultar eventos y competencias
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Card sx={{ 
-                      border: '2px solid #F5E8C7', 
-                      '&:hover': { borderColor: '#1976D2', transform: 'translateY(-2px)' },
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer'
-                    }} onClick={() => handleQuickAction('verReportes')}>
-                      <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                        <AssessmentIcon sx={{ fontSize: 40, color: '#1976D2', mb: 2 }} />
-                        <Typography variant="h6" sx={{ color: '#1976D2', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          Ver Reportes
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          Análisis y reportes de rendimiento
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          {/* Actividad Reciente */}
-          <Grid item xs={12} md={8}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={3}>
-                  <CalendarIcon sx={{ fontSize: 30, color: '#800020', mr: 2 }} />
-                  <Typography variant="h5" sx={{ color: '#800020', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                    Actividad Reciente
-                  </Typography>
-                </Box>
-                <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-                  {recentActivity.length > 0 ? (
-                    recentActivity.map((activity, index) => (
-                      <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #E0E0E0', borderRadius: 1 }}>
-                        <Box display="flex" alignItems="center" mb={1}>
-                          <Avatar sx={{ 
-                            bgcolor: activity.tipo === 'sesion' ? '#2E7D32' : 
-                                     activity.tipo === 'evento' ? '#7A4069' : '#800020',
-                            mr: 2,
-                            width: 32,
-                            height: 32
-                          }}>
-                            {activity.tipo === 'sesion' ? <SportsIcon /> : 
-                             activity.tipo === 'evento' ? <EventIcon /> : <WorkIcon />}
-                          </Avatar>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#800020', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                            {activity.titulo}
+              </Box>
+            ) : (
+              <List disablePadding>
+                {atletasClub.map((a, i) => (
+                  <React.Fragment key={a.id || i}>
+                    <ListItem sx={{ px: 0, py: 1.2 }}>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: BURGUNDY, width: 40, height: 40, fontSize: '.85rem' }}>
+                          {a.nombre?.[0]}{a.apellido_paterno?.[0]}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                            {a.nombre} {a.apellido_paterno} {a.apellido_materno || ''}
                           </Typography>
-                        </Box>
-                        <Typography variant="body2" color="textSecondary" sx={{ mb: 1, fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          {activity.descripcion}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                          {new Date(activity.fecha).toLocaleDateString('es-ES', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </Typography>
-                      </Box>
-                    ))
-                  ) : (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body1" color="textSecondary" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                        No hay actividad reciente
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                        }
+                        secondary={
+                          <Typography variant="caption" sx={{ color: '#888' }}>
+                            {a.edad ? `${a.edad} años` : ''} · {a.genero || ''} · {a.municipio || 'Sin municipio'}
+                          </Typography>
+                        }
+                      />
+                      <Chip
+                        label={a.genero === 'femenino' ? 'F' : 'M'}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: a.genero === 'femenino' ? `${PURPLE}1A` : `${BURGUNDY}1A`,
+                          color: a.genero === 'femenino' ? PURPLE : BURGUNDY,
+                          minWidth: 32,
+                        }}
+                      />
+                    </ListItem>
+                    {i < atletasClub.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </SectionCard>
 
-        {/* Información del Entrenador - Mismo diseño que atleta */}
-        <Card sx={{ height: '100%' }}>
-          <CardContent>
-            <Box display="flex" alignItems="center" mb={3}>
-              <PersonIcon sx={{ fontSize: 30, color: '#800020', mr: 2 }} />
-              <Typography variant="h5" sx={{ color: '#800020', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
+          {/* Próximos eventos */}
+          <SectionCard
+            icon={<CalendarIcon sx={{ fontSize: 20 }} />}
+            title="Próximos Eventos"
+            color={GREEN}
+          >
+            {eventosProximos.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Avatar sx={{ bgcolor: `${GREEN}12`, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
+                  <EventIcon sx={{ color: GREEN }} />
+                </Avatar>
+                <Typography variant="body2" sx={{ color: '#999' }}>No hay eventos próximos</Typography>
+              </Box>
+            ) : (
+              <List disablePadding>
+                {eventosProximos.map((e, i) => (
+                  <React.Fragment key={e.id || i}>
+                    <ListItem sx={{ px: 0, py: 1.2, alignItems: 'flex-start' }}>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: GREEN, width: 40, height: 40 }}>
+                          <EventIcon sx={{ fontSize: 20 }} />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                            {e.titulo}
+                          </Typography>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
+                              <CalendarIcon sx={{ fontSize: 13 }} /> {fmt(e.fecha)}
+                              {e.hora && ` · ${String(e.hora).slice(0, 5)}`}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                              <LocationIcon sx={{ fontSize: 13 }} /> {e.lugar}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      <Chip label="Activo" size="small" color="success" sx={{ mt: .5 }} />
+                    </ListItem>
+                    {i < eventosProximos.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </SectionCard>
+        </Box>
+
+        {/* ── Información profesional ── */}
+        <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Avatar sx={{ bgcolor: PURPLE, width: 36, height: 36 }}>
+                <SchoolIcon sx={{ fontSize: 20 }} />
+              </Avatar>
+              <Typography variant="h6" sx={{ color: PURPLE, fontWeight: 'bold' }}>
                 Información Profesional
               </Typography>
             </Box>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                    Especialidades:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                    {user?.especialidades && user.especialidades.length > 0 ? (
-                      user.especialidades.map((especialidad, index) => (
-                        <Chip 
-                          key={index} 
-                          label={especialidad} 
-                          size="small" 
-                          sx={{ backgroundColor: '#F5E8C7', color: '#800020' }}
-                        />
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="textSecondary" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                        No especificadas
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                    Certificaciones:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                    {user?.certificaciones && user.certificaciones.length > 0 ? (
-                      user.certificaciones.map((certificacion, index) => (
-                        <Chip 
-                          key={index} 
-                          label={certificacion} 
-                          size="small" 
-                          sx={{ backgroundColor: '#E8F5E8', color: '#2E7D32' }}
-                        />
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="textSecondary" sx={{ fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                        No especificadas
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                  Años de Experiencia: {user?.añosExperiencia || 0}
+            <Divider sx={{ mb: 3 }} />
+
+            <Box sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 3,
+            }}>
+              {/* Especialidades */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: BURGUNDY, fontWeight: 700, mb: 1 }}>
+                  Especialidades
                 </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-                  Estado: {user?.estado || 'Activo'}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: .8 }}>
+                  {user?.especialidades?.length > 0 ? (
+                    user.especialidades.map((esp, i) => (
+                      <Chip
+                        key={i} label={esp} size="small"
+                        icon={<FitnessIcon sx={{ fontSize: 14 }} />}
+                        sx={{ bgcolor: `${CREAM}`, color: BURGUNDY, fontWeight: 500 }}
+                      />
+                    ))
+                  ) : (
+                    <Typography variant="body2" sx={{ color: '#999' }}>No especificadas</Typography>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Certificaciones */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: GREEN, fontWeight: 700, mb: 1 }}>
+                  Certificaciones
                 </Typography>
-              </Grid>
-            </Grid>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: .8 }}>
+                  {user?.certificaciones?.length > 0 ? (
+                    user.certificaciones.map((cert, i) => (
+                      <Chip
+                        key={i} label={cert} size="small"
+                        icon={<SchoolIcon sx={{ fontSize: 14 }} />}
+                        sx={{ bgcolor: '#E8F5E9', color: GREEN, fontWeight: 500 }}
+                      />
+                    ))
+                  ) : (
+                    <Typography variant="body2" sx={{ color: '#999' }}>No especificadas</Typography>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Experiencia */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: PURPLE, fontWeight: 700, mb: .5 }}>
+                  Años de Experiencia
+                </Typography>
+                <Typography variant="h5" sx={{ color: '#1a1a1a', fontWeight: 700 }}>
+                  {user?.anos_experiencia || user?.añosExperiencia || '—'}
+                  <Typography component="span" variant="body2" sx={{ color: '#888', ml: .5 }}>años</Typography>
+                </Typography>
+              </Box>
+
+              {/* Estado */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: PURPLE, fontWeight: 700, mb: .5 }}>
+                  Estado
+                </Typography>
+                <Chip
+                  label={user?.estado || 'Activo'}
+                  color="success"
+                  size="small"
+                  sx={{ fontWeight: 600 }}
+                />
+              </Box>
+            </Box>
           </CardContent>
         </Card>
+
       </Container>
-    </>
+    </Box>
   );
 };
 

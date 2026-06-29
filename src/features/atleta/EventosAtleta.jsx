@@ -1,460 +1,378 @@
-import { eventosAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
-import Container from '@mui/material/Container';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Chip from '@mui/material/Chip';
-import Snackbar from '@mui/material/Snackbar';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import PeopleIcon from '@mui/icons-material/People';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { eventosAPI } from '../../api/index.js';
+import {
+  Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
+  Paper, Container, Button, CircularProgress, Dialog, DialogTitle,
+  DialogContent, DialogActions, Avatar, Pagination, IconButton, Chip, Divider,
+} from '@mui/material';
+import {
+  People as PeopleIcon, Visibility as ViewIcon, Close as CloseIcon,
+  CalendarToday as CalendarIcon, LocationOn as LocationIcon,
+  AccessTime as TimeIcon, SportsScore as SportsIcon,
+  Event as EventIcon, Info as InfoIcon,
+} from '@mui/icons-material';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+
+const BURGUNDY = '#800020';
+const PURPLE = '#7A4069';
+const CREAM = '#e3e4e5';
 
 const EventosAtleta = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [eventos, setEventos] = useState([]);
-  const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [modalEventoOpen, setModalEventoOpen] = useState(false);
   const [modalConvocatoriasOpen, setModalConvocatoriasOpen] = useState(false);
-  const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
+  const [modalEventoOpen, setModalEventoOpen] = useState(false);
   const [eventoConvocatorias, setEventoConvocatorias] = useState(null);
-  const [inscripciones, setInscripciones] = useState([]);
-  const [inscribiendo, setInscribiendo] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
 
-  // Cargar eventos al montar el componente
+  const [page, setPage] = useState(1);
+  const eventosPorPagina = 6;
+
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    } else {
-      fetchEventos();
-      fetchInscripciones();
-    }
+    if (!user) navigate('/login');
+    else fetchEventos();
   }, [user, navigate]);
 
   const fetchEventos = async () => {
     try {
-      setLoading(true)
-      const response = await eventosAPI.getAll()
-      const fechaActual = new Date()
-      const todos = response.data.eventos || []
-      setEventos(todos.filter(e => new Date(e.fecha) > fechaActual))
-    } catch (error) {
-      setErrorMessage('Error al cargar los eventos.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchInscripciones = async () => {
-    try {
-      const response = await eventosAPI.getMisInscripciones()
-      setInscripciones(response.data.inscripciones || [])
-    } catch (error) {
-      console.error('Error al obtener inscripciones:', error)
-    }
-  }
-
+      setLoading(true);
+      const response = await eventosAPI.getAll();
+      setEventos((response.data.eventos || []).filter(e => new Date(e.fecha) > new Date()));
+    } catch (error) { console.error(error); }
+    finally { setLoading(false); }
+  };
 
   const handleVerConvocatorias = (evento) => {
     setEventoConvocatorias(evento);
     setModalConvocatoriasOpen(true);
   };
 
-  const handleVerEventoConvocatoria = (evento, convocatoria, index) => {
+  const handleVerDetalle = (evento, convocatoria, index) => {
     setEventoSeleccionado({ ...evento, convocatoriaSeleccionada: convocatoria, convocatoriaIndex: index });
     setModalEventoOpen(true);
   };
 
-  const handleCloseModalEvento = () => {
-    setModalEventoOpen(false);
-    setTimeout(() => {
-      setEventoSeleccionado(null);
-    }, 100);
-  };
-
-  const handleCerrarConvocatorias = () => {
-    setModalConvocatoriasOpen(false);
-    setEventoConvocatorias(null);
-  };
-
-  const handleInscribirse = async (convocatoriaId) => {
+  const fmt = (fecha) => {
+    if (!fecha) return '—';
     try {
-      setInscribiendo(true)
-      await eventosAPI.inscribir({ convocatoria_id: convocatoriaId })
-      setSnackbar({ open: true, message: '¡Inscripción exitosa!', severity: 'success' })
-      await fetchInscripciones()
-    } catch (error) {
-      setSnackbar({ open: true, message: error.response?.data?.error || 'Error al inscribirse.', severity: 'error' })
-    } finally {
-      setInscribiendo(false)
-    }
-  }
-
-  const isInscrito = (convocatoriaId) => {
-    return inscripciones.some(i => i.convocatoria_id === convocatoriaId)
-  }
-
-  const isConvocatoriaCerrada = (evento) => {
-    const fechaActual = new Date();
-    const fechaCierre = new Date(evento.fechaCierre);
-    return fechaActual > fechaCierre;
+      return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch { return '—'; }
   };
 
-  const formatearFecha = (fecha) => {
-    if (!fecha) return 'Fecha no disponible';
-    try {
-      return new Date(fecha).toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch (error) {
-      return 'Fecha inválida';
-    }
+  const fmtCorta = (fecha) => {
+    if (!fecha) return '—';
+    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
   };
+
+  const fmtHora = (hora) => hora ? String(hora).slice(0, 5) : '';
+
+  const inscripcionAbierta = (evento) => {
+    if (!evento.fecha_cierre) return true;
+    return new Date(evento.fecha_cierre) > new Date();
+  };
+
+  const eventosPaginados = eventos.slice((page - 1) * eventosPorPagina, page * eventosPorPagina);
 
   if (loading) {
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: '#F5E8C7', width: '100%' }}>
-      <CircularProgress size={60} sx={{ color: '#800020' }} />
-    </Box>
-  );
-}
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
+        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
+      </Box>
+    );
+  }
 
   return (
-    // DESPUÉS:
-    <Box sx={{ bgcolor: '#F5E8C7', minHeight: '100vh', width: '100%' }}>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold' }}>
+    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 3, md: 5 } }}>
+
+        {/* ── Header ── */}
+        <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, textAlign: 'center', mb: .5 }}>
           Próximos Eventos
         </Typography>
+        <Typography variant="body1" sx={{ color: PURPLE, textAlign: 'center', mb: 4, opacity: .8 }}>
+          Consulta los eventos disponibles e inscríbete a las convocatorias
+        </Typography>
 
-        {errorMessage && (
-          <Box sx={{ mb: 2 }}>
-            <Alert severity="error" onClose={() => setErrorMessage('')}>
-              {errorMessage}
-            </Alert>
-          </Box>
-        )}
-
-        <Paper elevation={3} sx={{ borderRadius: '12px', overflow: 'hidden', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)' }}>
-          <Table sx={{ minWidth: 650 }} aria-label="eventos atleta table">
-            <TableHead>
-              <TableRow>
-                {['Fecha', 'Título', 'Lugar', 'Convocatorias'].map((head) => (
-                  <TableCell
-                    key={head}
-                    sx={{ fontWeight: 'bold', color: '#800020', fontSize: '1rem', padding: '16px' }}
-                  >
-                    {head}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {eventos.map((evento) => {
-                const inscrito = isInscrito(evento._id);
-                const convocatoriaCerrada = isConvocatoriaCerrada(evento);
-
-                return (
-                  <TableRow
-                    key={evento._id || evento.id}
-                    sx={{ '&:hover': { backgroundColor: '#FAFAFF' }, transition: 'background-color 0.3s' }}
-                  >
-                    <TableCell sx={{ color: '#333333' }}>
-                      {evento.fecha ? new Date(evento.fecha).toLocaleDateString('es-ES') : 'Sin fecha'}
-                    </TableCell>
-                    <TableCell sx={{ color: '#333333', fontWeight: 'bold' }}>{evento.titulo || 'Sin título'}</TableCell>
-                    <TableCell sx={{ color: '#333333' }}>{evento.lugar || 'Sin lugar'}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outlined"
-                        onClick={() => handleVerConvocatorias(evento)}
-                        startIcon={<PeopleIcon />}
-                        size="small"
-                        sx={{
-                          color: '#800020',
-                          borderColor: '#800020',
-                          '&:hover': {
-                            borderColor: '#800020',
-                            backgroundColor: 'rgba(128, 0, 32, 0.04)'
-                          }
-                        }}
-                      >
-                        Ver Convocatorias ({evento.convocatorias ? evento.convocatorias.length : 0})
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Paper>
-
-        {eventos.length === 0 && !errorMessage && (
-          <Typography variant="body1" align="center" sx={{ mt: 2, color: '#7A4069' }}>
-            No hay eventos disponibles.
-          </Typography>
-        )}
-
-        {/* Modal de Convocatorias */}
-        <Dialog open={modalConvocatoriasOpen} onClose={handleCerrarConvocatorias} maxWidth="lg" fullWidth>
-          <DialogTitle>
-            <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-              🎯 Convocatorias del Evento: {eventoConvocatorias?.titulo}
+        {/* ── Tabla ── */}
+        {eventos.length === 0 ? (
+          <Paper sx={{ borderRadius: 3, textAlign: 'center', py: 6 }}>
+            <Avatar sx={{ bgcolor: `${PURPLE}14`, width: 64, height: 64, mx: 'auto', mb: 2 }}>
+              <EventIcon sx={{ fontSize: 32, color: PURPLE }} />
+            </Avatar>
+            <Typography variant="h6" sx={{ color: PURPLE }}>No hay eventos próximos</Typography>
+            <Typography variant="body2" sx={{ color: '#999', mt: .5 }}>
+              Los nuevos eventos aparecerán aquí cuando sean publicados
             </Typography>
-          </DialogTitle>
-          <DialogContent>
-            {eventoConvocatorias && eventoConvocatorias.convocatorias ? (
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell><strong>Disciplina</strong></TableCell>
-                    <TableCell><strong>Categoría</strong></TableCell>
-                    <TableCell><strong>Rango de Edad</strong></TableCell>
-                    <TableCell><strong>Género</strong></TableCell>
-                    <TableCell><strong>Estado</strong></TableCell>
-                    <TableCell><strong>Acciones</strong></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {eventoConvocatorias.convocatorias.map((convocatoria, index) => {
-                    const inscrito = isInscrito(eventoConvocatorias._id);
-                    const convocatoriaCerrada = isConvocatoriaCerrada(eventoConvocatorias);
-
-                    return (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <Typography variant="subtitle2" fontWeight="bold">
-                            {convocatoria.disciplina}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{convocatoria.categoria}</TableCell>
-                        <TableCell>{convocatoria.edadMin} - {convocatoria.edadMax} años</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={convocatoria.genero === 'mixto' ? 'Mixto' :
-                              convocatoria.genero === 'masculino' ? 'Masculino' : 'Femenino'}
-                            color={convocatoria.genero === 'mixto' ? 'default' :
-                              convocatoria.genero === 'masculino' ? 'primary' : 'secondary'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {inscrito ? (
-                            <Chip
-                              icon={<CheckCircleIcon />}
-                              label="Inscrito"
-                              color="success"
-                              size="small"
-                            />
-                          ) : convocatoriaCerrada ? (
-                            <Chip
-                              label="Cerrada"
-                              color="error"
-                              size="small"
-                            />
-                          ) : (
-                            <Chip
-                              label="Abierta"
-                              color="primary"
-                              size="small"
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <IconButton
-                              color="primary"
-                              onClick={() => handleVerEventoConvocatoria(eventoConvocatorias, convocatoria, index)}
-                              sx={{ '&:hover': { backgroundColor: 'rgba(128, 0, 32, 0.1)' } }}
-                              title="Ver detalles de la convocatoria"
-                            >
-                              <VisibilityIcon />
-                            </IconButton>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <Typography variant="body2" sx={{ textAlign: 'center', p: 2, color: 'text.secondary' }}>
-                No hay convocatorias para este evento.
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCerrarConvocatorias} sx={{ color: '#7A4069' }}>
-              Cerrar
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Modal de Detalles del Evento */}
-        <Dialog open={modalEventoOpen} onClose={handleCloseModalEvento} maxWidth="md" fullWidth>
-          <DialogTitle>
-            <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-              📋 Detalles del Evento
-              {eventoSeleccionado?.convocatoriaSeleccionada && (
-                <Typography variant="subtitle2" sx={{ color: '#800020', mt: 1 }}>
-                  Convocatoria: {eventoSeleccionado.convocatoriaSeleccionada.disciplina} - {eventoSeleccionado.convocatoriaSeleccionada.categoria}
-                </Typography>
-              )}
-            </Typography>
-          </DialogTitle>
-          <DialogContent>
-            {eventoSeleccionado && (
-              <Box>
-                <Grid container spacing={3}>
-                  <Grid item xs={12}>
-                    <Typography variant="h5" gutterBottom sx={{ color: '#800020' }}>
-                      {eventoSeleccionado.titulo}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>📅 Información General</Typography>
-                        <Typography variant="body2" paragraph>
-                          <strong>Fecha:</strong> {formatearFecha(eventoSeleccionado.fecha || eventoSeleccionado.createdAt)}
+          </Paper>
+        ) : (
+          <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: `${BURGUNDY}08` }}>
+                  {['Imagen', 'Fecha', 'Título', 'Lugar', 'Estado', 'Convocatorias'].map((h) => (
+                    <TableCell key={h} sx={{ fontWeight: 700, color: BURGUNDY, py: 2 }}>{h}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {eventosPaginados.map((evento) => {
+                  const abierta = inscripcionAbierta(evento);
+                  return (
+                    <TableRow key={evento.id} hover sx={{ '&:hover': { bgcolor: `${CREAM}66` } }}>
+                      <TableCell sx={{ py: 1.5 }}>
+                        <Avatar
+                          src={evento.imagen_url}
+                          variant="rounded"
+                          sx={{
+                            width: 72, height: 72,
+                            bgcolor: `${PURPLE}14`,
+                            border: `1px solid ${BURGUNDY}22`,
+                          }}
+                        >
+                          <EventIcon sx={{ color: PURPLE }} />
+                        </Avatar>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                          {fmtCorta(evento.fecha)}
                         </Typography>
-                        <Typography variant="body2" paragraph>
-                          <strong>Hora:</strong> {eventoSeleccionado.hora}
-                        </Typography>
-                        <Typography variant="body2" paragraph>
-                          <strong>Lugar:</strong> {eventoSeleccionado.lugar}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>🏃 Información Deportiva</Typography>
-                        {eventoSeleccionado.convocatoriaSeleccionada ? (
-                          <>
-                            <Typography variant="body2" paragraph>
-                              <strong>Disciplina:</strong> {eventoSeleccionado.convocatoriaSeleccionada.disciplina}
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              <strong>Categoría:</strong> {eventoSeleccionado.convocatoriaSeleccionada.categoria}
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              <strong>Rango de Edad:</strong> {eventoSeleccionado.convocatoriaSeleccionada.edadMin} - {eventoSeleccionado.convocatoriaSeleccionada.edadMax} años
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              <strong>Género:</strong> {eventoSeleccionado.convocatoriaSeleccionada.genero === 'mixto' ? 'Mixto' :
-                                eventoSeleccionado.convocatoriaSeleccionada.genero === 'masculino' ? 'Masculino' : 'Femenino'}
-                            </Typography>
-                          </>
-                        ) : (
-                          <>
-                            <Typography variant="body2" paragraph>
-                              <strong>Disciplina:</strong> {eventoSeleccionado.disciplina || 'No especificada'}
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              <strong>Categoría:</strong> {eventoSeleccionado.categoria || 'No especificada'}
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              <strong>Rango de Edad:</strong> {eventoSeleccionado.edadMin || 'N/A'} - {eventoSeleccionado.edadMax || 'N/A'} años
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              <strong>Género:</strong> {eventoSeleccionado.genero || 'No especificado'}
-                            </Typography>
-                          </>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  {eventoSeleccionado.descripcion && (
-                    <Grid item xs={12}>
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom>📝 Descripción</Typography>
-                          <Typography variant="body2">
-                            {eventoSeleccionado.descripcion}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  )}
-
-                  <Grid item xs={12}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>📊 Información Técnica</Typography>
-                        <Typography variant="body2" paragraph>
-                          <strong>ID del Evento:</strong> {eventoSeleccionado._id}
-                        </Typography>
-                        {eventoSeleccionado.convocatoriaSeleccionada && (
-                          <Typography variant="body2" paragraph>
-                            <strong>Índice de la Convocatoria:</strong> {eventoSeleccionado.convocatoriaIndex !== undefined ? eventoSeleccionado.convocatoriaIndex + 1 : 'N/A'}
+                        {evento.hora && (
+                          <Typography variant="caption" sx={{ color: '#888' }}>
+                            {fmtHora(evento.hora)} hrs
                           </Typography>
                         )}
-                        <Typography variant="body2" paragraph>
-                          <strong>Fecha de Creación:</strong> {formatearFecha(eventoSeleccionado.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
+                          {evento.titulo}
                         </Typography>
-                        <Typography variant="body2" paragraph>
-                          <strong>Fecha de Cierre:</strong> {formatearFecha(eventoSeleccionado.fechaCierre)}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ color: '#555', display: 'flex', alignItems: 'center', gap: .5 }}>
+                          <LocationIcon sx={{ fontSize: 14, color: BURGUNDY }} />
+                          {evento.lugar}
                         </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                </Grid>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={abierta ? 'Abierto' : 'Cerrado'}
+                          color={abierta ? 'success' : 'error'}
+                          size="small"
+                          sx={{ fontWeight: 600, fontSize: '.72rem' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<PeopleIcon />}
+                          onClick={() => handleVerConvocatorias(evento)}
+                          sx={{
+                            color: BURGUNDY, borderColor: BURGUNDY,
+                            textTransform: 'none', fontWeight: 600,
+                            '&:hover': { borderColor: '#600018', bgcolor: `${BURGUNDY}08` },
+                          }}
+                        >
+                          Ver ({evento.convocatorias?.length || 0})
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {/* Paginación */}
+            {eventos.length > eventosPorPagina && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: '1px solid #eee' }}>
+                <Pagination
+                  count={Math.ceil(eventos.length / eventosPorPagina)}
+                  page={page}
+                  onChange={(e, v) => setPage(v)}
+                  sx={{
+                    '& .MuiPaginationItem-root.Mui-selected': { bgcolor: BURGUNDY, color: '#fff' },
+                  }}
+                />
               </Box>
             )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseModalEvento} color="primary">
-              Cerrar
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Snackbar para notificaciones */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          <Alert
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+          </Paper>
+        )}
       </Container>
-      </Box>
-      );
+
+      {/* ── Modal Convocatorias ── */}
+      <Dialog open={modalConvocatoriasOpen} onClose={() => setModalConvocatoriasOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar sx={{ bgcolor: BURGUNDY, width: 36, height: 36 }}>
+                <PeopleIcon sx={{ fontSize: 20 }} />
+              </Avatar>
+              <Box>
+                <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 700, lineHeight: 1.2 }}>
+                  Convocatorias
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#888' }}>
+                  {eventoConvocatorias?.titulo}
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton onClick={() => setModalConvocatoriasOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {eventoConvocatorias?.convocatorias?.length > 0 ? (
+            eventoConvocatorias.convocatorias.map((conv, idx) => (
+              <Paper key={idx} variant="outlined" sx={{
+                p: 2, mb: 1.5, borderRadius: 2,
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                '&:hover': { borderColor: BURGUNDY, bgcolor: `${CREAM}66` },
+                transition: 'all .2s',
+              }}>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
+                    {conv.disciplina}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#888' }}>
+                    {conv.categoria} · {conv.genero}
+                  </Typography>
+                </Box>
+                <IconButton onClick={() => handleVerDetalle(eventoConvocatorias, conv, idx)} sx={{ color: BURGUNDY }}>
+                  <ViewIcon />
+                </IconButton>
+              </Paper>
+            ))
+          ) : (
+            <Typography variant="body2" sx={{ textAlign: 'center', py: 3, color: '#999' }}>
+              No hay convocatorias para este evento
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalConvocatoriasOpen(false)} sx={{ color: PURPLE, fontWeight: 600 }}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Modal Detalle ── */}
+      <Dialog open={modalEventoOpen} onClose={() => setModalEventoOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar sx={{ bgcolor: PURPLE, width: 36, height: 36 }}>
+                <InfoIcon sx={{ fontSize: 20 }} />
+              </Avatar>
+              <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 700 }}>
+                Detalles del Evento
+              </Typography>
+            </Box>
+            <IconButton onClick={() => setModalEventoOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {eventoSeleccionado && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Imagen */}
+              {eventoSeleccionado.imagen_url && (
+                <Box component="img" src={eventoSeleccionado.imagen_url} alt={eventoSeleccionado.titulo}
+                  sx={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 2 }} />
+              )}
+
+              <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 700 }}>
+                {eventoSeleccionado.titulo}
+              </Typography>
+
+              <Divider />
+
+              {/* Info general */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <CalendarIcon sx={{ fontSize: 16, color: BURGUNDY }} />
+                    <Typography variant="caption" sx={{ color: '#888' }}>Fecha</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{fmt(eventoSeleccionado.fecha)}</Typography>
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <TimeIcon sx={{ fontSize: 16, color: BURGUNDY }} />
+                    <Typography variant="caption" sx={{ color: '#888' }}>Hora</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{fmtHora(eventoSeleccionado.hora) || '—'}</Typography>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <LocationIcon sx={{ fontSize: 16, color: BURGUNDY }} />
+                    <Typography variant="caption" sx={{ color: '#888' }}>Lugar</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{eventoSeleccionado.lugar}</Typography>
+                </Box>
+              </Box>
+
+              {/* Info deportiva */}
+              {eventoSeleccionado.convocatoriaSeleccionada && (
+                <>
+                  <Divider />
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                        <SportsIcon sx={{ fontSize: 16, color: PURPLE }} />
+                        <Typography variant="caption" sx={{ color: '#888' }}>Disciplina</Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {eventoSeleccionado.convocatoriaSeleccionada.disciplina}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#888' }}>Categoría</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {eventoSeleccionado.convocatoriaSeleccionada.categoria}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#888' }}>Género</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {eventoSeleccionado.convocatoriaSeleccionada.genero}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#888' }}>Cierre inscripción</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{fmt(eventoSeleccionado.fecha_cierre)}</Typography>
+                    </Box>
+                  </Box>
+                </>
+              )}
+
+              {/* Descripción */}
+              {eventoSeleccionado.descripcion && (
+                <>
+                  <Divider />
+                  <Box>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Descripción</Typography>
+                    <Typography variant="body2" sx={{ mt: .5, lineHeight: 1.6, color: '#333' }}>
+                      {eventoSeleccionado.descripcion}
+                    </Typography>
+                  </Box>
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalEventoOpen(false)} sx={{ color: PURPLE, fontWeight: 600 }}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
 };
 
-      export default EventosAtleta;
+export default EventosAtleta;

@@ -42,10 +42,10 @@ import Swal from 'sweetalert2';
 
 const BURGUNDY = '#800020';
 const PURPLE = '#7A4069';
-const CREAM = '#F5E8C7';
+const CREAM = '#e3e4e5';
 
 const PerfilAtleta = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth(); 
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -86,6 +86,7 @@ const PerfilAtleta = () => {
           estadoNacimiento: data.estado_nacimiento,
           gmail: data.email,
           club_id: data.club_id,
+          sexo: data.genero,
         });
         setErrorMessage('');
       }
@@ -146,6 +147,7 @@ const PerfilAtleta = () => {
         telefono: perfil.telefono,
         email: perfil.gmail,
         sexo: perfil.sexo,
+        municipio: perfil.municipio,
       });
       setEditMode(false);
       setErrorMessage('Perfil actualizado exitosamente.');
@@ -223,7 +225,6 @@ const PerfilAtleta = () => {
       ? clubes.find((c) => c.id === perfil.club_id || c._id === perfil.club_id)?.nombre || 'Club asignado'
       : 'Independiente';
 
-  /* ───────── LOADING ───────── */
   if (loading) {
     return (
       <Box
@@ -241,7 +242,6 @@ const PerfilAtleta = () => {
     );
   }
 
-  /* ───────── NO PERFIL ───────── */
   if (!perfil) {
     return (
       <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%' }}>
@@ -267,7 +267,6 @@ const PerfilAtleta = () => {
     );
   }
 
-  /* ───────── CAMPO READ-ONLY (vista) ───────── */
   const ReadOnlyField = ({ icon, label, value }) => (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: 2, px: 1 }}>
       <Box sx={{ color: BURGUNDY, mt: 0.4, flexShrink: 0, fontSize: 22 }}>{icon}</Box>
@@ -294,9 +293,6 @@ const PerfilAtleta = () => {
     </Box>
   );
 
-  /* ═══════════════════════════════════════════
-     MAIN RENDER
-     ═══════════════════════════════════════════ */
   return (
     <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%' }}>
       <Container maxWidth="md" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
@@ -320,9 +316,6 @@ const PerfilAtleta = () => {
           </Alert>
         )}
 
-        {/* ══════════════════════════════════════
-           HEADER CARD — Avatar + nombre + club
-           ══════════════════════════════════════ */}
         <Card
           sx={{
             borderRadius: 3,
@@ -331,7 +324,6 @@ const PerfilAtleta = () => {
             position: 'relative',
           }}
         >
-          {/* Burgundy banner */}
           <Box
             sx={{
               bgcolor: BURGUNDY,
@@ -339,8 +331,6 @@ const PerfilAtleta = () => {
               borderRadius: '12px 12px 0 0',
             }}
           />
-
-          {/* Avatar overlapping the banner */}
           <Box
             sx={{
               display: 'flex',
@@ -405,10 +395,6 @@ const PerfilAtleta = () => {
             </Box>
           </Box>
         </Card>
-
-        {/* ══════════════════════════════════════
-           INFO PERSONAL
-           ══════════════════════════════════════ */}
         <Card sx={{ borderRadius: 3, mb: 3 }}>
           <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
             <Box
@@ -467,7 +453,6 @@ const PerfilAtleta = () => {
             <Divider sx={{ mb: 2 }} />
 
             {editMode ? (
-              /* ── EDIT MODE ── */
               <Grid container spacing={2}>
                 {/* Campos editables */}
                 <Grid item xs={12}>
@@ -572,6 +557,22 @@ const PerfilAtleta = () => {
                     </Select>
                   </FormControl>
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Municipio"
+                    name="municipio"
+                    value={perfil.municipio || ''}
+                    onChange={handleInputChange}
+                    fullWidth
+                    size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: BURGUNDY,
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': { color: BURGUNDY },
+                    }}
+                  />
+                </Grid>
 
                 {/* Campos no editables */}
                 <Grid item xs={12}>
@@ -596,15 +597,11 @@ const PerfilAtleta = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField label="Estado de Nacimiento" value={perfil.estadoNacimiento || ''} fullWidth disabled size="small" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField label="Municipio" value={perfil.municipio || ''} fullWidth disabled size="small" />
-                </Grid>
                 <Grid item xs={12}>
                   <TextField label="Lugar de Entrenamiento" value={perfil.lugar_entrenamiento || ''} fullWidth disabled size="small" />
                 </Grid>
               </Grid>
             ) : (
-              /* ── READ MODE ── */
               <Grid container spacing={0}>
                 <Grid item xs={12} sm={6}>
                   <ReadOnlyField
@@ -673,10 +670,6 @@ const PerfilAtleta = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* ══════════════════════════════════════
-           GESTIÓN DE CLUB
-           ══════════════════════════════════════ */}
         <Card sx={{ borderRadius: 3 }}>
           <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
             <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold', mb: 2 }}>

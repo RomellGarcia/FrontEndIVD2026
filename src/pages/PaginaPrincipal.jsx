@@ -29,7 +29,7 @@ const theme = createTheme({
     },
     background: {
       default: '#FFFFFF', // Fondo blanco puro
-      paper: '#F5E8C7', // Beige claro para fondos secundarios
+      paper: '#e4e4e5', // Beige claro para fondos secundarios
     },
     text: {
       primary: '#333333', // Gris oscuro para texto principal
@@ -65,7 +65,7 @@ const theme = createTheme({
       textTransform: 'none',
     },
   },
-  shape: { borderRadius: 8 }, // Bordes más suaves pero menos redondeados
+  shape: { borderRadius: 8 },
   components: {
     MuiButton: {
       styleOverrides: {
@@ -74,7 +74,7 @@ const theme = createTheme({
           padding: '8px 16px',
           boxShadow: 'none',
           '&:hover': {
-            backgroundColor: '#A52A2A', // Tono más claro para hover
+            backgroundColor: '#A52A2A',
           },
         },
         containedPrimary: {
@@ -160,11 +160,6 @@ const PaginaPrincipal = () => {
             </Grid>
           </Fade>
         </Container>
-
-       
-       
-        {/* Call to Action */}
-        
       </Box>
     </ThemeProvider>
   );

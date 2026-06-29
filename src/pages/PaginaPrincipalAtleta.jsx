@@ -1,110 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { atletasAPI, clubesAPI, eventosAPI } from '../api/index.js';
 import { useAuth } from '../components/common/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
 import {
-  Box,
-  Container,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  Button,
-  Chip,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Divider,
-  CircularProgress,
-  Alert,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  useMediaQuery,
-  useTheme,
+  Box, Container, Typography, Card, CardContent, Button, Chip, Avatar,
+  List, ListItem, ListItemText, ListItemAvatar, Divider, CircularProgress,
+  Alert, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
+  Table, TableBody, TableCell, TableHead, TableRow, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
-  Person as PersonIcon,
-  Event as EventIcon,
-  Group as GroupIcon,
-  CalendarToday as CalendarIcon,
-  EmojiEvents as TrophyIcon,
-  School as SchoolIcon,
-  DirectionsRun as RunIcon,
-  Visibility as ViewIcon,
-  CheckCircle as CheckIcon,
-  Close as CloseIcon,
+  Person as PersonIcon, Event as EventIcon, Group as GroupIcon,
+  CalendarToday as CalendarIcon, EmojiEvents as TrophyIcon,
+  DirectionsRun as RunIcon, Visibility as ViewIcon,
+  CheckCircle as CheckIcon, Close as CloseIcon,
+  LocationOn as LocationIcon, Phone as PhoneIcon,
+  SportsScore as SportsIcon,
 } from '@mui/icons-material';
 
 const BURGUNDY = '#800020';
 const PURPLE = '#7A4069';
-const CREAM = '#F5E8C7';
+const CREAM = '#e4e4e5';
+const GREEN = '#2E7D32';
 
+/* ── Tarjeta de estadística — color sólido ── */
 const StatCard = ({ icon, value, label, bgcolor }) => (
-  <Card
-    sx={{
-      bgcolor,
-      color: 'white',
-      borderRadius: 3,
-      height: '100%',
-      minHeight: { xs: 130, sm: 150, md: 160 },
-    }}
-  >
-    <CardContent
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        py: { xs: 2, md: 3 },
-        px: 2,
-        gap: 0.5,
-        '&:last-child': { pb: { xs: 2, md: 3 } },
-      }}
-    >
-      <Box sx={{ fontSize: { xs: 32, md: 40 }, lineHeight: 1, mb: 0.5, display: 'flex' }}>
+  <Card sx={{
+    bgcolor,
+    color: '#fff',
+    borderRadius: 3,
+    transition: 'transform .2s, box-shadow .2s',
+    '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 24px rgba(0,0,0,.15)' },
+  }}>
+    <CardContent sx={{ py: 3, px: 2, textAlign: 'center' }}>
+      <Box sx={{ fontSize: 36, lineHeight: 1, mb: .5, display: 'flex', justifyContent: 'center' }}>
         {icon}
       </Box>
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 'bold',
-          fontSize: { xs: '1.4rem', md: '2rem' },
-          lineHeight: 1.1,
-          textAlign: 'center',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          maxWidth: '100%',
-        }}
-      >
+      <Typography variant="h4" sx={{
+        fontWeight: 800, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.8rem' },
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
         {value}
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          opacity: 0.9,
-          textAlign: 'center',
-          fontSize: { xs: '0.7rem', md: '0.8rem' },
-        }}
-      >
+      <Typography variant="caption" sx={{ opacity: .9, fontSize: { xs: '.7rem', md: '.8rem' } }}>
         {label}
       </Typography>
     </CardContent>
   </Card>
 );
 
+/* ── Sección con título ── */
+const SectionCard = ({ icon, title, color, action, children }) => (
+  <Card sx={{
+    borderRadius: 3, height: '100%',
+    boxShadow: '0 2px 12px rgba(0,0,0,.06)',
+    display: 'flex', flexDirection: 'column',
+  }}>
+    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar sx={{ bgcolor: color, width: 36, height: 36 }}>{icon}</Avatar>
+          <Typography variant="h6" sx={{ color, fontWeight: 'bold' }}>{title}</Typography>
+        </Box>
+        {action}
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+      <Box sx={{ flex: 1 }}>{children}</Box>
+    </CardContent>
+  </Card>
+);
+
 const PaginaPrincipalAtleta = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -116,106 +83,75 @@ const PaginaPrincipalAtleta = () => {
   const [eventosParticipacion, setEventosParticipacion] = useState([]);
   const [modalClubesOpen, setModalClubesOpen] = useState(false);
   const [estadisticas, setEstadisticas] = useState({
-    totalEventos: 0,
-    eventosGanados: 0,
-    sesionesCompletadas: 0,
-    clubActual: null,
+    totalEventos: 0, eventosGanados: 0, sesionesCompletadas: 0, clubActual: null,
   });
 
-  useEffect(() => {
-    if (user) cargarDatosAtleta();
-  }, [user]);
-
-  useEffect(() => {
-    if (atletaData) calcularEstadisticas(atletaData, eventosParticipacion);
-  }, [atletaData, eventosParticipacion]);
+  useEffect(() => { if (user) cargarDatosAtleta(); }, [user]);
+  useEffect(() => { if (atletaData) calcularEstadisticas(atletaData, eventosParticipacion); }, [atletaData, eventosParticipacion]);
 
   const cargarDatosAtleta = async () => {
     try {
-      setLoading(true);
-      setError('');
-
+      setLoading(true); setError('');
       const atletaResponse = await atletasAPI.getPerfil();
       const atleta = atletaResponse.data.atleta;
       setAtletaData(atleta);
 
       try {
-        const clubesResponse = await clubesAPI.getAll();
-        setClubesDisponibles((clubesResponse.data.clubes || []).slice(0, 6));
-      } catch {
-        setClubesDisponibles([]);
-      }
+        const clubesRes = await clubesAPI.getAll();
+        setClubesDisponibles((clubesRes.data.clubes || []).slice(0, 6));
+      } catch { setClubesDisponibles([]); }
 
       try {
         const edad = calcularEdad(atleta.fecha_nacimiento);
         const genero = atleta.genero?.toLowerCase();
         if (edad && genero) {
-          const eventosResponse = await eventosAPI.getMisConvocatorias();
-          setEventosProximos((eventosResponse.data.convocatorias || []).slice(0, 4));
-        } else {
-          setEventosProximos([]);
-        }
-      } catch {
-        setEventosProximos([]);
-      }
+          const eventosRes = await eventosAPI.getMisConvocatorias();
+          const convocatorias = eventosRes.data.convocatorias || [];
+          // Solo eventos futuros
+          const soloFuturos = convocatorias.filter(e => new Date(e.fecha) >= new Date());
+          setEventosProximos(soloFuturos.slice(0, 5));
+        } else { setEventosProximos([]); }
+      } catch { setEventosProximos([]); }
 
       try {
-        const participacionResponse = await eventosAPI.getMisInscripciones();
-        setEventosParticipacion((participacionResponse.data.inscripciones || []).slice(0, 3));
-      } catch {
-        setEventosParticipacion([]);
-      }
+        const partRes = await eventosAPI.getMisInscripciones();
+        setEventosParticipacion((partRes.data.inscripciones || []).slice(0, 5));
+      } catch { setEventosParticipacion([]); }
     } catch (err) {
-      setError(`Error al cargar los datos del atleta: ${err.response?.data?.error || err.message}`);
-    } finally {
-      setLoading(false);
-    }
+      setError(`Error al cargar los datos: ${err.response?.data?.error || err.message}`);
+    } finally { setLoading(false); }
   };
 
   const calcularEdad = (fechaNacimiento) => {
     if (!fechaNacimiento) return null;
-    const hoy = new Date();
-    const nac = new Date(fechaNacimiento);
+    const hoy = new Date(); const nac = new Date(fechaNacimiento);
     let edad = hoy.getFullYear() - nac.getFullYear();
-    const mes = hoy.getMonth() - nac.getMonth();
-    if (mes < 0 || (mes === 0 && hoy.getDate() < nac.getDate())) edad--;
+    const m = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
     return edad;
   };
 
   const calcularEstadisticas = (atleta, participaciones = []) => {
     setEstadisticas({
       totalEventos: participaciones.length,
-      eventosGanados: participaciones.filter((p) => p.resultado === 'ganador').length,
+      eventosGanados: participaciones.filter(p => p.resultado === 'ganador').length,
       sesionesCompletadas: 0,
       clubActual: atleta.club_nombre || 'Sin Club',
     });
   };
 
-  const formatearFecha = (fecha) => {
+  const fmt = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
     try {
-      return new Date(fecha).toLocaleDateString('es-ES', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return new Date(fecha).toLocaleDateString('es-MX', {
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
       });
-    } catch {
-      return 'Fecha inválida';
-    }
+    } catch { return 'Fecha inválida'; }
   };
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          bgcolor: CREAM,
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
         <CircularProgress size={60} sx={{ color: BURGUNDY }} />
       </Box>
     );
@@ -225,15 +161,10 @@ const PaginaPrincipalAtleta = () => {
     return (
       <Box sx={{ bgcolor: CREAM, minHeight: '100vh', py: 4 }}>
         <Container maxWidth="lg">
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              onClick={cargarDatosAtleta}
-              sx={{ bgcolor: BURGUNDY, '&:hover': { bgcolor: '#600018' } }}
-            >
+            <Button variant="contained" onClick={cargarDatosAtleta}
+              sx={{ bgcolor: BURGUNDY, '&:hover': { bgcolor: '#600018' } }}>
               Intentar de Nuevo
             </Button>
           </Box>
@@ -242,367 +173,269 @@ const PaginaPrincipalAtleta = () => {
     );
   }
 
-  const statCards = [
-    {
-      icon: <EventIcon fontSize="inherit" />,
-      value: estadisticas.totalEventos,
-      label: 'Eventos Participados',
-      bgcolor: BURGUNDY,
-    },
-    {
-      icon: <TrophyIcon fontSize="inherit" />,
-      value: estadisticas.eventosGanados,
-      label: 'Victorias',
-      bgcolor: PURPLE,
-    },
-    {
-      icon: <RunIcon fontSize="inherit" />,
-      value: estadisticas.sesionesCompletadas,
-      label: 'Sesiones Completadas',
-      bgcolor: '#2E7D32',
-    },
-    {
-      icon: <GroupIcon fontSize="inherit" />,
-      value: estadisticas.clubActual,
-      label: 'Club Actual',
-      bgcolor: '#1565C0',
-    },
-  ];
-
   return (
     <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%' }}>
-      <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 }, px: { xs: 2, sm: 3 } }}>
 
-        {/* Header */}
-        <Box sx={{ textAlign: 'center', mb: { xs: 3, md: 4 } }}>
-          <Avatar
-            sx={{
-              width: { xs: 64, md: 80 },
-              height: { xs: 64, md: 80 },
-              mx: 'auto',
-              mb: 1.5,
-              bgcolor: BURGUNDY,
-            }}
-          >
-            <PersonIcon sx={{ fontSize: { xs: 32, md: 40 } }} />
+        {/* ── Header ── */}
+        <Box sx={{ textAlign: 'center', mb: 5 }}>
+          <Avatar sx={{
+            width: 88, height: 88, mx: 'auto', mb: 2,
+            bgcolor: BURGUNDY, fontSize: '2rem', fontWeight: 'bold',
+          }}>
+            {atletaData?.nombre?.[0]}{atletaData?.apellido_paterno?.[0] || ''}
           </Avatar>
-          <Typography
-            variant="h4"
-            sx={{
-              color: BURGUNDY,
-              fontWeight: 'bold',
-              mb: 0.5,
-              fontSize: { xs: '1.5rem', md: '2.125rem' },
-            }}
-          >
+          <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, mb: .5 }}>
             ¡Bienvenido, {atletaData?.nombre}!
           </Typography>
-          <Typography
-            variant="h6"
-            sx={{ color: PURPLE, fontSize: { xs: '0.95rem', md: '1.25rem' } }}
-          >
+          <Typography variant="body1" sx={{ color: PURPLE, opacity: .8 }}>
             Tu centro de control deportivo personal
           </Typography>
         </Box>
 
-        {/* Stat cards */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            mb: { xs: 3, md: 4 },
-          }}
-        >
-          <Grid
-            container
-            spacing={{ xs: 2, md: 3 }}
-            sx={{ maxWidth: { xs: '100%', sm: 600, md: 900 } }}
-          >
-            {statCards.map((stat, i) => (
-              <Grid item xs={6} sm={3} key={i}>
-                <StatCard {...stat} />
-              </Grid>
-            ))}
-          </Grid>
+        {/* ── Estadísticas — colores sólidos ── */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
+          gap: 3, mb: 5, maxWidth: 800, mx: 'auto',
+        }}>
+          <StatCard icon={<EventIcon fontSize="inherit" />}
+            value={estadisticas.totalEventos} label="Eventos Participados"
+            bgcolor={BURGUNDY} />
+          <StatCard icon={<TrophyIcon fontSize="inherit" />}
+            value={estadisticas.eventosGanados} label="Victorias"
+            bgcolor={PURPLE} />
+          <StatCard icon={<RunIcon fontSize="inherit" />}
+            value={estadisticas.sesionesCompletadas} label="Sesiones Completadas"
+            bgcolor={GREEN} />
+          <StatCard icon={<GroupIcon fontSize="inherit" />}
+            value={estadisticas.clubActual} label="Club Actual"
+            bgcolor="#1565C0" />
         </Box>
 
-        {/* Main content */}
-        <Grid container spacing={{ xs: 2, md: 3 }}>
+        {/* ── Contenido principal — 3 columnas ── */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+          gap: 3,
+        }}>
 
-          {/* Clubes Disponibles */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: 3, height: '100%' }}>
-              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar sx={{ bgcolor: BURGUNDY, mr: 1.5, width: 36, height: 36 }}>
-                    <GroupIcon fontSize="small" />
-                  </Avatar>
-                  <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
-                    Clubes Disponibles
-                  </Typography>
-                </Box>
+          {/* ── Clubes Disponibles ── */}
+          <SectionCard
+            icon={<GroupIcon sx={{ fontSize: 20 }} />}
+            title="Clubes Disponibles"
+            color={BURGUNDY}
+            action={
+              clubesDisponibles.length > 0 && (
+                <Button size="small" onClick={() => setModalClubesOpen(true)}
+                  sx={{ color: BURGUNDY, textTransform: 'none', fontWeight: 600, fontSize: '.8rem' }}>
+                  Ver todos
+                </Button>
+              )
+            }
+          >
+            {clubesDisponibles.length === 0 ? (
+              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                No hay clubes disponibles
+              </Typography>
+            ) : (
+              <List disablePadding>
+                {clubesDisponibles.slice(0, 3).map((club, i) => (
+                  <React.Fragment key={club.id}>
+                    <ListItem disableGutters sx={{ py: 1.2 }}>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: PURPLE, width: 38, height: 38, fontSize: '.85rem' }}>
+                          {club.nombre?.[0]}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                            {club.nombre}
+                          </Typography>
+                        }
+                        secondary={
+                          <Box>
+                            {club.telefono && (
+                              <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                                <PhoneIcon sx={{ fontSize: 12 }} /> {club.telefono}
+                              </Typography>
+                            )}
+                            {club.direccion && (
+                              <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                                <LocationIcon sx={{ fontSize: 12 }} /> {club.direccion.substring(0, 40)}...
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                    {i < 2 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </SectionCard>
 
-                {clubesDisponibles.length === 0 ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', color: PURPLE, py: 3 }}>
-                    No hay clubes disponibles en este momento.
-                  </Typography>
-                ) : (
-                  <>
-                    <List disablePadding>
-                      {clubesDisponibles.slice(0, 3).map((club, index) => (
-                        <React.Fragment key={club.id}>
-                          <ListItem disableGutters alignItems="flex-start" sx={{ py: 1.5 }}>
-                            <ListItemAvatar>
-                              <Avatar sx={{ bgcolor: PURPLE, width: 38, height: 38 }}>
-                                <SchoolIcon fontSize="small" />
-                              </Avatar>
-                            </ListItemAvatar>
-                            <ListItemText
-                              primary={
-                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
-                                  {club.nombre}
-                                </Typography>
-                              }
-                              secondaryTypographyProps={{ component: 'div' }}
-                              secondary={
-                                <Box>
-                                  {club.direccion && (
-                                    <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                                      📍 {club.direccion}
-                                    </Typography>
-                                  )}
-                                  <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                                    📞 {club.telefono}
-                                  </Typography>
-                                  {club.descripcion && (
-                                    <Typography variant="caption" sx={{ color: PURPLE, display: 'block', mt: 0.5 }}>
-                                      {club.descripcion.substring(0, 80)}…
-                                    </Typography>
-                                  )}
-                                </Box>
-                              }
+          {/* ── Próximos Eventos (solo futuros) ── */}
+          <SectionCard
+            icon={<CalendarIcon sx={{ fontSize: 20 }} />}
+            title="Próximos Eventos"
+            color={GREEN}
+          >
+            {eventosProximos.length === 0 ? (
+              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                No hay eventos próximos para tu categoría
+              </Typography>
+            ) : (
+              <List disablePadding>
+                {eventosProximos.slice(0, 4).map((evento, i) => (
+                  <React.Fragment key={evento.id || i}>
+                    <ListItem disableGutters sx={{ py: 1.2, alignItems: 'flex-start' }}>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: GREEN, width: 38, height: 38 }}>
+                          <EventIcon sx={{ fontSize: 18 }} />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                            {evento.titulo}
+                          </Typography>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
+                              <CalendarIcon sx={{ fontSize: 12 }} /> {fmt(evento.fecha)}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                              <LocationIcon sx={{ fontSize: 12 }} /> {evento.lugar}
+                            </Typography>
+                            {(evento.disciplina || evento.categoria) && (
+                              <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                                <SportsIcon sx={{ fontSize: 12 }} /> {evento.disciplina} — {evento.categoria}
+                              </Typography>
+                            )}
+                            <Chip
+                              label={evento.fecha_cierre && new Date(evento.fecha_cierre) < new Date() ? 'Inscripción cerrada' : 'Inscripción abierta'}
+                              color={evento.fecha_cierre && new Date(evento.fecha_cierre) < new Date() ? 'error' : 'success'}
+                              size="small"
+                              sx={{ mt: .5, height: 20, fontSize: '.7rem' }}
                             />
-                          </ListItem>
-                          {index < 2 && <Divider />}
-                        </React.Fragment>
-                      ))}
-                    </List>
-                    <Box sx={{ textAlign: 'center', mt: 2 }}>
-                      <Button
-                        variant="outlined"
-                        onClick={() => setModalClubesOpen(true)}
-                        startIcon={<ViewIcon />}
-                        size={isMobile ? 'small' : 'medium'}
-                        sx={{
-                          borderColor: BURGUNDY,
-                          color: BURGUNDY,
-                          '&:hover': { borderColor: '#600018', backgroundColor: CREAM },
-                        }}
-                      >
-                        Ver Todos los Clubes
-                      </Button>
-                    </Box>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                    {i < eventosProximos.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </SectionCard>
 
-          {/* Próximos Eventos */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: 3, height: '100%' }}>
-              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar sx={{ bgcolor: BURGUNDY, mr: 1.5, width: 36, height: 36 }}>
-                    <CalendarIcon fontSize="small" />
-                  </Avatar>
-                  <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
-                    Próximos Eventos
-                  </Typography>
-                </Box>
-
-                {eventosProximos.length === 0 ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', color: PURPLE, py: 3 }}>
-                    No hay eventos próximos disponibles para tu categoría.
-                  </Typography>
-                ) : (
-                  <List disablePadding>
-                    {eventosProximos.map((evento, index) => (
-                      <React.Fragment key={evento.id}>
-                        <ListItem disableGutters alignItems="flex-start" sx={{ py: 1.5 }}>
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: PURPLE, width: 38, height: 38 }}>
-                              <EventIcon fontSize="small" />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
-                                {evento.titulo}
+          {/* ── Mis Participaciones con botón Ver ── */}
+          <SectionCard
+            icon={<CheckIcon sx={{ fontSize: 20 }} />}
+            title="Mis Participaciones"
+            color={PURPLE}
+          >
+            {eventosParticipacion.length === 0 ? (
+              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                No estás inscrito en ningún evento
+              </Typography>
+            ) : (
+              <List disablePadding>
+                {eventosParticipacion.map((p, i) => (
+                  <React.Fragment key={p.id || i}>
+                    <ListItem disableGutters sx={{ py: 1.2, alignItems: 'flex-start' }}>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: PURPLE, width: 38, height: 38 }}>
+                          <TrophyIcon sx={{ fontSize: 18 }} />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                            {p.evento?.titulo || p.titulo || 'Evento'}
+                          </Typography>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
+                              <CalendarIcon sx={{ fontSize: 12 }} /> {fmt(p.fecha || p.fechaInscripcion)}
+                            </Typography>
+                            {(p.evento?.disciplina || p.disciplina) && (
+                              <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                                <SportsIcon sx={{ fontSize: 12 }} /> {p.evento?.disciplina || p.disciplina}
                               </Typography>
-                            }
-                            secondaryTypographyProps={{ component: 'div' }}
-                            secondary={
-                              <Box>
-                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                                  📅 {formatearFecha(evento.fecha)}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                                  📍 {evento.lugar}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                                  🏃 {evento.disciplina} — {evento.categoria}
-                                </Typography>
-                                <Chip
-                                  label={evento.estado ? 'Abierto' : 'Cerrado'}
-                                  color={evento.estado ? 'success' : 'error'}
-                                  size="small"
-                                  sx={{ mt: 0.5 }}
-                                />
-                              </Box>
-                            }
-                          />
-                        </ListItem>
-                        {index < eventosProximos.length - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Mis Participaciones */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: 3, height: '100%' }}>
-              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar sx={{ bgcolor: BURGUNDY, mr: 1.5, width: 36, height: 36 }}>
-                    <CheckIcon fontSize="small" />
-                  </Avatar>
-                  <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
-                    Mis Participaciones
-                  </Typography>
-                </Box>
-
-                {eventosParticipacion.length === 0 ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', color: PURPLE, py: 3 }}>
-                    No estás participando en ningún evento actualmente.
-                  </Typography>
-                ) : (
-                  <List disablePadding>
-                    {eventosParticipacion.map((participacion, index) => (
-                      <React.Fragment key={participacion.id}>
-                        <ListItem disableGutters alignItems="flex-start" sx={{ py: 1.5 }}>
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: '#2E7D32', width: 38, height: 38 }}>
-                              <TrophyIcon fontSize="small" />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
-                                {participacion.evento?.titulo || 'Evento'}
-                              </Typography>
-                            }
-                            secondaryTypographyProps={{ component: 'div' }}
-                            secondary={
-                              <Box>
-                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                                  📅 {formatearFecha(participacion.fechaInscripcion)}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                                  🏃 {participacion.evento?.disciplina || 'N/A'}
-                                </Typography>
-                                <Chip
-                                  label={participacion.validado ? 'Validado' : 'Pendiente'}
-                                  color={participacion.validado ? 'success' : 'warning'}
-                                  size="small"
-                                  sx={{ mt: 0.5 }}
-                                />
-                              </Box>
-                            }
-                          />
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<ViewIcon />}
-                            sx={{
-                              borderColor: '#2E7D32',
-                              color: '#2E7D32',
-                              alignSelf: 'center',
-                              ml: 1,
-                              flexShrink: 0,
-                              '&:hover': { borderColor: '#1B5E20', backgroundColor: CREAM },
-                            }}
-                          >
-                            Ver
-                          </Button>
-                        </ListItem>
-                        {index < eventosParticipacion.length - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                            )}
+                            <Chip
+                              label={p.validado ? 'Validado' : 'Pendiente'}
+                              color={p.validado ? 'success' : 'warning'}
+                              size="small"
+                              sx={{ mt: .5, height: 20, fontSize: '.7rem' }}
+                            />
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                    {i < eventosParticipacion.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </SectionCard>
+        </Box>
       </Container>
 
-      {/* Modal Clubes */}
-      <Dialog
-        open={modalClubesOpen}
-        onClose={() => setModalClubesOpen(false)}
-        maxWidth="lg"
-        fullWidth
-        fullScreen={isMobile}
-      >
+      {/* ── Modal Clubes ── */}
+      <Dialog open={modalClubesOpen} onClose={() => setModalClubesOpen(false)}
+        maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
-              Clubes Disponibles
-            </Typography>
-            <IconButton onClick={() => setModalClubesOpen(false)}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar sx={{ bgcolor: BURGUNDY, width: 32, height: 32 }}>
+                <GroupIcon sx={{ fontSize: 18 }} />
+              </Avatar>
+              <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>
+                Clubes Disponibles
+              </Typography>
+            </Box>
+            <IconButton onClick={() => setModalClubesOpen(false)} size="small">
               <CloseIcon />
             </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
           {clubesDisponibles.length === 0 ? (
-            <Typography variant="body2" sx={{ textAlign: 'center', p: 3, color: PURPLE }}>
-              No hay clubes disponibles en este momento.
+            <Typography variant="body2" sx={{ textAlign: 'center', p: 3, color: '#999' }}>
+              No hay clubes disponibles
             </Typography>
           ) : isMobile ? (
             <List disablePadding>
-              {clubesDisponibles.map((club, index) => (
+              {clubesDisponibles.map((club, i) => (
                 <React.Fragment key={club.id}>
                   <ListItem disableGutters sx={{ py: 2 }}>
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: PURPLE }}>
-                        <SchoolIcon />
-                      </Avatar>
+                      <Avatar sx={{ bgcolor: PURPLE }}>{club.nombre?.[0]}</Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={
-                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
-                          {club.nombre}
-                        </Typography>
-                      }
-                      secondaryTypographyProps={{ component: 'div' }}
+                      primary={<Typography variant="subtitle2" sx={{ fontWeight: 600, color: BURGUNDY }}>{club.nombre}</Typography>}
                       secondary={
                         <Box>
-                          <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                            {club.estadoNacimiento} · {club.telefono}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: PURPLE, display: 'block' }}>
-                            {club.descripcion || 'Sin descripción disponible'}
+                          {club.telefono && (
+                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                              <PhoneIcon sx={{ fontSize: 12 }} /> {club.telefono}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" sx={{ color: '#888' }}>
+                            {club.descripcion || 'Sin descripción'}
                           </Typography>
                         </Box>
                       }
                     />
                   </ListItem>
-                  {index < clubesDisponibles.length - 1 && <Divider />}
+                  {i < clubesDisponibles.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
             </List>
@@ -610,34 +443,28 @@ const PaginaPrincipalAtleta = () => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell><strong>Club</strong></TableCell>
-                  <TableCell><strong>Estado</strong></TableCell>
-                  <TableCell><strong>Teléfono</strong></TableCell>
-                  <TableCell><strong>Descripción</strong></TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Club</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Teléfono</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Dirección</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Descripción</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {clubesDisponibles.map((club) => (
-                  <TableRow key={club.id}>
+                  <TableRow key={club.id} hover>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Avatar sx={{ bgcolor: PURPLE, width: 32, height: 32 }}>
-                          <SchoolIcon fontSize="small" />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Avatar sx={{ bgcolor: PURPLE, width: 30, height: 30, fontSize: '.8rem' }}>
+                          {club.nombre?.[0]}
                         </Avatar>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: BURGUNDY }}>
-                          {club.nombre}
-                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{club.nombre}</Typography>
                       </Box>
                     </TableCell>
+                    <TableCell><Typography variant="body2">{club.telefono || '—'}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{club.direccion || '—'}</Typography></TableCell>
                     <TableCell>
-                      <Typography variant="body2">{club.estadoNacimiento}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{club.telefono}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ maxWidth: 280 }}>
-                        {club.descripcion || 'Sin descripción disponible'}
+                      <Typography variant="body2" sx={{ maxWidth: 250 }}>
+                        {club.descripcion ? club.descripcion.substring(0, 80) + '...' : '—'}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -647,7 +474,7 @@ const PaginaPrincipalAtleta = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setModalClubesOpen(false)} sx={{ color: PURPLE }}>
+          <Button onClick={() => setModalClubesOpen(false)} sx={{ color: PURPLE, fontWeight: 600 }}>
             Cerrar
           </Button>
         </DialogActions>

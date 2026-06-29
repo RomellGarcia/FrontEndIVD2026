@@ -26,7 +26,7 @@ const HotelesP = () => {
   const [hoteles, setHoteles] = useState([]);
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
-  const [ratings, setRatings] = useState({}); // Store ratings for each hotel (in-memory)
+  const [ratings, setRatings] = useState({});
 
   const navigate = useNavigate();
 

@@ -3,8 +3,6 @@ import {
   Box,
   Container,
   Typography,
-  Paper,
-  Grid,
   Card,
   CardContent,
   Button,
@@ -20,36 +18,100 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Divider,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   People as PeopleIcon,
   TrendingUp as TrendingUpIcon,
-  EmojiEvents as EmojiEventsIcon,
+  EmojiEvents as TrophyIcon,
   Speed as SpeedIcon,
   Edit as EditIcon,
-  Visibility as VisibilityIcon,
+  Visibility as ViewIcon,
   Event as EventIcon,
-  CheckCircle as CheckCircleIcon,
   CalendarToday as CalendarIcon,
   LocationOn as LocationIcon,
-  Group as GroupIcon
+  Group as GroupIcon,
+  Phone as PhoneIcon,
+  SportsScore as SportsIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
+const BURGUNDY = '#800020';
+const PURPLE = '#7A4069';
+const CREAM = '#e4e4e5';
+const GREEN = '#2E7D32';
+
+const StatCard = ({ icon, value, label, bgcolor }) => (
+  <Card sx={{
+    bgcolor,
+    color: '#fff',
+    borderRadius: 3,
+    transition: 'transform .2s, box-shadow .2s',
+    '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 24px rgba(0,0,0,.15)' },
+  }}>
+    <CardContent sx={{ py: 3, px: 2, textAlign: 'center' }}>
+      <Box sx={{ fontSize: 36, lineHeight: 1, mb: .5, display: 'flex', justifyContent: 'center' }}>
+        {icon}
+      </Box>
+      <Typography variant="h4" sx={{
+        fontWeight: 800, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.8rem' },
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {value}
+      </Typography>
+      <Typography variant="caption" sx={{ opacity: .9, fontSize: { xs: '.7rem', md: '.8rem' } }}>
+        {label}
+      </Typography>
+    </CardContent>
+  </Card>
+);
+
+const SectionCard = ({ icon, title, color, action, children }) => (
+  <Card sx={{
+    borderRadius: 3, height: '100%',
+    boxShadow: '0 2px 12px rgba(0,0,0,.06)',
+    display: 'flex', flexDirection: 'column',
+  }}>
+    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar sx={{ bgcolor: color, width: 36, height: 36 }}>{icon}</Avatar>
+          <Typography variant="h6" sx={{ color, fontWeight: 'bold' }}>{title}</Typography>
+        </Box>
+        {action}
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+      <Box sx={{ flex: 1 }}>{children}</Box>
+    </CardContent>
+  </Card>
+);
+
 const PaginaPrincipalClub = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [club, setClub] = useState(null);
+  const [clubId, setClubId] = useState(null);
   const [atletasRecientes, setAtletasRecientes] = useState([]);
   const [eventosRecientes, setEventosRecientes] = useState([]);
   const [estadisticas, setEstadisticas] = useState({});
   const [modalEventoOpen, setModalEventoOpen] = useState(false);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
+
+  const getAuthHeaders = () => {
+    const token = user?.token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
   useEffect(() => {
     if (!user || user.rol !== 'club') {
@@ -62,23 +124,44 @@ const PaginaPrincipalClub = () => {
   const cargarDatosClub = async () => {
     try {
       setLoading(true);
-      
-      // Cargar información del club
-              const clubRes = await axios.get(`http://localhost:5000/api/clubes/${user.id}`);
-      setClub(clubRes.data);
-      
-      // Cargar atletas recién ingresados (últimos 5)
-              const atletasRes = await axios.get(`http://localhost:5000/api/atletas?club_id=${user.id}&limit=5&sort=createdAt`);
-      setAtletasRecientes(atletasRes.data);
-      
-      // Cargar eventos recientes (últimos 5)
-              const eventosRes = await axios.get(`http://localhost:5000/api/eventos?limit=5`);
-      setEventosRecientes(eventosRes.data);
-      
-      // Cargar estadísticas del club
-              const estadisticasRes = await axios.get(`http://localhost:5000/api/resultados?clubId=${user.id}`);
-      calcularEstadisticas(atletasRes.data, estadisticasRes.data);
-      
+      setError('');
+
+      // 1. Obtener club por email
+      const clubesRes = await axios.get('http://localhost:5000/api/clubes', { headers: getAuthHeaders() });
+      let clubes = clubesRes.data.clubes || clubesRes.data || [];
+      if (!Array.isArray(clubes)) clubes = [clubes];
+      const clubData = clubes.find(c => c.email === user.email);
+      if (!clubData) {
+        setError('No se encontró un club asociado a este usuario.');
+        setLoading(false);
+        return;
+      }
+      setClub(clubData);
+      const idClub = clubData.id || clubData._id;
+      setClubId(idClub);
+
+      // 2. Atletas del club
+      const atletasRes = await axios.get(`http://localhost:5000/api/atletas?club_id=${idClub}&limit=5`, {
+        headers: getAuthHeaders()
+      });
+      let atletas = atletasRes.data.atletas || atletasRes.data || [];
+      if (!Array.isArray(atletas)) atletas = [];
+      setAtletasRecientes(atletas);
+
+      // 3. Eventos recientes
+      const eventosRes = await axios.get('http://localhost:5000/api/eventos?limit=5', {
+        headers: getAuthHeaders()
+      });
+      let eventos = eventosRes.data.eventos || eventosRes.data || [];
+      if (!Array.isArray(eventos)) eventos = [];
+      setEventosRecientes(eventos);
+
+      // 4. Estadísticas
+      const statsRes = await axios.get(`http://localhost:5000/api/resultados?clubId=${idClub}`, {
+        headers: getAuthHeaders()
+      });
+      const resultados = statsRes.data.resultados || statsRes.data || [];
+      calcularEstadisticas(atletas, Array.isArray(resultados) ? resultados : []);
     } catch (error) {
       console.error('Error al cargar datos del club:', error);
       setError('Error al cargar los datos del club');
@@ -92,31 +175,26 @@ const PaginaPrincipalClub = () => {
     const atletasActivos = atletasData.filter(a => a.estado !== 'inactivo').length;
     const totalResultados = resultadosData.length;
     const podios = resultadosData.filter(r => r.posicion && r.posicion <= 3).length;
-    
-    setEstadisticas({
-      totalAtletas,
-      atletasActivos,
-      totalResultados,
-      podios
-    });
+    setEstadisticas({ totalAtletas, atletasActivos, totalResultados, podios });
   };
 
-  const calcularEdad = (fechaNacimiento) => {
-    if (!fechaNacimiento) return 'N/A';
-    const fechaActual = new Date();
-    const fechaNac = new Date(fechaNacimiento);
-    const edad = fechaActual.getFullYear() - fechaNac.getFullYear();
-    const mes = fechaActual.getMonth() - fechaNac.getMonth();
-    return mes < 0 || (mes === 0 && fechaActual.getDate() < fechaNac.getDate()) ? edad - 1 : edad;
-  };
-
-  const formatearFecha = (fecha) => {
+  const obtenerEdad = (fecha) => {
     if (!fecha) return 'N/A';
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const hoy = new Date();
+    const nac = new Date(fecha);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const m = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+    return edad;
+  };
+
+  const fmt = (fecha) => {
+    if (!fecha) return 'Fecha no disponible';
+    try {
+      return new Date(fecha).toLocaleDateString('es-MX', {
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+      });
+    } catch { return 'Fecha inválida'; }
   };
 
   const obtenerTextoEstado = (estado) => {
@@ -136,438 +214,266 @@ const PaginaPrincipalClub = () => {
     setModalEventoOpen(true);
   };
 
-  const handleVerAtletas = () => {
-    navigate('/club/gestionAtletas');
-  };
-
-  const handleVerEventos = () => {
-    navigate('/club/eventos');
-  };
+  const handleVerAtletas = () => navigate('/club/gestionAtletas');
+  const handleVerEventos = () => navigate('/club/eventos');
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
+        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Container>
+      <Box sx={{ bgcolor: CREAM, minHeight: '100vh', py: 4 }}>
+        <Container maxWidth="lg">
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Button variant="contained" onClick={cargarDatosClub}
+              sx={{ bgcolor: BURGUNDY, '&:hover': { bgcolor: '#600018' } }}>
+              Intentar de Nuevo
+            </Button>
+          </Box>
+        </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
-        Dashboard del Club - {club?.nombre}
-      </Typography>
+    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%' }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 }, px: { xs: 2, sm: 3 } }}>
+        <Box sx={{ textAlign: 'center', mb: 5 }}>
+          <Avatar sx={{ width: 88, height: 88, mx: 'auto', mb: 2, bgcolor: BURGUNDY }}>
+            <GroupIcon sx={{ fontSize: 40 }} />
+          </Avatar>
+          <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, mb: .5 }}>
+            {club?.nombre || 'Club Deportivo'}
+          </Typography>
+          <Typography variant="body1" sx={{ color: PURPLE, opacity: .8 }}>
+            Panel de control del club · {club?.direccion || 'Sin dirección'}
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => navigate('/club/perfil')}
+            sx={{ mt: 2, color: BURGUNDY, borderColor: BURGUNDY, borderRadius: 3, textTransform: 'none' }}
+          >
+            Editar Perfil
+          </Button>
+        </Box>
 
-      {/* Información del club */}
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Grid container spacing={3} alignItems="center">
-          <Grid item>
-            <Avatar sx={{ width: 80, height: 80, bgcolor: '#800020', fontSize: '2rem' }}>
-              <GroupIcon />
-            </Avatar>
-          </Grid>
-          <Grid item xs>
-            <Typography variant="h5" sx={{ color: '#800020', fontWeight: 'bold' }}>
-              {club?.nombre}
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              {club?.direccion}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Entrenador: {club?.entrenador || 'No asignado'} • Tel: {club?.telefono}
-            </Typography>
-            {club?.email && (
-              <Typography variant="body2" color="textSecondary">
-                Email: {club?.email}
-              </Typography>
-            )}
-          </Grid>
-          <Grid item>
-            <Button
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => navigate('/club/perfil')}
-              sx={{ color: '#800020', borderColor: '#800020' }}
-            >
-              Editar Perfil
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 3, mb: 5, maxWidth: 800, mx: 'auto' }}>
+          <StatCard icon={<PeopleIcon fontSize="inherit" />} value={estadisticas.totalAtletas || 0} label="Total Atletas" bgcolor={BURGUNDY} />
+          <StatCard icon={<TrendingUpIcon fontSize="inherit" />} value={estadisticas.atletasActivos || 0} label="Atletas Activos" bgcolor={PURPLE} />
+          <StatCard icon={<SpeedIcon fontSize="inherit" />} value={estadisticas.totalResultados || 0} label="Resultados" bgcolor={GREEN} />
+          <StatCard icon={<TrophyIcon fontSize="inherit" />} value={estadisticas.podios || 0} label="Podios" bgcolor="#1565C0" />
+        </Box>
 
-      {/* Estadísticas generales */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <PeopleIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.totalAtletas || 0}
-                </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Total de Atletas
-                </Typography>
-              </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-                  <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <TrendingUpIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.atletasActivos || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Atletas Activos
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-                  </Grid>
-        
-                  <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <SpeedIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.totalResultados || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Resultados Registrados
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-                  </Grid>
-        
-                  <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <EmojiEventsIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.podios || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Podios Obtenidos
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
-        {/* Atletas Recién Ingresados */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 4, borderRadius: '12px', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PeopleIcon sx={{ color: '#800020' }} />
-                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-                  Atletas Recién Ingresados
-                </Typography>
-                {atletasRecientes.length > 0 && (
-                  <Chip 
-                    label={atletasRecientes.length} 
-                    color="success" 
-                    size="small"
-                  />
-                )}
-              </Box>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleVerAtletas}
-                sx={{ color: '#800020', borderColor: '#800020' }}
-              >
-                Ver Todos
-              </Button>
-            </Box>
-
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+          {/* Atletas recientes */}
+          <SectionCard
+            icon={<PeopleIcon sx={{ fontSize: 20 }} />}
+            title="Nuevos Atletas"
+            color={BURGUNDY}
+            action={atletasRecientes.length > 0 && <Button size="small" onClick={handleVerAtletas} sx={{ color: BURGUNDY, textTransform: 'none', fontWeight: 600, fontSize: '.8rem' }}>Ver todos</Button>}
+          >
             {atletasRecientes.length === 0 ? (
-              <Alert severity="info">
-                No hay atletas registrados en este club.
-              </Alert>
+              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>No hay atletas registrados</Typography>
             ) : (
-              <Grid container spacing={2}>
-                {atletasRecientes.map((atleta) => (
-                  <Grid item xs={12} sm={6} key={atleta._id}>
-                    <Card variant="outlined" sx={{ borderColor: '#800020' }}>
-                      <CardContent>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                          <Avatar sx={{ width: 48, height: 48, bgcolor: '#800020' }}>
-                            {atleta.nombre?.charAt(0) || 'A'}
+              <List disablePadding>
+                {atletasRecientes.slice(0, 3).map((atleta, i) => {
+                  // Extraer datos de forma segura
+                  const nombre = atleta.nombre || atleta.usuario?.nombre || '';
+                  const apPaterno = atleta.apellidopa || atleta.usuario?.apellido_paterno || '';
+                  const apMaterno = atleta.apellidoma || atleta.usuario?.apellido_materno || '';
+                  const telefono = atleta.telefono || atleta.usuario?.telefono || 'Sin teléfono';
+                  const fechaNac = atleta.fecha_nacimiento || atleta.usuario?.fecha_nacimiento || null;
+                  const estado = atleta.estado || 'activo';
+                  const key = atleta.id || atleta._id || `atleta-${i}`;
+                  return (
+                    <React.Fragment key={key}>
+                      <ListItem disableGutters sx={{ py: 1.2, alignItems: 'flex-start' }}>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: PURPLE, width: 38, height: 38 }}>
+                            {nombre.charAt(0) || 'A'}
                           </Avatar>
-                          <Box>
-                            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#800020' }}>
-                              {atleta.nombre} {atleta.apellidopa}
-                            </Typography>
-                            <Chip 
-                              icon={<CheckCircleIcon />}
-                              label="Miembro Activo" 
-                              color="success" 
-                              size="small"
-                            />
-                          </Box>
-                        </Box>
-                        <Typography variant="body2" color="textSecondary">
-                          <strong>Edad:</strong> {calcularEdad(atleta.fecha_nacimiento)} años
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          <strong>Género:</strong> {atleta.sexo || 'N/A'}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          <strong>Teléfono:</strong> {atleta.telefono || 'N/A'}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Paper>
-                  </Grid>
-
-        {/* Eventos Recientes */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 4, borderRadius: '12px', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <EventIcon sx={{ color: '#800020' }} />
-                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-                  Eventos Recientes
-                </Typography>
-                {eventosRecientes.length > 0 && (
-                  <Chip 
-                    label={eventosRecientes.length} 
-                    color="primary" 
-                    size="small"
-                  />
-                )}
-              </Box>
-                    <Button
-                variant="outlined"
-                size="small"
-                onClick={handleVerEventos}
-                sx={{ color: '#800020', borderColor: '#800020' }}
-              >
-                Ver Todos
-              </Button>
-            </Box>
-
-            {eventosRecientes.length === 0 ? (
-              <Alert severity="info">
-                No hay eventos disponibles en este momento.
-              </Alert>
-            ) : (
-              <List>
-                {eventosRecientes.map((evento) => (
-                  <ListItem 
-                    key={evento._id} 
-                    sx={{ 
-                      border: '1px solid #e0e0e0', 
-                      borderRadius: '8px', 
-                      mb: 1,
-                      '&:hover': { backgroundColor: '#f5f5f5' }
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: '#800020' }}>
-                        <EventIcon />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                          {evento.titulo}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="textSecondary">
-                            <CalendarIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                            {formatearFecha(evento.fecha)}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            <LocationIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                            {evento.lugar}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            <strong>Disciplina:</strong> {evento.disciplina} • <strong>Categoría:</strong> {evento.categoria}
-                          </Typography>
-                          {evento.convocatorias && evento.convocatorias.length > 0 && (
-                            <Typography variant="body2" color="textSecondary">
-                              <strong>Convocatorias:</strong> {evento.convocatorias.length} disponible{evento.convocatorias.length !== 1 ? 's' : ''}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                    />
-                    <IconButton
-                      color="primary"
-                      onClick={() => handleVerEvento(evento)}
-                      title="Ver detalles del evento"
-                    >
-                      <VisibilityIcon />
-                    </IconButton>
-                  </ListItem>
-                ))}
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={`${nombre} ${apPaterno} ${apMaterno}`}
+                          secondary={
+                            <Box component="span" sx={{ display: 'block' }}>
+                              <Typography variant="caption" component="span" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                                <CalendarIcon sx={{ fontSize: 12 }} /> Edad: {obtenerEdad(fechaNac)} años
+                              </Typography>
+                              <Typography variant="caption" component="span" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5, mt: 0.2 }}>
+                                <PhoneIcon sx={{ fontSize: 12 }} /> {telefono}
+                              </Typography>
+                              <Chip
+                                component="span"
+                                label={estado === 'activo' ? 'Activo' : 'Inactivo'}
+                                color={estado === 'activo' ? 'success' : 'error'}
+                                size="small"
+                                sx={{ mt: .5, display: 'inline-flex', height: 20, fontSize: '.7rem' }}
+                              />
+                            </Box>
+                          }
+                          secondaryTypographyProps={{ component: 'span' }}
+                        />
+                      </ListItem>
+                      {i < atletasRecientes.length - 1 && <Divider />}
+                    </React.Fragment>
+                  );
+                })}
               </List>
             )}
-          </Paper>
-        </Grid>
-      </Grid>
+          </SectionCard>
+
+          {/* Eventos recientes */}
+          <SectionCard
+            icon={<EventIcon sx={{ fontSize: 20 }} />}
+            title="Eventos Recientes"
+            color={GREEN}
+            action={eventosRecientes.length > 0 && <Button size="small" onClick={handleVerEventos} sx={{ color: GREEN, textTransform: 'none', fontWeight: 600, fontSize: '.8rem' }}>Ver todos</Button>}
+          >
+            {eventosRecientes.length === 0 ? (
+              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>No hay eventos disponibles</Typography>
+            ) : (
+              <List disablePadding>
+                {eventosRecientes.slice(0, 4).map((evento, i) => {
+                  const key = evento._id || `evento-${i}`;
+                  return (
+                    <React.Fragment key={key}>
+                      <ListItem disableGutters sx={{ py: 1.2, alignItems: 'flex-start' }}>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: GREEN, width: 38, height: 38 }}>
+                            <EventIcon sx={{ fontSize: 18 }} />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={evento.titulo || 'Evento'}
+                          secondary={
+                            <Box component="span" sx={{ display: 'block' }}>
+                              <Typography variant="caption" component="span" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
+                                <CalendarIcon sx={{ fontSize: 12 }} /> {fmt(evento.fecha)}
+                              </Typography>
+                              <Typography variant="caption" component="span" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                                <LocationIcon sx={{ fontSize: 12 }} /> {evento.lugar || 'Lugar no especificado'}
+                              </Typography>
+                              {evento.disciplina && (
+                                <Typography variant="caption" component="span" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                                  <SportsIcon sx={{ fontSize: 12 }} /> {typeof evento.disciplina === 'string' ? evento.disciplina : evento.disciplina?.nombre || 'N/A'} — {evento.categoria || ''}
+                                </Typography>
+                              )}
+                              <Box component="span" sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                                <Chip
+                                  component="span"
+                                  label={obtenerTextoEstado(evento.estado)}
+                                  color={obtenerColorEstado(evento.estado)}
+                                  size="small"
+                                  sx={{ height: 20, fontSize: '.7rem', display: 'inline-flex' }}
+                                />
+                                <IconButton size="small" onClick={() => handleVerEvento(evento)} sx={{ ml: 1, color: BURGUNDY, p: 0 }}>
+                                  <ViewIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          }
+                          secondaryTypographyProps={{ component: 'span' }}
+                        />
+                      </ListItem>
+                      {i < eventosRecientes.length - 1 && <Divider />}
+                    </React.Fragment>
+                  );
+                })}
+              </List>
+            )}
+          </SectionCard>
+
+          {/* Resumen del Club */}
+          <SectionCard icon={<GroupIcon sx={{ fontSize: 20 }} />} title="Resumen del Club" color={PURPLE}>
+            <List disablePadding>
+              <ListItem disableGutters sx={{ py: 1 }}>
+                <ListItemText primary="Teléfono" secondary={club?.telefono || 'N/A'} />
+              </ListItem>
+              <Divider />
+              <ListItem disableGutters sx={{ py: 1 }}>
+                <ListItemText primary="Correo" secondary={club?.email || 'N/A'} />
+              </ListItem>
+              <Divider />
+              <ListItem disableGutters sx={{ py: 1 }}>
+                <ListItemText primary="Dirección" secondary={club?.direccion || 'Sin dirección'} />
+              </ListItem>
+              <Divider />
+              <ListItem disableGutters sx={{ py: 1 }}>
+                <ListItemText primary="Descripción" secondary={club?.descripcion || 'Sin descripción'} />
+              </ListItem>
+            </List>
+          </SectionCard>
+        </Box>
+      </Container>
 
       {/* Modal de Detalles del Evento */}
-      <Dialog open={modalEventoOpen} onClose={() => setModalEventoOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={modalEventoOpen} onClose={() => setModalEventoOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle>
-          <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-            📋 Detalles del Evento
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 'bold' }}>Detalles del Evento</Typography>
+            <IconButton onClick={() => setModalEventoOpen(false)} size="small"><CloseIcon /></IconButton>
+          </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           {eventoSeleccionado && (
             <Box>
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Typography variant="h5" gutterBottom sx={{ color: '#800020' }}>
-                    {eventoSeleccionado.titulo}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>📅 Información General</Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Fecha:</strong> {formatearFecha(eventoSeleccionado.fecha || eventoSeleccionado.createdAt)}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Hora:</strong> {eventoSeleccionado.hora}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Lugar:</strong> {eventoSeleccionado.lugar}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Estado:</strong> 
-                        <Chip 
-                          label={obtenerTextoEstado(eventoSeleccionado.estado)} 
-                          color={obtenerColorEstado(eventoSeleccionado.estado)}
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>🏃 Información Deportiva</Typography>
-                      {eventoSeleccionado.convocatorias && eventoSeleccionado.convocatorias.length > 0 ? (
-                        <>
-                          <Typography variant="body2" paragraph>
-                            <strong>Disciplina:</strong> {eventoSeleccionado.convocatorias[0].disciplina}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Categoría:</strong> {eventoSeleccionado.convocatorias[0].categoria}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Rango de Edad:</strong> {eventoSeleccionado.convocatorias[0].edadMin} - {eventoSeleccionado.convocatorias[0].edadMax} años
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Género:</strong> {eventoSeleccionado.convocatorias[0].genero === 'mixto' ? 'Mixto' : 
-                                                      eventoSeleccionado.convocatorias[0].genero === 'masculino' ? 'Masculino' : 'Femenino'}
-                          </Typography>
-                        </>
-                      ) : (
-                        <>
-                          <Typography variant="body2" paragraph>
-                            <strong>Disciplina:</strong> {eventoSeleccionado.disciplina || 'No especificada'}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Categoría:</strong> {eventoSeleccionado.categoria || 'No especificada'}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Rango de Edad:</strong> {eventoSeleccionado.edadMin || 'N/A'} - {eventoSeleccionado.edadMax || 'N/A'} años
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Género:</strong> {eventoSeleccionado.genero || 'No especificado'}
-                          </Typography>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                {eventoSeleccionado.descripcion && (
-                  <Grid item xs={12}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>📝 Descripción</Typography>
-                        <Typography variant="body2">
-                          {eventoSeleccionado.descripcion}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                )}
-                
-                <Grid item xs={12}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>📊 Información Técnica</Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>ID del Evento:</strong> {eventoSeleccionado._id}
-                      </Typography>
-                      {eventoSeleccionado.convocatorias && eventoSeleccionado.convocatorias.length > 0 && (
-                        <Typography variant="body2" paragraph>
-                          <strong>Total de Convocatorias:</strong> {eventoSeleccionado.convocatorias.length}
-                        </Typography>
-                      )}
-                      <Typography variant="body2" paragraph>
-                        <strong>Fecha de Creación:</strong> {formatearFecha(eventoSeleccionado.createdAt)}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Fecha de Cierre:</strong> {formatearFecha(eventoSeleccionado.fechaCierre)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                  </Grid> 
-                </Grid>
+              <Typography variant="h5" gutterBottom sx={{ color: BURGUNDY, fontWeight: 700 }}>{eventoSeleccionado.titulo}</Typography>
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>📅 Información General</Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}><strong>Fecha:</strong> {fmt(eventoSeleccionado.fecha)}</Typography>
+                  <Typography variant="body2"><strong>Hora:</strong> {eventoSeleccionado.hora || 'No especificada'}</Typography>
+                  <Typography variant="body2"><strong>Lugar:</strong> {eventoSeleccionado.lugar}</Typography>
+                  <Typography variant="body2"><strong>Estado:</strong> <Chip label={obtenerTextoEstado(eventoSeleccionado.estado)} color={obtenerColorEstado(eventoSeleccionado.estado)} size="small" sx={{ ml: 1 }} /></Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>Información Deportiva</Typography>
+                  {eventoSeleccionado.convocatorias && eventoSeleccionado.convocatorias.length > 0 ? (
+                    <>
+                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Disciplina:</strong> {eventoSeleccionado.convocatorias[0].disciplina}</Typography>
+                      <Typography variant="body2"><strong>Categoría:</strong> {eventoSeleccionado.convocatorias[0].categoria}</Typography>
+                      <Typography variant="body2"><strong>Edad:</strong> {eventoSeleccionado.convocatorias[0].edadMin} - {eventoSeleccionado.convocatorias[0].edadMax} años</Typography>
+                      <Typography variant="body2"><strong>Género:</strong> {eventoSeleccionado.convocatorias[0].genero || 'Mixto'}</Typography>
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Disciplina:</strong> {eventoSeleccionado.disciplina || 'N/A'}</Typography>
+                      <Typography variant="body2"><strong>Categoría:</strong> {eventoSeleccionado.categoria || 'N/A'}</Typography>
+                      <Typography variant="body2"><strong>Edad:</strong> {eventoSeleccionado.edadMin || 'N/A'} - {eventoSeleccionado.edadMax || 'N/A'} años</Typography>
+                      <Typography variant="body2"><strong>Género:</strong> {eventoSeleccionado.genero || 'N/A'}</Typography>
+                    </>
+                  )}
+                </Box>
+              </Box>
+              {eventoSeleccionado.descripcion && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>Descripción</Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>{eventoSeleccionado.descripcion}</Typography>
+                </Box>
+              )}
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>Información Técnica</Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}><strong>ID:</strong> {eventoSeleccionado._id}</Typography>
+                <Typography variant="body2"><strong>Fecha de creación:</strong> {fmt(eventoSeleccionado.createdAt)}</Typography>
+                <Typography variant="body2"><strong>Fecha de cierre:</strong> {fmt(eventoSeleccionado.fechaCierre)}</Typography>
+              </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setModalEventoOpen(false)} color="primary">
-            Cerrar
-          </Button>
+          <Button onClick={() => setModalEventoOpen(false)} sx={{ color: PURPLE, fontWeight: 600 }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
-          </Container>
+    </Box>
   );
 };
 

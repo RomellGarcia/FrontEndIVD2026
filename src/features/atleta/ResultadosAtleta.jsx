@@ -1,42 +1,26 @@
 import { resultadosAPI, perfilEmpresaAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
-  Box,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Paper,
-  Container,
-  Button,
-  IconButton,
-  Alert,
-  CircularProgress,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
-  Card,
-  CardContent,
-  Divider
+  Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
+  Paper, Container, Button, IconButton, Alert, CircularProgress, Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Divider, Pagination,
 } from '@mui/material';
 import {
-  Visibility as VisibilityIcon,
-  PictureAsPdf as PdfIcon,
-  EmojiEvents as TrophyIcon,
-  Person as PersonIcon,
-  LocationOn as LocationIcon,
-  CalendarToday as CalendarIcon
+  Visibility as ViewIcon, PictureAsPdf as PdfIcon,
+  EmojiEvents as TrophyIcon, Person as PersonIcon,
+  CalendarToday as CalendarIcon, LocationOn as LocationIcon,
+  Close as CloseIcon, SportsScore as SportsIcon,
+  Group as GroupIcon, FitnessCenter as FitnessIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
+
+const BURGUNDY = '#800020';
+const PURPLE = '#7A4069';
+const CREAM = '#e3e4e5';
+const GREEN = '#2E7D32';
 
 const ResultadosAtleta = () => {
   const { user } = useAuth();
@@ -44,232 +28,167 @@ const ResultadosAtleta = () => {
   const [resultados, setResultados] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [modalDetallesOpen, setModalDetallesOpen] = useState(false);
-  const [resultadoSeleccionado, setResultadoSeleccionado] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [seleccionado, setSeleccionado] = useState(null);
   const [logoUrl, setLogoUrl] = useState('');
+  const [page, setPage] = useState(1);
+  const porPagina = 8;
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    } else {
-      fetchResultados();
-      fetchLogo();
-    }
+    if (!user) navigate('/login');
+    else { fetchResultados(); fetchLogo(); }
   }, [user, navigate]);
 
   const fetchResultados = async () => {
     try {
-      setLoading(true)
-      const response = await resultadosAPI.getByAtleta(user.id)
-      const data = response.data.resultados || []
-      const sorted = data.sort((a, b) => new Date(b.evento_fecha) - new Date(a.evento_fecha))
-      setResultados(sorted)
-    } catch (error) {
-      setErrorMessage('Error al cargar los resultados.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+      setLoading(true);
+      const response = await resultadosAPI.getByAtleta(user.id);
+      const data = response.data.resultados || [];
+      setResultados(data.sort((a, b) => new Date(b.evento_fecha || b.fechaEvento) - new Date(a.evento_fecha || a.fechaEvento)));
+    } catch { setErrorMessage('Error al cargar los resultados.'); }
+    finally { setLoading(false); }
+  };
 
   const fetchLogo = async () => {
     try {
-      const response = await perfilEmpresaAPI.get()
-      setLogoUrl(response.data.perfil?.logo || '')
-    } catch (error) {
-      console.warn('No se pudo cargar el logo:', error)
-    }
-  }
-
-  const handleViewDetails = (resultado) => {
-    setResultadoSeleccionado(resultado);
-    setModalDetallesOpen(true);
+      const response = await perfilEmpresaAPI.get();
+      setLogoUrl(response.data.perfil?.logo || '');
+    } catch { /* silenciar */ }
   };
 
-  const handleCloseModal = () => {
-    setModalDetallesOpen(false);
-    setResultadoSeleccionado(null);
+  const fmt = (fecha) => {
+    if (!fecha) return '—';
+    try {
+      return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch { return '—'; }
   };
 
+  const fmtCorta = (fecha) => {
+    if (!fecha) return '—';
+    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const getDisciplina = (pruebas) => pruebas?.[0]?.nombre || 'Sin disciplina';
+  const getMarca = (pruebas) => {
+    if (!pruebas?.length) return '—';
+    return `${pruebas[0]?.marca || '0'} ${pruebas[0]?.unidad || ''}`;
+  };
+
+  const handleVerDetalle = (r) => { setSeleccionado(r); setModalOpen(true); };
+  const handleCerrar = () => { setModalOpen(false); setSeleccionado(null); };
+
+  const resultadosPaginados = resultados.slice((page - 1) * porPagina, page * porPagina);
+
+  /* ── Generar PDF ── */
   const handleDownloadPDF = async (resultado) => {
     try {
-      // Verificar que jsPDF esté disponible
-      if (typeof jsPDF === 'undefined') {
-        console.error('jsPDF no está definido');
-        setErrorMessage('Error: La librería jsPDF no está disponible.');
-        return;
-      }
-
-      // Crear nuevo documento PDF
       const doc = new jsPDF();
-
-      // Variables para posicionamiento
       let y = 15;
       const margin = 20;
       const pageWidth = doc.internal.pageSize.width;
       const contentWidth = pageWidth - (2 * margin);
 
-      // Función para agregar texto con wrap
-      const addText = (text, x, y, maxWidth) => {
+      const addText = (text, x, yPos, maxWidth) => {
         const lines = doc.splitTextToSize(text, maxWidth);
-        doc.text(lines, x, y);
-        return y + (lines.length * 5);
+        doc.text(lines, x, yPos);
+        return yPos + (lines.length * 5);
       };
 
-      // Función para agregar título centrado
-      const addCenteredTitle = (text, y, fontSize = 16) => {
+      const addCenteredTitle = (text, yPos, fontSize = 16) => {
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', 'bold');
-        const textWidth = doc.getTextWidth(text);
-        const x = (pageWidth - textWidth) / 2;
-        doc.text(text, x, y);
+        doc.text(text, pageWidth / 2, yPos, { align: 'center' });
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        return y + 8;
+        return yPos + 8;
       };
 
-      // Función para agregar subtítulo
-      const addSubtitle = (text, y, fontSize = 12) => {
-        doc.setFontSize(fontSize);
+      const addSubtitle = (text, yPos) => {
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(128, 0, 32); // Color #800020 (marrón oscuro)
-        doc.text(text, margin, y);
+        doc.setTextColor(128, 0, 32);
+        doc.text(text, margin, yPos);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(0, 0, 0);
-        return y + 6;
+        return yPos + 6;
       };
 
-      // Logo en la esquina superior izquierda
+      // Logo
       if (logoUrl) {
-        try {
-          console.log('🖼️ Intentando agregar logo:', logoUrl);
-          doc.addImage(logoUrl, 'JPEG', margin, y, 20, 20);
-          y += 25;
-          console.log('✅ Logo agregado exitosamente al PDF');
-        } catch (logoError) {
-          console.warn('⚠️ No se pudo agregar el logo al PDF:', logoError);
-          // Continuar sin logo
-        }
-      } else {
-        console.warn('⚠️ No hay logo disponible para agregar al PDF');
+        try { doc.addImage(logoUrl, 'JPEG', margin, y, 20, 20); y += 25; } catch { /* sin logo */ }
       }
 
-      // Títulos del encabezado (centrados)
       y = addCenteredTitle('INSTITUTO VERACRUZANO DEL DEPORTE', y, 16);
       y = addCenteredTitle('Gobierno del Estado de Veracruz', y, 10);
       y = addCenteredTitle('REPORTE DE RESULTADOS', y, 14);
-
       y += 10;
 
-      // Línea horizontal marrón separando el encabezado
       doc.setDrawColor(128, 0, 32);
       doc.line(margin, y, pageWidth - margin, y);
       y += 12;
 
-      // Fecha del reporte
-      const fechaActual = new Date().toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      doc.setFont('helvetica', 'normal');
+      const fechaActual = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
       doc.setFontSize(9);
-      doc.text(`Veracruz, Ver. a ${fechaActual}`, pageWidth - margin - doc.getTextWidth(`Veracruz, Ver. a ${fechaActual}`), y);
+      doc.text(`Veracruz, Ver. a ${fechaActual}`, pageWidth - margin, y, { align: 'right' });
       doc.setFontSize(10);
-
       y += 10;
 
-      // Título del evento (centrado y en marrón)
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(128, 0, 32);
-      const eventTitle = resultado.nombreEvento || 'Evento Deportivo';
-      const eventTitleWidth = doc.getTextWidth(eventTitle);
-      const eventTitleX = (pageWidth - eventTitleWidth) / 2;
-      doc.text(eventTitle, eventTitleX, y);
+      doc.text(resultado.nombreEvento || 'Evento Deportivo', pageWidth / 2, y, { align: 'center' });
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
-
       y += 10;
 
-      // Información del Atleta
-      y = addSubtitle('INFORMACIÓN DEL ATLETA:', y, 12);
-
+      // Info atleta
+      y = addSubtitle('INFORMACIÓN DEL ATLETA:', y);
       const infoAtleta = [
-        { label: 'Nombre Completo:', value: resultado.nombreAtleta || 'No especificado' },
-        { label: 'Categoría:', value: resultado.categoria || 'No especificada' },
-        {
-          label: 'Sexo:', value: resultado.sexo === 'masculino' ? 'Masculino' :
-            resultado.sexo === 'femenino' ? 'Femenino' : 'No especificado'
-        },
-        { label: 'Municipio:', value: resultado.municipio || 'No especificado' },
-        { label: 'Club:', value: resultado.club || 'No especificado' },
-        { label: 'Año Competitivo:', value: resultado.añoCompetitivo || 'No especificado' }
+        ['Nombre Completo:', resultado.nombreAtleta || '—'],
+        ['Categoría:', resultado.categoria || '—'],
+        ['Sexo:', resultado.sexo === 'masculino' ? 'Masculino' : resultado.sexo === 'femenino' ? 'Femenino' : '—'],
+        ['Municipio:', resultado.municipio || '—'],
+        ['Club:', resultado.club || '—'],
+        ['Año Competitivo:', resultado.añoCompetitivo || resultado.ano_competitivo || '—'],
       ];
 
-      infoAtleta.forEach(detalle => {
-        const labelText = `• ${detalle.label}`;
-        const valueText = detalle.value;
-
+      infoAtleta.forEach(([label, value]) => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
-        doc.text(labelText, margin, y);
+        const lbl = `• ${label}`;
+        doc.text(lbl, margin, y);
         doc.setFont('helvetica', 'normal');
-
-        const labelWidth = doc.getTextWidth(labelText);
-        const valueX = margin + labelWidth + 3;
-        const valueWidth = contentWidth - labelWidth - 3;
-
-        y = addText(valueText, valueX, y, valueWidth);
+        const lw = doc.getTextWidth(lbl);
+        y = addText(value, margin + lw + 3, y, contentWidth - lw - 3);
         y += 3;
       });
 
       y += 5;
-
-      // Información del Evento
-      y = addSubtitle('INFORMACIÓN DEL EVENTO:', y, 12);
-
+      y = addSubtitle('INFORMACIÓN DEL EVENTO:', y);
       const infoEvento = [
-        {
-          label: 'Fecha del Evento:', value: resultado.fechaEvento ? new Date(resultado.fechaEvento).toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }) : 'No especificada'
-        },
-        { label: 'Convocatoria:', value: `#${parseInt(resultado.convocatoriaIndex) + 1}` },
-        { label: 'Lugar de Entrenamiento:', value: resultado.lugarEntrenamiento || 'No especificado' }
+        ['Fecha del Evento:', fmt(resultado.fechaEvento || resultado.evento_fecha)],
+        ['Lugar de Entrenamiento:', resultado.lugarEntrenamiento || resultado.lugar_entrenamiento || '—'],
       ];
 
-      infoEvento.forEach(detalle => {
-        const labelText = `• ${detalle.label}`;
-        const valueText = detalle.value;
-
+      infoEvento.forEach(([label, value]) => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
-        doc.text(labelText, margin, y);
+        const lbl = `• ${label}`;
+        doc.text(lbl, margin, y);
         doc.setFont('helvetica', 'normal');
-
-        const labelWidth = doc.getTextWidth(labelText);
-        const valueX = margin + labelWidth + 3;
-        const valueWidth = contentWidth - labelWidth - 3;
-
-        y = addText(valueText, valueX, y, valueWidth);
+        const lw = doc.getTextWidth(lbl);
+        y = addText(value, margin + lw + 3, y, contentWidth - lw - 3);
         y += 3;
       });
 
       y += 5;
-
-      // Pruebas y Marcas
-      y = addSubtitle('PRUEBAS Y MARCAS:', y, 12);
-
-      if (resultado.pruebas && resultado.pruebas.length > 0) {
-        resultado.pruebas.forEach((prueba, index) => {
-          if (prueba.nombre && prueba.marca) {
-            const pruebaText = `• ${prueba.nombre}: ${prueba.marca} ${prueba.unidad || ''}`;
-            y = addText(pruebaText, margin, y, contentWidth);
+      y = addSubtitle('PRUEBAS Y MARCAS:', y);
+      if (resultado.pruebas?.length > 0) {
+        resultado.pruebas.forEach((p) => {
+          if (p.nombre && p.marca) {
+            y = addText(`• ${p.nombre}: ${p.marca} ${p.unidad || ''}`, margin, y, contentWidth);
             y += 3;
           }
         });
@@ -278,281 +197,263 @@ const ResultadosAtleta = () => {
       }
 
       y += 8;
-
-      // Pie de página
       doc.setDrawColor(200, 200, 200);
       doc.line(margin, y, pageWidth - margin, y);
       y += 6;
-
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
       doc.text('Este reporte es oficial y ha sido emitido por el Instituto Veracruzano del Deporte.', pageWidth / 2, y, { align: 'center' });
       y += 4;
       doc.text(`Documento generado el ${fechaActual}`, pageWidth / 2, y, { align: 'center' });
 
-      // Descargar el PDF
-      const fileName = `Resultado_${resultado.nombreAtleta || 'atleta'}_${resultado.nombreEvento || 'evento'}.pdf`;
-      doc.save(fileName);
-
-      // Mostrar mensaje de éxito
-      Swal.fire({
-        icon: 'success',
-        title: 'PDF Generado',
-        text: 'El reporte de resultados se ha descargado exitosamente',
-        confirmButtonColor: '#800020'
-      });
-
+      doc.save(`Resultado_${resultado.nombreAtleta || 'atleta'}_${resultado.nombreEvento || 'evento'}.pdf`);
+      Swal.fire({ icon: 'success', title: 'PDF Generado', text: 'El reporte se descargó exitosamente', confirmButtonColor: BURGUNDY });
     } catch (error) {
-      console.error('❌ Error al generar PDF:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: `Error al generar el PDF: ${error.message}`,
-        confirmButtonColor: '#800020'
-      });
+      Swal.fire({ icon: 'error', title: 'Error', text: `Error al generar el PDF: ${error.message}`, confirmButtonColor: BURGUNDY });
     }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Sin fecha';
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const getDisciplinaPrincipal = (pruebas) => {
-    if (!pruebas || pruebas.length === 0) return 'Sin disciplina';
-    return pruebas[0]?.nombre || 'Sin disciplina';
-  };
-
-  const getMejorMarca = (pruebas) => {
-    if (!pruebas || pruebas.length === 0) return 'Sin marca';
-    // Mostrar la primera prueba como ejemplo
-    const primeraPrueba = pruebas[0];
-    return `${primeraPrueba?.marca || '0'} ${primeraPrueba?.unidad || ''}`;
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: '#F5E8C7', width: '100%' }}>
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
+        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: '#F5E8C7', minHeight: '100vh', width: '100%' }}>
-<Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
-        Mis Resultados
-      </Typography>
+    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 3, md: 5 } }}>
 
-      {errorMessage && (
-        <Box sx={{ mb: 2 }}>
-          <Alert severity="error" onClose={() => setErrorMessage('')}>
+        {/* ── Header ── */}
+        <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, textAlign: 'center', mb: .5 }}>
+          Mis Resultados
+        </Typography>
+        <Typography variant="body1" sx={{ color: PURPLE, textAlign: 'center', mb: 4, opacity: .8 }}>
+          Historial de participaciones y marcas obtenidas
+        </Typography>
+
+        {errorMessage && (
+          <Alert severity="error" onClose={() => setErrorMessage('')} sx={{ mb: 3, borderRadius: 2 }}>
             {errorMessage}
           </Alert>
-        </Box>
-      )}
+        )}
 
-      {resultados.length === 0 ? (
-        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" sx={{ color: '#666', mb: 2 }}>
-            No tienes resultados registrados aún
-          </Typography>
-          <Typography variant="body1" color="textSecondary">
-            Los resultados aparecerán aquí una vez que participes en eventos
-          </Typography>
-        </Paper>
-      ) : (
-        <Paper elevation={3} sx={{ borderRadius: '12px', overflow: 'hidden' }}>
-          <Table sx={{ minWidth: 650 }}>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#800020' }}>
-                {['Fecha', 'Evento', 'Disciplina', 'Mejor Marca', 'Categoría', 'Acciones'].map((head) => (
-                  <TableCell
-                    key={head}
-                    sx={{ fontWeight: 'bold', color: '#FFFFFF', fontSize: '1rem', padding: '16px' }}
-                  >
-                    {head}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {resultados.map((resultado) => (
-                <TableRow
-                  key={resultado._id}
-                  sx={{ '&:hover': { backgroundColor: '#FAFAFF' }, transition: 'background-color 0.3s' }}
-                >
-                  <TableCell sx={{ color: '#333333' }}>
-                    {formatDate(resultado.fechaEvento)}
-                  </TableCell>
-                  <TableCell sx={{ color: '#333333', maxWidth: 200 }}>
-                    <Typography variant="body2" noWrap>
-                      {resultado.nombreEvento || 'Sin nombre'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ color: '#333333' }}>
-                    {getDisciplinaPrincipal(resultado.pruebas)}
-                  </TableCell>
-                  <TableCell sx={{ color: '#333333' }}>
-                    {getMejorMarca(resultado.pruebas)}
-                  </TableCell>
-                  <TableCell sx={{ color: '#333333' }}>
-                    <Chip
-                      label={resultado.categoria || 'Sin categoría'}
-                      size="small"
-                      sx={{ backgroundColor: '#E3F2FD', color: '#1976D2' }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleViewDetails(resultado)}
-                        sx={{ '&:hover': { backgroundColor: 'rgba(128, 0, 32, 0.1)' } }}
-                        title="Ver detalles"
-                      >
-                        <VisibilityIcon />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
+        {/* ── Contenido ── */}
+        {resultados.length === 0 ? (
+          <Paper sx={{ borderRadius: 3, textAlign: 'center', py: 6, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+            <Avatar sx={{ bgcolor: `${PURPLE}14`, width: 64, height: 64, mx: 'auto', mb: 2 }}>
+              <TrophyIcon sx={{ fontSize: 32, color: PURPLE }} />
+            </Avatar>
+            <Typography variant="h6" sx={{ color: PURPLE }}>Sin resultados registrados</Typography>
+            <Typography variant="body2" sx={{ color: '#999', mt: .5 }}>
+              Los resultados aparecerán aquí una vez que participes en eventos
+            </Typography>
+          </Paper>
+        ) : (
+          <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: BURGUNDY }}>
+                  {['Fecha', 'Evento', 'Disciplina', 'Marca', 'Categoría', 'Acciones'].map((h) => (
+                    <TableCell key={h} sx={{ fontWeight: 700, color: '#fff', py: 2 }}>{h}</TableCell>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Paper>
-      )}
+              </TableHead>
+              <TableBody>
+                {resultadosPaginados.map((r, i) => (
+                  <TableRow key={r.id || r._id || i} hover sx={{ '&:hover': { bgcolor: `${CREAM}66` } }}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {fmtCorta(r.fechaEvento || r.evento_fecha)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
+                        {r.nombreEvento || r.evento_titulo || '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5 }}>
+                        <SportsIcon sx={{ fontSize: 16, color: BURGUNDY }} />
+                        {getDisciplina(r.pruebas)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getMarca(r.pruebas)}
+                        size="small"
+                        sx={{ bgcolor: `${GREEN}14`, color: GREEN, fontWeight: 700 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={r.categoria || '—'}
+                        size="small"
+                        sx={{ bgcolor: `${PURPLE}14`, color: PURPLE, fontWeight: 600 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: .5 }}>
+                        <IconButton size="small" onClick={() => handleVerDetalle(r)}
+                          sx={{ color: BURGUNDY, '&:hover': { bgcolor: `${BURGUNDY}08` } }}
+                          title="Ver detalles">
+                          <ViewIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDownloadPDF(r)}
+                          sx={{ color: GREEN, '&:hover': { bgcolor: `${GREEN}08` } }}
+                          title="Descargar PDF">
+                          <PdfIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
 
-      {/* Modal de Detalles */}
-      <Dialog
-        open={modalDetallesOpen}
-        onClose={handleCloseModal}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle sx={{ backgroundColor: '#800020', color: '#FFFFFF' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrophyIcon />
-            Detalles del Resultado
+            {resultados.length > porPagina && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: '1px solid #eee' }}>
+                <Pagination
+                  count={Math.ceil(resultados.length / porPagina)}
+                  page={page} onChange={(e, v) => setPage(v)}
+                  sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: BURGUNDY, color: '#fff' } }}
+                />
+              </Box>
+            )}
+          </Paper>
+        )}
+      </Container>
+
+      {/* Detalle */}
+      <Dialog open={modalOpen} onClose={handleCerrar} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff', py: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TrophyIcon />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Detalle del Resultado</Typography>
+            </Box>
+            <IconButton onClick={handleCerrar} size="small" sx={{ color: '#fff' }}>
+              <CloseIcon />
+            </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {resultadoSeleccionado && (
-            <Grid container spacing={3}>
-              {/* Información del Evento */}
-              <Grid item xs={12}>
-                <Card variant="outlined" sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Typography variant="h6" sx={{ color: '#800020', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CalendarIcon />
-                      Información del Evento
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Evento:</Typography>
-                        <Typography variant="body1">{resultadoSeleccionado.nombreEvento}</Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Fecha:</Typography>
-                        <Typography variant="body1">{formatDate(resultadoSeleccionado.fechaEvento)}</Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Categoría:</Typography>
-                        <Typography variant="body1">{resultadoSeleccionado.categoria}</Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Convocatoria:</Typography>
-                        <Typography variant="body1">#{parseInt(resultadoSeleccionado.convocatoriaIndex) + 1}</Typography>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {seleccionado && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
 
-              {/* Pruebas y Marcas */}
-              <Grid item xs={12}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" sx={{ color: '#800020', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TrophyIcon />
-                      Pruebas y Marcas
+              {/* Evento */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                  <Avatar sx={{ bgcolor: `${BURGUNDY}14`, width: 32, height: 32 }}>
+                    <CalendarIcon sx={{ fontSize: 18, color: BURGUNDY }} />
+                  </Avatar>
+                  <Typography variant="subtitle1" sx={{ color: BURGUNDY, fontWeight: 700 }}>
+                    Información del Evento
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pl: 5.5 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Evento</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {seleccionado.nombreEvento || seleccionado.evento_titulo || '—'}
                     </Typography>
-                    <Grid container spacing={2}>
-                      {resultadoSeleccionado.pruebas && resultadoSeleccionado.pruebas.map((prueba, index) => (
-                        <Grid item xs={12} md={6} key={index}>
-                          <Card variant="outlined" sx={{ p: 2, backgroundColor: '#FAFAFA' }}>
-                            <Typography variant="subtitle2" color="textSecondary">
-                              Prueba {index + 1}:
-                            </Typography>
-                            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                              {prueba.nombre || 'Sin nombre'}
-                            </Typography>
-                            <Typography variant="h6" sx={{ color: '#800020' }}>
-                              {prueba.marca || '0'} {prueba.unidad || ''}
-                            </Typography>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Fecha</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {fmt(seleccionado.fechaEvento || seleccionado.evento_fecha)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Categoría</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{seleccionado.categoria || '—'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Año competitivo</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {seleccionado.añoCompetitivo || seleccionado.ano_competitivo || '—'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
 
-              {/* Información Adicional */}
-              <Grid item xs={12}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" sx={{ color: '#800020', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PersonIcon />
-                      Información Adicional
+              <Divider />
+
+              {/* Pruebas */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                  <Avatar sx={{ bgcolor: `${GREEN}14`, width: 32, height: 32 }}>
+                    <TrophyIcon sx={{ fontSize: 18, color: GREEN }} />
+                  </Avatar>
+                  <Typography variant="subtitle1" sx={{ color: GREEN, fontWeight: 700 }}>
+                    Pruebas y Marcas
+                  </Typography>
+                </Box>
+                {seleccionado.pruebas?.length > 0 ? (
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, pl: 5.5 }}>
+                    {seleccionado.pruebas.map((p, i) => (
+                      <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center' }}>
+                        <Typography variant="caption" sx={{ color: '#888' }}>{p.nombre || `Prueba ${i + 1}`}</Typography>
+                        <Typography variant="h5" sx={{ color: BURGUNDY, fontWeight: 800, mt: .5 }}>
+                          {p.marca || '0'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: PURPLE }}>{p.unidad || ''}</Typography>
+                      </Paper>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" sx={{ color: '#999', pl: 5.5 }}>Sin pruebas registradas</Typography>
+                )}
+              </Box>
+
+              <Divider />
+
+              {/* Info adicional */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                  <Avatar sx={{ bgcolor: `${PURPLE}14`, width: 32, height: 32 }}>
+                    <PersonIcon sx={{ fontSize: 18, color: PURPLE }} />
+                  </Avatar>
+                  <Typography variant="subtitle1" sx={{ color: PURPLE, fontWeight: 700 }}>
+                    Información Adicional
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pl: 5.5 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Municipio</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {seleccionado.municipio || '—'}
                     </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Municipio:</Typography>
-                        <Typography variant="body1">{resultadoSeleccionado.municipio}</Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Club:</Typography>
-                        <Typography variant="body1">{resultadoSeleccionado.club}</Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Año Competitivo:</Typography>
-                        <Typography variant="body1">{resultadoSeleccionado.añoCompetitivo}</Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Lugar de Entrenamiento:</Typography>
-                        <Typography variant="body1">{resultadoSeleccionado.lugarEntrenamiento}</Typography>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Club</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {seleccionado.club || seleccionado.club_nombre || '—'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ gridColumn: '1 / -1' }}>
+                    <Typography variant="caption" sx={{ color: '#888' }}>Lugar de entrenamiento</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {seleccionado.lugarEntrenamiento || seleccionado.lugar_entrenamiento || '—'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={handleCloseModal}
-            variant="outlined"
-            sx={{ color: '#800020', borderColor: '#800020' }}
-          >
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={handleCerrar} variant="outlined"
+            sx={{ color: BURGUNDY, borderColor: BURGUNDY, textTransform: 'none', fontWeight: 600 }}>
             Cerrar
           </Button>
-          <Button
-            onClick={() => handleDownloadPDF(resultadoSeleccionado)}
-            variant="contained"
-            startIcon={<PdfIcon />}
-            sx={{ backgroundColor: '#800020', '&:hover': { backgroundColor: '#600018' } }}
-          >
+          <Button onClick={() => handleDownloadPDF(seleccionado)} variant="contained" startIcon={<PdfIcon />}
+            sx={{ bgcolor: BURGUNDY, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#600018' } }}>
             Descargar PDF
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
     </Box>
   );
 };
