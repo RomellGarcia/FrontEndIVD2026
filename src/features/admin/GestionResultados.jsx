@@ -269,7 +269,7 @@ const GestionResultados = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
+    <Container maxWidth="xl" sx={{ py: 4, background: '#e4e4e5', minHeight: '100vh' }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
         Gestión de Resultados
       </Typography>

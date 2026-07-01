@@ -36,7 +36,7 @@ const theme = createTheme({
     },
     background: {
       default: '#FFFFFF',
-      paper: '#F5E8C7',
+      paper: '#e4e4e5',
     },
     text: {
       primary: '#333333',
@@ -411,7 +411,7 @@ function Perfil() {
             width: '100%',
             mx: 'auto',
             borderRadius: '8px',
-            bgcolor: '#F5E8C7',
+            bgcolor: '#e4e4e5',
             boxSizing: 'border-box',
             boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
             mt: isMobile ? 2 : 4,

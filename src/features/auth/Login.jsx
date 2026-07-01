@@ -195,23 +195,25 @@ function Login() {
 
             {/* CURP o Correo según rol */}
             {rol === 'atleta' ? (
-              <TextField
-                fullWidth
-                label="CURP"
-                value={curp}
-                onChange={(e) => setCurp(e.target.value)}
-                sx={{ mb: 2.5, ...fieldSx }}
-                inputProps={{ style: { textTransform: 'uppercase' } }}
-              />
+              < TextField 
+              fullWidth
+            label="CURP"
+            value={curp}
+            onChange={(e) => setCurp(e.target.value)}
+            sx={{ mb: 2.5, ...fieldSx }}
+            slotProps={{
+              htmlInput: { style: { textTransform: 'uppercase' } } // Usa htmlInput dentro de slotProps
+            }}
+/>
             ) : (
-              <TextField
-                fullWidth
-                label="Correo electrónico"
-                type="email"
-                value={correo}
-                onChange={(e) => setCorreo(e.target.value)}
-                sx={{ mb: 2.5, ...fieldSx }}
-              />
+            <TextField
+              fullWidth
+              label="Correo electrónico"
+              type="email"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              sx={{ mb: 2.5, ...fieldSx }}
+            />
             )}
 
             {/* Contraseña */}

@@ -228,7 +228,7 @@ const fetchClubes = async () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
+    <Container maxWidth="lg" sx={{ py: 4, background: '#e4e4e5', minHeight: '100vh' }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', fontFamily: "'Arial', 'Helvetica', sans-serif" }}>
         Gestión de Atletas
       </Typography>
@@ -609,7 +609,7 @@ const fetchClubes = async () => {
         }}
       >
         <Table sx={{ minWidth: 650 }} aria-label="atletas table">
-          <TableHead sx={{ backgroundColor: '#F5E8C7' }}>
+          <TableHead sx={{ backgroundColor: '#e4e4e5' }}>
             <TableRow>
               {['Nombre', 'Estado', 'Fecha de Nacimiento', 'Club', 'Precio/Hora', 'Precio/Día', 'Precio/Noche', 'Precio/Semana', 'Imágenes', 'Acciones'].map(
                 (head) => (
