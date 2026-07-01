@@ -200,7 +200,6 @@ function Login() {
                 label="CURP"
                 value={curp}
                 onChange={(e) => setCurp(e.target.value)}
-                required
                 sx={{ mb: 2.5, ...fieldSx }}
                 inputProps={{ style: { textTransform: 'uppercase' } }}
               />
@@ -211,7 +210,6 @@ function Login() {
                 type="email"
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
-                required
                 sx={{ mb: 2.5, ...fieldSx }}
               />
             )}
@@ -223,7 +221,6 @@ function Login() {
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
               sx={{ mb: 3, ...fieldSx }}
               slotProps={{
                 input: {

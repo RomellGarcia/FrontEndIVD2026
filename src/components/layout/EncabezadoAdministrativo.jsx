@@ -1,95 +1,46 @@
-import { perfilEmpresaAPI } from '../../api/index.js';
 import React, { useState, useRef, useEffect } from 'react';
-import { AppstoreOutlined, LogoutOutlined, HomeOutlined, FileTextOutlined, TeamOutlined, ShopOutlined, ApartmentOutlined, TrophyOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../common/AuthContext.jsx'; // Importa useAuth
 import Swal from 'sweetalert2';
 
+const PRIMARY = "#720F3C";
+const GOLD_LIGHT = "#DEDAD0";
+
+const LOGO_IVD =
+  "https://res.cloudinary.com/dtnxbeqox/image/upload/v1782881553/IVD_TITULO_th3ydc.png";
+
 const EncabezadoAdministrativo = () => {
-  const [active, setActive] = useState('inicio');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState(null);
-  const [logoUrl, setLogoUrl] = useState('');
-  const [nombreEmpresa, setNombreEmpresa] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const menuRef = useRef(null);
-  const { logout } = useAuth(); // Obtén la función logout del contexto
-
-  useEffect(() => {
-    const fetchPerfil = async () => {
-      try {
-        const response = await perfilEmpresaAPI.get();
-        const data = response.data.perfil;
-
-        console.log('Datos recibidos del backend:', data); // Depuración
-
-        setNombreEmpresa(data.nombre_empresa || 'Nombre no disponible');
-        setLogoUrl(data.logo || '');
-      } catch (error) {
-        console.error('Error al obtener datos del perfil:', error);
-      }
-    };
-
-    fetchPerfil();
-  }, []);
-
-  const handleClick = (option) => {
-    setActive(option);
-    setIsMobileMenuOpen(false);
-    setOpenDropdown(null);
-  };
+  const { logout } = useAuth();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const toggleDropdown = (menu) => {
-    setOpenDropdown(openDropdown === menu ? null : menu);
-  };
-
   const handleMenuClick = async (key) => {
     switch (key) {
-      case 'politicas':
-        navigate('/administrador/politicas');
-        break;
       case 'home':
         navigate('/administrador');
-        break;
-      case 'terminos':
-        navigate('/administrador/terminos');
-        break;
-      case 'perfil':
-        navigate('/administrador/perfil');
-        break;
-      case 'mision':
-        navigate('/administrador/mision');
-        break;
-      case 'vision':
-        navigate('/administrador/vision');
-        break;
-      case 'gestionarAtletas':
-        navigate('/administrador/gestionar-atletas');
-        break;
-      case 'altaAtleta':
-        navigate('/administrador/atleta');
-        break;
-      case 'altaClub':
-        navigate('/administrador/club');
         break;
       case 'gestionClubes':
         navigate('/administrador/gestion-clubes');
         break;
-      case 'promocionarAtleta':
-        navigate('/administrador/promocionar-atleta');
+      case 'gestionUsuarios':
+        navigate('/administrador/gestionar-atletas');
         break;
-      case 'Eventos':
+      case 'gestionEventos':
         navigate('/administrador/evento');
         break;
-      case 'resultados':
+      case 'gestionResultados':
         navigate('/administrador/resultados');
         break;
-      
+      case 'reportes':
+        navigate('/administrador/reportes');
+        break;
+
       case 'cerrarSesion':
         const result = await Swal.fire({
           title: '¿Confirmar cierre de sesión?',
@@ -104,14 +55,10 @@ const EncabezadoAdministrativo = () => {
 
         if (result.isConfirmed) {
           try {
-            // Primero hacer logout del contexto para limpiar el estado inmediatamente
             logout();
-            
-            // Luego limpiar el almacenamiento (usar sessionStorage para ser consistente con AuthContext)
             sessionStorage.removeItem('user');
             sessionStorage.removeItem('token');
-            
-            // Finalmente intentar hacer logout del servidor
+
             try {
               await fetch('/api/logout', {
                 method: 'POST',
@@ -123,45 +70,28 @@ const EncabezadoAdministrativo = () => {
             } catch (serverError) {
               console.log('Error del servidor al cerrar sesión (no crítico):', serverError);
             }
-            
-            // Redirigir inmediatamente
+
             navigate('/login', { replace: true });
           } catch (error) {
             console.error('Error al cerrar sesión:', error);
-            // Asegurar que el logout se complete incluso si hay error
             logout();
             navigate('/login', { replace: true });
           }
         }
         break;
       default:
-        console.log('No se reconoce la acción del menú');
+        console.log('Opción no reconocida:', key);
     }
   };
 
-  const handleLogout = async () => {
-    console.log('Cerrando sesión...');
-    try {
-      await fetch('/api/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      localStorage.removeItem('token'); // Elimina el token del localStorage
-      sessionStorage.removeItem('token'); // Elimina el token de la sesión
-      logout(); // Actualiza el estado en AuthContext
-      navigate('/'); // Redirige a la pantalla pública
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
+  const handleItemClick = (item) => {
+    setIsMobileMenuOpen(false);
+    handleMenuClick(item.key);
   };
 
   const handleClickOutside = (event) => {
     if (menuRef.current && !menuRef.current.contains(event.target)) {
       setIsMobileMenuOpen(false);
-      setOpenDropdown(null);
     }
   };
 
@@ -172,254 +102,229 @@ const EncabezadoAdministrativo = () => {
     };
   }, []);
 
+  const menu = [
+    { texto: 'Inicio', key: 'home', ruta: '/administrador' },
+    { texto: 'Gestión de Clubes', key: 'gestionClubes', ruta: '/administrador/gestion-clubes' },
+    { texto: 'Gestión de Usuarios', key: 'gestionUsuarios', ruta: '/administrador/gestionar-atletas' },
+    { texto: 'Gestión de Eventos', key: 'gestionEventos', ruta: '/administrador/evento' },
+    { texto: 'Gestión de Resultados', key: 'gestionResultados', ruta: '/administrador/resultados' },
+    { texto: 'Reportes', key: 'reportes', ruta: '/administrador/reportes' },
+  ];
+
+  const cerrarSesionItem = { texto: 'Cerrar Sesión', key: 'cerrarSesion', ruta: null };
+
+  const activo = (ruta) => ruta && location.pathname === ruta;
+
   return (
     <>
       <style>{`
-        .header {
+        html {
+          scroll-behavior: smooth;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        .ivd-header {
+          width: 100%;
+          background: #ffffff;
+          font-family: "Ubuntu", Arial, Helvetica, sans-serif;
+        }
+
+        /* Franja superior dorada, al estilo de ivd.gob.mx / veracruz.gob.mx */
+        .ivd-top {
+          background-color: ${GOLD_LIGHT};
+          background-repeat: repeat-x;
+          padding: 15px 0;
+        }
+
+        .ivd-brand {
+          max-width: 1200px;
+          margin: auto;
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          padding: 15px 20px;
-          background-color: #800020; /* Granada/vino */
-          color: #FFFFFF; /* Blanco */
-          font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía aplicada al header */
-          position: relative;
-          flex-wrap: wrap;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          padding: 6px 30px;
         }
 
-        .logo {
-          display: flex;
-          align-items: center;
-          flex: 1;
-        }
-
-        .logo img {
-          width: 100px; /* Aumentado para mejor visibilidad */
-          height: 100px; /* Aumentado para mejor visibilidad */
-          max-width: 100%; /* Ajuste dinámico */
-          max-height: 100px; /* Límite máximo */
-          margin-right: 10px; /* Espacio ajustado */
-          object-fit: contain; /* Asegura que no se corte */
-          border: none; /* Eliminamos el borde */
-          box-shadow: none; /* Eliminamos la sombra */
-        }
-
-        .logo h3 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: #FFFFFF; /* Blanco */
-          margin: 0;
-          font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía explícita */
-        }
-
-        .menu {
-          flex: 2;
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        .menu ul {
-          display: flex;
-          gap: 15px;
-          list-style-type: none;
-          margin: 0;
-          padding: 0;
-        }
-
-        .menu ul li {
-          font-size: 1rem;
+        .ivd-logo-link {
+          display: inline-block;
+          margin-right: 40px;
+          margin-top: 15px;
+          margin-bottom: 15px;
           cursor: pointer;
-          padding: 8px 12px;
-          color: #FFFFFF; /* Blanco */
-          transition: background-color 0.3s ease;
+        }
+
+        .ivd-logo {
+          max-width: 500px;
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+
+        .ivd-nav {
+          background: ${PRIMARY};
+          width: 100%;
+        }
+
+        .ivd-nav-container {
+          max-width: 1280px;
+          margin: auto;
           display: flex;
-          align-items: center;
-          gap: 8px;
+          justify-content: center;
           position: relative;
         }
 
-        .menu ul li:hover {
-          background-color: #F5E8C7; /* Beige claro */
-          color: #333333; /* Gris oscuro */
-          border-radius: 5px;
-        }
-
-        .menu ul li.active {
-          background-color: #7A4069; /* Morado medio */
-          color: #FFFFFF; /* Blanco */
-          border-radius: 5px;
-        }
-
-        .menu ul .dropdown-menu {
-          display: ${openDropdown ? 'block' : 'none'};
-          position: absolute;
-          left: 0;
-          top: 100%;
-          background-color: #800020; /* Granada/vino */
+        .ivd-menu {
+          display: flex;
           list-style: none;
-          padding: 10px;
-          margin-top: 5px;
-          border-radius: 5px;
-          z-index: 10;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          padding: 0px;
+          margin: 0;
         }
 
-        .menu ul .dropdown-menu li {
-          padding: 8px 12px;
+        .ivd-item {
           cursor: pointer;
-          color: #FFFFFF; /* Blanco */
+          padding: 3px;
         }
 
-        .menu ul .dropdown-menu li:hover {
-          background-color: #F5E8C7; /* Beige claro */
-          color: #333333; /* Gris oscuro */
+        .ivd-link,
+        .ivd-login-btn {
+          display: block;
+          padding: 7px 24px 7px;
+          font-size: 1.02em;
+          font-weight: 500;
+          color: #ffffff;
+          text-transform: uppercase;
+          transition: .25s;
+          white-space: nowrap;
         }
 
-        .mobile-menu-icon {
+        .ivd-item:hover {
+          background: #800020;
+        }
+
+        .ivd-item.active {
+          background: #800020;
+        }
+
+        .mobile-button {
           display: none;
+          border: none;
+          background: none;
+          color: white;
+          font-size: 22px;
+          font-weight: 600;
+          text-transform: uppercase;
+          padding: 14px 20px;
           cursor: pointer;
-          flex-direction: column;
-          gap: 4px;
+          width: 100%;
+          text-align: left;
         }
 
-        .hamburger {
-          width: 25px;
-          height: 3px;
-          background-color: #FFFFFF; /* Blanco */
-          transition: background-color 0.3s ease;
-        }
+        /* RESPONSIVE */
 
-        @media (max-width: 768px) {
-          .header {
-            padding: 10px 15px;
+        @media (max-width: 992px) {
+          .ivd-brand {
+            padding: 18px 20px;
+            flex-direction: column;
+            gap: 16px;
           }
-          .menu ul {
+
+          .ivd-brand-left {
+            justify-content: center;
+          }
+
+          .ivd-right {
+            justify-content: center;
+          }
+
+          .ivd-nav-container {
+            justify-content: flex-start;
+          }
+
+          .mobile-button {
+            display: block;
+          }
+
+          .ivd-menu {
             display: none;
             flex-direction: column;
-            position: fixed;
-            top: 110px; /* Ajustado para el logo más grande */
-            left: 0;
-            width: 70%;
-            height: calc(100% - 110px); /* Ajustado para el logo */
-            background-color: #800020; /* Granada/vino */
-            padding: 20px;
-            transition: left 0.3s ease-in-out;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
-            z-index: 999;
+            width: 100%;
+            background: ${PRIMARY};
           }
 
-          .menu.menu-open ul {
-            display: flex;
-            left: 0;
-          }
-
-          .menu ul li {
-            padding: 15px;
-            border-bottom: 1px solid #F5E8C7; /* Beige claro */
-            text-align: right;
-            color: #FFFFFF; /* Blanco */
-          }
-
-          .menu ul li:hover {
-            background-color: #F5E8C7; /* Beige claro */
-            color: #333333; /* Gris oscuro */
-          }
-
-          .mobile-menu-icon {
+          .ivd-menu.open {
             display: flex;
           }
 
-          .logo img {
-            width: 80px; /* Ajustado para móvil */
-            height: 80px; /* Ajustado para móvil */
-            max-height: 80px; /* Límite máximo */
-            margin-right: 10px; /* Espacio ajustado */
-            border: none; /* Eliminamos el borde */
-            box-shadow: none; /* Eliminamos la sombra */
+          .ivd-item {
+            width: 100%;
+            border-top: 1px solid rgba(255, 255, 255, .08);
           }
 
-          .logo h3 {
-            font-size: 1.2rem;
-            font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía explícita en móvil */
+          .ivd-link,
+          .ivd-login-btn {
+            padding: 16px 22px;
+            white-space: normal;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .ivd-logo {
+            max-width: 280px;
+          }
+
+          .ivd-social {
+            font-size: 21px;
           }
         }
       `}</style>
 
-      <header className="header">
-        <div className="logo">
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Logo de la Empresa"
-              style={{
-                width: '100px',
-                height: '100px',
-                objectFit: 'cover',
-                borderRadius: '50%',
-                border: '3px solid #800020',
-                background: '#fff',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                marginRight: '10px',
-              }}
-            />
-          )}
-          <h3>{nombreEmpresa}</h3>
-        </div>
-        <nav className={`menu ${isMobileMenuOpen ? 'menu-open' : ''}`} ref={menuRef}>
-          <ul>
-            <li onClick={() => handleMenuClick('home')}>
-              <HomeOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Inicio
-            </li>
-            <li className="dropdown" onClick={() => toggleDropdown('empresa')}>
-              <span>
-                <FileTextOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-                Datos del Instituto
-              </span>
-              {openDropdown === 'empresa' && (
-                <ul className="dropdown-menu">
-                  <li onClick={() => { handleClick('perfil'); handleMenuClick('perfil'); }}>Perfil</li>
-                  <li onClick={() => { handleClick('terminos'); handleMenuClick('terminos'); }}>Términos</li>
-                  <li onClick={() => { handleClick('politicas'); handleMenuClick('politicas'); }}>Políticas</li>
-                  <li onClick={() => { handleClick('mision'); handleMenuClick('mision'); }}>Misión</li>
-                  <li onClick={() => { handleClick('vision'); handleMenuClick('vision'); }}>Visión</li>
-                </ul>
-              )}
-            </li>
-            <li className="dropdown" onClick={() => toggleDropdown('alta')}>
-              <span>
-                <ShopOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-                Gestión de Usuarios
-              </span>
-              {openDropdown === 'alta' && (
-                <ul className="dropdown-menu">
-                  <li onClick={() => { handleClick('gestionarAtletas'); handleMenuClick('gestionarAtletas'); }}>Gestionar Atletas</li>
-                  <li onClick={() => { handleClick('gestionClubes'); handleMenuClick('gestionClubes'); }}>Gestionar Clubes</li>
-                  <li onClick={() => { handleClick('promocionarAtleta'); handleMenuClick('promocionarAtleta'); }}>Gestionar Entrenadores</li>
-                </ul>
-              )}
-            </li>
-            <li onClick={() => handleMenuClick('Eventos')}>
-              <ApartmentOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Gestión de eventos
-            </li>
-            <li onClick={() => handleMenuClick('resultados')}>
-              <TrophyOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Gestión de Resultados
-            </li>
+      <header className="ivd-header" ref={menuRef}>
+        {/* Franja superior */}
+        <div className="ivd-top"></div>
 
-            <li onClick={() => handleMenuClick('cerrarSesion')}>
-              <LogoutOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Cerrar Sesión
-            </li>
-          </ul>
-        </nav>
-        <div className="mobile-menu-icon" onClick={toggleMobileMenu}>
-          <div className="hamburger"></div>
-          <div className="hamburger"></div>
-          <div className="hamburger"></div>
+        {/* Logo */}
+        <div className="ivd-brand">
+          <div className="ivd-logo-link" onClick={() => handleMenuClick('home')}>
+            <img
+              src={LOGO_IVD}
+              alt="Instituto Veracruzano del Deporte"
+              className="ivd-logo"
+            />
+          </div>
         </div>
+
+        {/* Menú */}
+        <nav className="ivd-nav">
+          <div className="ivd-nav-container">
+            <ul className={`ivd-menu ${isMobileMenuOpen ? "open" : ""}`}>
+              {menu.map((item) => (
+                <li
+                  key={item.key}
+                  className={`ivd-item ${activo(item.ruta) ? "active" : ""}`}
+                  onClick={() => handleItemClick(item)}
+                >
+                  <span className="ivd-link">{item.texto}</span>
+                </li>
+              ))}
+
+              <li
+                className="ivd-item ivd-login-item"
+                onClick={() => handleItemClick(cerrarSesionItem)}
+              >
+                <span className="ivd-login-btn">{cerrarSesionItem.texto}</span>
+              </li>
+            </ul>
+
+            <button
+              className="mobile-button"
+              onClick={toggleMobileMenu}
+            >
+              {isMobileMenuOpen ? "Cerrar" : "Menú"}
+            </button>
+          </div>
+        </nav>
       </header>
     </>
   );

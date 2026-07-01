@@ -17,7 +17,7 @@ import { useNavigate } from 'react-router-dom';
 
 const BURGUNDY = '#800020';
 const PURPLE   = '#7A4069';
-const CREAM    = '#F5E8C7';
+const CREAM    = '#e3e4e5';
 const GREEN    = '#2E7D32';
 
 /* ── Tarjeta de estadística ── */

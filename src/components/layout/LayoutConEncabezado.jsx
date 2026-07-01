@@ -29,7 +29,7 @@ const LayoutConEncabezado = ({ children }) => {
   // Determinar encabezado y pie de página basado en el rol del usuario
   if (user) {
     switch (user.tipo) {
-      case 'administrador':
+      case 'admin':
         encabezado = <EncabezadoAdministrativo />;
         pieDePagina = <PieDePaginaAdmin />;
         break;

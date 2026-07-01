@@ -106,26 +106,31 @@ const AgregarEvento = () => {
   }, []);
 
   const cargarEventos = async () => {
-    try {
-      setLoadingEventos(true);
-      const response = await axios.get('http://localhost:5000/api/eventos');
-      setEventos(response.data || []);
-    } catch (error) {
-      console.error('Error al cargar eventos:', error);
-      setEventos([]);
-      // No mostrar error si es la primera carga
-      if (eventos.length > 0) {
-        MySwal.fire({
-          title: 'Error!',
-          text: 'Error al cargar los eventos',
-          icon: 'error',
-          confirmButtonText: 'OK',
-        });
-      }
-    } finally {
-      setLoadingEventos(false);
+  try {
+    setLoadingEventos(true);
+    const response = await axios.get('http://localhost:5000/api/eventos');
+    const data = response.data;
+    const listaEventos = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.eventos)
+        ? data.eventos
+        : [];
+    setEventos(listaEventos);
+  } catch (error) {
+    console.error('Error al cargar eventos:', error);
+    setEventos([]);
+    if (eventos.length > 0) {
+      MySwal.fire({
+        title: 'Error!',
+        text: 'Error al cargar los eventos',
+        icon: 'error',
+        confirmButtonText: 'OK',
+      });
     }
-  };
+  } finally {
+    setLoadingEventos(false);
+  }
+};
 
   const fetchLogo = async () => {
     try {

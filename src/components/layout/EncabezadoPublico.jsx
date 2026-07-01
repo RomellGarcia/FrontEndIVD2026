@@ -1,267 +1,259 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { HomeOutlined, LoginOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import { perfilEmpresaAPI } from '../../api/index.js';
+import React, { useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+
+
+const PRIMARY = "#720F3C";
+const GOLD_LIGHT = "#DEDAD0";
+const GOLD_LIGHT_ALT = "#DDDAD0";
+const MUSTARD = "#AA983F";
+const DARK_TEXT = "#49453C";
+const MOBILE_BG = "#333333";
+const MOBILE_ROW = "#49453C";
+const MOBILE_ROW_HOVER = "#6b6767";
+
+const LOGO_IVD =
+  "https://res.cloudinary.com/dtnxbeqox/image/upload/v1782881553/IVD_TITULO_th3ydc.png";
 
 const EncabezadoPublico = () => {
-  const [active, setActive] = useState('inicio');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [nombreEmpresa, setNombreEmpresa] = useState('Instituto Veracruzano del Deporte');
-  const [logoUrl, setLogoUrl] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const [mobileMenu, setMobileMenu] = useState(false);
   const menuRef = useRef(null);
 
-  useEffect(() => {
-    const fetchPerfil = async () => {
-      try {
-        const response = await perfilEmpresaAPI.get();
-        const data = response.data.perfil;     
-        setNombreEmpresa(data.nombre_empresa || 'Instituto Veracruzano del Deporte');
-        setLogoUrl(data.logo || '');
-      } catch (error) {
-        console.error('Error al obtener datos del perfil:', error);
+  React.useEffect(() => {
+    const cerrar = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMobileMenu(false);
       }
     };
-
-    fetchPerfil();
+    document.addEventListener("mousedown", cerrar);
+    return () => document.removeEventListener("mousedown", cerrar);
   }, []);
 
-  const handleClick = (option) => {
-    setActive(option);
-    setIsMobileMenuOpen(false);
+  const navegar = (ruta) => {
+    navigate(ruta);
+    setMobileMenu(false);
   };
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  const menu = [
+    { texto: "Inicio", ruta: "/" },
+    { texto: "Eventos", ruta: "/eventos-publico" },
+    { texto: "Resultados", ruta: "/resultados-publico" },
+  ];
 
-  const handleMenuClick = (key) => {
-    switch (key) {
-      case 'home':
-        navigate('/');
-        break;
-      case 'login':
-        navigate('/login');
-        break;
-      default:
-        console.log('No se reconoce la acción del menú');
-    }
-  };
+  const loginItem = { texto: "Iniciar Sesión", ruta: "/login" };
 
-  const handleClickOutside = (event) => {
-    if (menuRef.current && !menuRef.current.contains(event.target)) {
-      setIsMobileMenuOpen(false);
-    }
-  };
-
-  useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  const activo = (ruta) => location.pathname === ruta;
 
   return (
     <>
       <style>{`
-        :root {
-          --color-primary: #800020; /* Granada/Vino - fondo y botones */
-          --color-secondary: #FFFFFF; /* Blanco - texto principal */
-          --color-highlight: #7A4069; /* Morado medio - acentos */
-          --color-hover: #A52A2A; /* Tono más claro para hover */
-          --color-mobile-bg: #800020; /* Fondo móvil */
-          --color-mobile-text: #FFFFFF; /* Texto móvil */
-          --color-detail: #F5E8C7; /* Beige claro - detalles */
-          --color-divider: #B0BEC5; /* Gris claro - separadores */
-          --color-text-secondary: #333333; /* Gris oscuro para subtítulos */
+        html {
+          scroll-behavior: smooth;
         }
 
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 15px 30px;
-          background-color: var(--color-primary);
-          color: var(--color-secondary);
-          font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía aplicada al header */
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          position: sticky;
-          top: 0;
-          z-index: 1100;
-          transition: all 0.3s ease;
+        * {
+          box-sizing: border-box;
         }
 
-        .logo {
+        .ivd-header {
+          width: 100%;
+          background: #ffffff;
+          font-family: "Ubuntu", Arial, Helvetica, sans-serif;
+        }
+
+        /* Franja superior dorada, al estilo de ivd.gob.mx / veracruz.gob.mx */
+        .ivd-top {
+          background-color: ${GOLD_LIGHT};
+          background-repeat: repeat-x;
+          padding: 15px 0;
+        }
+
+        .ivd-brand {
+          max-width: 1200px;
+          margin: auto;
           display: flex;
           align-items: center;
-          flex: 1;
+          padding: 6px 30px;
         }
 
-        .logo img {
-          width: 100px; /* Tamaño base en escritorio */
-          height: 100px; /* Tamaño base en escritorio */
-          max-width: 100%; /* Ajuste dinámico al contenedor */
-          max-height: 100px; /* Límite máximo para mantener proporciones */
-          border-radius: 8px; /* Mantenemos el borde redondeado si lo deseas */
-          margin-right: 20px; /* Espacio entre logo y texto */
-          object-fit: contain; /* Asegura que la imagen no se corte */
-          border: none; /* Quitamos el borde */
-          box-shadow: none; /* Quitamos la sombra */
+        .ivd-logo-link {
+          display: inline-block;
+          margin-right: 40px;
+          margin-top: 15px;
+          margin-bottom: 15px;
+          cursor: pointer;
         }
 
-        .logo h1 {
-          font-size: 1.6rem;
-          font-weight: 700;
-          color: var(--color-secondary);
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-          font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía explícita */
+        .ivd-logo {
+          max-width: 500px;
+          width: 100%;
+          height: auto;
+          display: block;
         }
 
-        .menu ul {
+        .ivd-nav {
+          background: ${PRIMARY};
+          width: 100%;
+        }
+
+        .ivd-nav-container {
+          max-width: 1280px;
+          margin: auto;
           display: flex;
-          gap: 20px;
+          justify-content: center;
+          position: relative;
+        }
+
+        .ivd-menu {
+          display: flex;
           list-style: none;
+          padding: 0px;
           margin: 0;
-          padding: 0;
         }
 
-        .menu ul li {
-          font-size: 1.1rem;
-          font-weight: 600;
+        .ivd-item {
           cursor: pointer;
-          padding: 8px 12px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--color-secondary);
-          transition: all 0.3s ease;
-          border-radius: 5px;
+          padding: 3px;
         }
 
-        .menu ul li:hover {
-          background: rgba(255, 255, 255, 0.15);
-          color: var(--color-secondary);
+        .ivd-link,
+        .ivd-login-btn {
+          display: block;
+          padding: 7px 35px 7px;
+          font-size: 1.064em;
+          font-weight: 500;
+          color: #ffffff;
+          text-transform: uppercase;
+          transition: .25s;
         }
 
-        .menu ul li.active {
-          background: rgba(122, 64, 105, 0.8);
-          color: var(--color-secondary);
+        .ivd-item:hover {
+          background: #800020;
         }
 
-        .mobile-menu-icon {
+        .ivd-item.active {
+          background: #800020;
+        }
+
+        .mobile-button {
           display: none;
-          flex-direction: column;
+          border: none;
+          background: none;
+          color: white;
+          font-size: 26px;
+          padding: 14px 20px;
           cursor: pointer;
-          gap: 4px;
+          width: 100%;
+          text-align: left;
         }
 
-        .hamburger {
-          width: 30px;
-          height: 3px;
-          background-color: var(--color-secondary);
-          transition: all 0.3s ease;
-          border-radius: 1px;
-        }
+        /* RESPONSIVE */
 
-        .mobile-menu-icon:hover .hamburger {
-          background-color: var(--color-detail);
-        }
-
-        @media (max-width: 768px) {
-          .header {
-            padding: 10px 15px;
-          }
-          .menu ul {
+        @media (max-width: 992px) {
+          .ivd-brand {
+            padding: 18px 20px;
             flex-direction: column;
-            position: fixed;
-            top: 90px; /* Espacio para el logo más grande */
-            left: -100%;
-            width: 70%;
-            height: calc(100% - 90px); /* Ajustado para el logo */
-            background-color: var(--color-mobile-bg);
-            padding: 20px;
-            transition: left 0.4s ease-in-out;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            gap: 16px;
           }
 
-          .menu.menu-open ul {
-            left: 0;
+          .ivd-brand-left {
+            justify-content: center;
           }
 
-          .menu ul li {
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--color-divider);
-            color: var(--color-mobile-text);
-            font-size: 1.2rem;
-            font-weight: 500;
+          .ivd-right {
+            justify-content: center;
           }
 
-          .mobile-menu-icon {
+          .ivd-nav-container {
+            justify-content: flex-start;
+          }
+
+          .mobile-button {
+            display: block;
+          }
+
+          .ivd-menu {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            background: ${PRIMARY};
+          }
+
+          .ivd-menu.open {
             display: flex;
           }
 
-          .logo img {
-            width: 80px; /* Tamaño base en móvil */
-            height: 80px; /* Tamaño base en móvil */
-            max-height: 80px; /* Límite máximo */
-            margin-right: 15px; /* Espacio ajustado */
-            border: none; /* Quitamos el borde */
-            box-shadow: none; /* Quitamos la sombra */
+          .ivd-item {
+            width: 100%;
+            border-top: 1px solid rgba(255, 255, 255, .08);
           }
 
-          .logo h1 {
-            font-size: 1.3rem;
-            font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía explícita en móvil */
+          .ivd-link,
+          .ivd-login-btn {
+            padding: 16px 22px;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .ivd-logo {
+            max-width: 280px;
+          }
+
+          .ivd-social {
+            font-size: 21px;
           }
         }
       `}</style>
 
-      <header className="header">
-        <div className="logo">
-          {logoUrl ? (
+      <header className="ivd-header" ref={menuRef}>
+        {/* Franja superior */}
+        <div className="ivd-top"></div>
+
+        {/* Logo */}
+        <div className="ivd-brand">
+          <div className="ivd-logo-link" onClick={() => navegar("/")}>
             <img
-              src={logoUrl}
-              alt={`${nombreEmpresa} logo`}
-              style={{
-                width: '100px',
-                height: '100px',
-                objectFit: 'cover',
-                borderRadius: '50%',
-                border: '3px solid #800020',
-                background: '#fff',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                marginRight: '20px',
-              }}
+              src={LOGO_IVD}
+              alt="Instituto Veracruzano del Deporte"
+              className="ivd-logo"
             />
-          ) : (
-            <div style={{ width: '100px', height: '100px', backgroundColor: '#E0E0E0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4A5568', fontSize: '0.8rem', fontWeight: 600, border: '3px solid #800020', marginRight: '20px' }}>
-              Logo
-            </div>
-          )}
-          <h1>{nombreEmpresa}</h1>
+          </div>
         </div>
-        <nav className={`menu ${isMobileMenuOpen ? 'menu-open' : ''}`} ref={menuRef}>
-          <ul>
-            <li
-              className={active === 'home' ? 'active' : ''}
-              onClick={() => { handleClick('home'); handleMenuClick('home'); }}
+
+        {/* Menú */}
+        <nav className="ivd-nav">
+          <div className="ivd-nav-container">
+            <ul className={`ivd-menu ${mobileMenu ? "open" : ""}`}>
+              {menu.map((item) => (
+                <li
+                  key={item.ruta}
+                  className={`ivd-item ${activo(item.ruta) ? "active" : ""}`}
+                  onClick={() => navegar(item.ruta)}
+                >
+                  <span className="ivd-link">{item.texto}</span>
+                </li>
+              ))}
+
+              <li
+                className={`ivd-item ivd-login-item ${activo(loginItem.ruta) ? "active" : ""}`}
+                onClick={() => navegar(loginItem.ruta)}
+              >
+                <span className="ivd-login-btn">{loginItem.texto}</span>
+              </li>
+            </ul>
+
+            <button
+              className="mobile-button"
+              onClick={() => setMobileMenu(!mobileMenu)}
             >
-              <HomeOutlined style={{ color: '#F5E8C7' }} /> Inicio
-            </li>
-            <li
-              className={active === 'login' ? 'active' : ''}
-              onClick={() => { handleClick('login'); handleMenuClick('login'); }}
-            >
-              <LoginOutlined style={{ color: '#F5E8C7' }} /> Iniciar Sesión
-            </li>
-          </ul>
+              <ion-icon
+                name={mobileMenu ? "close-outline" : "menu-outline"}
+              ></ion-icon>
+            </button>
+          </div>
         </nav>
-        <div className="mobile-menu-icon" onClick={toggleMobileMenu}>
-          <div className="hamburger"></div>
-          <div className="hamburger"></div>
-          <div className="hamburger"></div>
-        </div>
       </header>
     </>
   );

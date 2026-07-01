@@ -44,37 +44,71 @@ const Reportes = () => {
     }
   }, [user]);
 
-  const cargarDatos = async () => {
+ const cargarDatos = async () => {
+  try {
+    setLoading(true);
+
+    // Cargar resultados
+    const resultadosRes = await axios.get('http://localhost:5000/api/resultados');
+    setResultados(
+      Array.isArray(resultadosRes.data)
+        ? resultadosRes.data
+        : Array.isArray(resultadosRes.data?.resultados)
+          ? resultadosRes.data.resultados
+          : []
+    );
+
+    // Cargar eventos
+    const eventosRes = await axios.get('http://localhost:5000/api/eventos');
+    setEventos(
+      Array.isArray(eventosRes.data)
+        ? eventosRes.data
+        : Array.isArray(eventosRes.data?.eventos)
+          ? eventosRes.data.eventos
+          : []
+    );
+
+    // Cargar atletas
+    const atletasRes = await axios.get('http://localhost:5000/api/atletas');
+    setAtletas(
+      Array.isArray(atletasRes.data)
+        ? atletasRes.data
+        : Array.isArray(atletasRes.data?.atletas)
+          ? atletasRes.data.atletas
+          : []
+    );
+
+    // Cargar clubes
+    const clubesRes = await axios.get('http://localhost:5000/api/clubes');
+    setClubes(
+      Array.isArray(clubesRes.data)
+        ? clubesRes.data
+        : Array.isArray(clubesRes.data?.clubes)
+          ? clubesRes.data.clubes
+          : []
+    );
+
+    // Cargar estadísticas — en try/catch aparte para que un fallo aquí
+    // no tumbe los datos que ya cargaron bien arriba
     try {
-      setLoading(true);
-      
-      // Cargar resultados
-      const resultadosRes = await axios.get('http://localhost:5000/api/resultados');
-      setResultados(resultadosRes.data);
-      
-      // Cargar eventos
-      const eventosRes = await axios.get('http://localhost:5000/api/eventos');
-      setEventos(eventosRes.data);
-      
-      // Cargar atletas
-      const atletasRes = await axios.get('http://localhost:5000/api/atletas');
-      setAtletas(atletasRes.data);
-      
-      // Cargar clubes
-      const clubesRes = await axios.get('http://localhost:5000/api/clubes');
-      setClubes(clubesRes.data);
-      
-      // Cargar estadísticas
       const estadisticasRes = await axios.get('http://localhost:5000/api/resultados/estadisticas/generales');
-      setEstadisticas(estadisticasRes.data);
-      
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-      setError('Error al cargar los datos para los reportes');
-    } finally {
-      setLoading(false);
+      setEstadisticas(estadisticasRes.data || {});
+    } catch (statsError) {
+      console.error('Error al cargar estadísticas:', statsError);
+      setEstadisticas({});
     }
-  };
+
+  } catch (error) {
+    console.error('Error al cargar datos:', error);
+    setError('Error al cargar los datos para los reportes');
+    setResultados([]);
+    setEventos([]);
+    setAtletas([]);
+    setClubes([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const aplicarFiltros = () => {
     let resultadosFiltrados = [...resultados];

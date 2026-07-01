@@ -67,37 +67,36 @@ const GestionResultados = () => {
   }, [user]);
 
   const cargarDatos = async () => {
-    try {
-      setLoading(true);
-      
-      // Cargar eventos
-      const eventosRes = await axios.get('http://localhost:5000/api/eventos');
-      setEventos(eventosRes.data);
+  try {
+    setLoading(true);
 
-      // Cargar resultados existentes
-      const resultadosRes = await axios.get('http://localhost:5000/api/resultados');
-      setResultados(resultadosRes.data);
-      
-      // Cargar atletas
-      const atletasRes = await axios.get('http://localhost:5000/api/atletas');
-      setAtletas(atletasRes.data);
+    const eventosRes = await axios.get('http://localhost:5000/api/eventos');
+    setEventos(Array.isArray(eventosRes.data) ? eventosRes.data : (eventosRes.data?.eventos || []));
 
-      // Cargar entrenadores
-      const entrenadoresRes = { data: { entrenadores: [] } }; // TODO: endpoint de entrenadores global
-      setEntrenadores(entrenadoresRes.data);
-      
-      // Cargar clubes
-      const clubesRes = await axios.get('http://localhost:5000/api/clubes');
-      setClubes(clubesRes.data);
-      
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-      setError('Error al cargar los datos');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const resultadosRes = await axios.get('http://localhost:5000/api/resultados');
+    setResultados(Array.isArray(resultadosRes.data) ? resultadosRes.data : (resultadosRes.data?.resultados || []));
 
+    const atletasRes = await axios.get('http://localhost:5000/api/atletas');
+    setAtletas(Array.isArray(atletasRes.data) ? atletasRes.data : (atletasRes.data?.atletas || []));
+
+    const entrenadoresRes = { data: { entrenadores: [] } }; // TODO: endpoint de entrenadores global
+    setEntrenadores(Array.isArray(entrenadoresRes.data) ? entrenadoresRes.data : (entrenadoresRes.data?.entrenadores || []));
+
+    const clubesRes = await axios.get('http://localhost:5000/api/clubes');
+    setClubes(Array.isArray(clubesRes.data) ? clubesRes.data : (clubesRes.data?.clubes || []));
+
+  } catch (error) {
+    console.error('Error al cargar datos:', error);
+    setError('Error al cargar los datos');
+    setEventos([]);
+    setResultados([]);
+    setAtletas([]);
+    setEntrenadores([]);
+    setClubes([]);
+  } finally {
+    setLoading(false);
+  }
+};
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({

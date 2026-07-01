@@ -128,7 +128,7 @@ const PieDePaginaAtleta = () => {
     <Layout>
       <Footer
         style={{
-          backgroundColor: '#800020',
+          backgroundColor: '#720F3C',
           textAlign: 'center',
           padding: '40px 20px',
           width: '100%',

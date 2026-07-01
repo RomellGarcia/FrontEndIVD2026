@@ -47,32 +47,38 @@ const GestionClubes = () => {
   }, []);
 
   const fetchClubes = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/clubes');
-      const clubesData = response.data.map(club => {
-        let imagenParsed = null;
-        try {
-          if (club.imagen) {
-            imagenParsed = JSON.parse(club.imagen);
-          }
-        } catch (error) {
-          console.error(`Error al parsear imagen del club ${club.id}:`, error);
-          imagenParsed = null;
-        }
-        return {
-          ...club,
-          id: club.id,
-          imagen: imagenParsed
-        };
-      });
-      setClubes(clubesData);
-      setErrorMessage('');
-    } catch (error) {
-      console.error('Error al obtener clubes:', error);
-      setErrorMessage('Error al cargar los clubes. Intente de nuevo.');
-    }
-  };
+  try {
+    const response = await axios.get('http://localhost:5000/api/clubes');
+    const listaClubes = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data?.clubes)
+        ? response.data.clubes
+        : [];
 
+    const clubesData = listaClubes.map(club => {
+      let imagenParsed = null;
+      try {
+        if (club.imagen) {
+          imagenParsed = JSON.parse(club.imagen);
+        }
+      } catch (error) {
+        console.error(`Error al parsear imagen del club ${club.id}:`, error);
+        imagenParsed = null;
+      }
+      return {
+        ...club,
+        id: club.id,
+        imagen: imagenParsed
+      };
+    });
+    setClubes(clubesData);
+    setErrorMessage('');
+  } catch (error) {
+    console.error('Error al obtener clubes:', error);
+    setErrorMessage('Error al cargar los clubes. Intente de nuevo.');
+    setClubes([]);
+  }
+};
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({

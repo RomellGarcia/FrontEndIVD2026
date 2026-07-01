@@ -202,7 +202,7 @@ const EventosAtleta = () => {
         )}
       </Container>
 
-      {/* ── Modal Convocatorias ── */}
+      {/* ── Convocatorias ── */}
       <Dialog open={modalConvocatoriasOpen} onClose={() => setModalConvocatoriasOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

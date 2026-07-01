@@ -1,40 +1,20 @@
-import { perfilEmpresaAPI } from '../../api/index.js';
 import React, { useState, useRef, useEffect } from 'react';
-import { HomeOutlined, LogoutOutlined, UserOutlined, ShopOutlined, TrophyOutlined, NotificationOutlined } from '@ant-design/icons';
-import { Sports as SportsIcon } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../common/AuthContext.jsx'; // Importa useAuth
 import Swal from 'sweetalert2';
 
-const EncabezadoCliente = () => {
-  const [active, setActive] = useState('inicio');
+const PRIMARY = "#720F3C";
+const GOLD_LIGHT = "#DEDAD0";
+
+const LOGO_IVD =
+  "https://res.cloudinary.com/dtnxbeqox/image/upload/v1782881553/IVD_TITULO_th3ydc.png";
+
+const EncabezadoAtleta = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [nombreEmpresa, setNombreEmpresa] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const menuRef = useRef(null);
-  const { logout } = useAuth(); // Obtén la función logout del contexto
-
-  useEffect(() => {
-  const fetchPerfil = async () => {
-    try {
-      const response = await perfilEmpresaAPI.get()  // ← usar api.js
-      const data = response.data.perfil              // ← extraer .perfil
-      setNombreEmpresa(data.nombre_empresa || 'Instituto Veracruzano del Deporte')
-      setLogoUrl(data.logo || '')
-    } catch (error) {
-      console.error('Error al obtener datos del perfil:', error)
-    }
-  }
-  fetchPerfil()
-}, [])
-
-
-  const handleClick = (option) => {
-    setActive(option);
-    setIsMobileMenuOpen(false);
-  };
+  const { logout } = useAuth();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -72,14 +52,10 @@ const EncabezadoCliente = () => {
 
         if (result.isConfirmed) {
           try {
-            // Primero hacer logout del contexto para limpiar el estado inmediatamente
             logout();
-            
-            // Luego limpiar el almacenamiento (usar sessionStorage para ser consistente con AuthContext)
             sessionStorage.removeItem('user');
             sessionStorage.removeItem('token');
-            
-            // Finalmente intentar hacer logout del servidor
+
             try {
               await fetch('/api/logout', {
                 method: 'POST',
@@ -91,12 +67,10 @@ const EncabezadoCliente = () => {
             } catch (serverError) {
               console.log('Error del servidor al cerrar sesión (no crítico):', serverError);
             }
-            
-            // Redirigir inmediatamente
+
             navigate('/login', { replace: true });
           } catch (error) {
             console.error('Error al cerrar sesión:', error);
-            // Asegurar que el logout se complete incluso si hay error
             logout();
             navigate('/login', { replace: true });
           }
@@ -105,6 +79,11 @@ const EncabezadoCliente = () => {
       default:
         console.log('Opción no reconocida:', key);
     }
+  };
+
+  const handleItemClick = (item) => {
+    setIsMobileMenuOpen(false);
+    handleMenuClick(item.key);
   };
 
   const handleClickOutside = (event) => {
@@ -120,189 +99,229 @@ const EncabezadoCliente = () => {
     };
   }, []);
 
+  const menu = [
+    { texto: 'Inicio', key: 'home', ruta: '/atleta' },
+    { texto: 'Eventos', key: 'eventos', ruta: '/atleta/eventos' },
+    { texto: 'Resultados', key: 'resultadosA', ruta: '/atleta/resultados' },
+    { texto: 'Convocatoria', key: 'convocatoria', ruta: '/atleta/convocatoria' },
+    { texto: 'Perfil', key: 'perfilA', ruta: '/atleta/perfil' },
+  ];
+
+  const cerrarSesionItem = { texto: 'Cerrar Sesión', key: 'cerrarSesion', ruta: null };
+
+  const activo = (ruta) => ruta && location.pathname === ruta;
+
   return (
     <>
       <style>{`
-        .header {
+        html {
+          scroll-behavior: smooth;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        .ivd-header {
+          width: 100%;
+          background: #ffffff;
+          font-family: "Ubuntu", Arial, Helvetica, sans-serif;
+        }
+
+        /* Franja superior dorada, al estilo de ivd.gob.mx / veracruz.gob.mx */
+        .ivd-top {
+          background-color: ${GOLD_LIGHT};
+          background-repeat: repeat-x;
+          padding: 15px 0;
+        }
+
+        .ivd-brand {
+          max-width: 1200px;
+          margin: auto;
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          padding: 15px 20px;
-          background-color: #800020; /* Granada/vino */
-          color: #FFFFFF; /* Blanco */
-          font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía aplicada al header */
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          padding: 6px 30px;
         }
 
-        .logo {
+        .ivd-logo-link {
+          display: inline-block;
+          margin-right: 40px;
+          margin-top: 15px;
+          margin-bottom: 15px;
+          cursor: pointer;
+        }
+
+        .ivd-logo {
+          max-width: 500px;
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+
+        .ivd-nav {
+          background: ${PRIMARY};
+          width: 100%;
+        }
+
+        .ivd-nav-container {
+          max-width: 1280px;
+          margin: auto;
           display: flex;
-          align-items: center;
-          flex: 1;
+          justify-content: center;
+          position: relative;
         }
 
-        .logo img {
-          width: 100px; /* Aumentado para mejor visibilidad */
-          height: 100px; /* Aumentado para mejor visibilidad */
-          max-width: 100%; /* Ajuste dinámico */
-          max-height: 100px; /* Límite máximo */
-          margin-right: 10px; /* Espacio ajustado */
-          object-fit: contain; /* Asegura que no se corte */
-          border: none; /* Eliminamos el borde */
-          box-shadow: none; /* Eliminamos la sombra */
-        }
-
-        .logo h3 {
-          font-size: 1.2rem;
-          font-weight: 600;
-          color: #FFFFFF; /* Blanco */
-          margin: 0;
-          font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía explícita */
-        }
-
-        .menu ul {
+        .ivd-menu {
           display: flex;
-          gap: 15px;
           list-style: none;
+          padding: 0px;
           margin: 0;
-          padding: 0;
         }
 
-        .menu ul li {
-          font-size: 1rem;
+        .ivd-item {
           cursor: pointer;
-          padding: 8px 12px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: #FFFFFF; /* Blanco */
-          transition: background-color 0.3s ease;
-          font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía explícita */
+          padding: 3px;
         }
 
-        .menu ul li:hover {
-          background-color: #F5E8C7; /* Beige claro */
-          color: #333333; /* Gris oscuro */
-          border-radius: 5px;
+        .ivd-link,
+        .ivd-login-btn {
+          display: block;
+          padding: 7px 35px 7px;
+          font-size: 1.064em;
+          font-weight: 500;
+          color: #ffffff;
+          text-transform: uppercase;
+          transition: .25s;
         }
 
-        .menu ul li.active {
-          background-color: #7A4069; /* Morado medio - Color activo estandarizado */
-          color: #FFFFFF; /* Blanco */
-          border-radius: 5px;
+        .ivd-item:hover {
+          background: #800020;
         }
 
-        .mobile-menu-icon {
+        .ivd-item.active {
+          background: #800020;
+        }
+
+        .mobile-button {
           display: none;
-          flex-direction: column;
+          border: none;
+          background: none;
+          color: white;
+          font-size: 22px;
+          font-weight: 600;
+          text-transform: uppercase;
+          padding: 14px 20px;
           cursor: pointer;
-          gap: 4px;
+          width: 100%;
+          text-align: left;
         }
 
-        .hamburger {
-          width: 25px;
-          height: 3px;
-          background-color: #FFFFFF; /* Blanco */
-          transition: background-color 0.3s ease;
-        }
+        /* RESPONSIVE */
 
-        @media (max-width: 768px) {
-          .menu ul {
+        @media (max-width: 992px) {
+          .ivd-brand {
+            padding: 18px 20px;
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .ivd-brand-left {
+            justify-content: center;
+          }
+
+          .ivd-right {
+            justify-content: center;
+          }
+
+          .ivd-nav-container {
+            justify-content: flex-start;
+          }
+
+          .mobile-button {
+            display: block;
+          }
+
+          .ivd-menu {
             display: none;
             flex-direction: column;
-            position: fixed;
-            top: 110px; /* Ajustado para el logo más grande */
-            left: -100%;
-            width: 70%;
-            height: calc(100% - 110px); /* Ajustado para el logo */
-            background-color: #800020; /* Granada/vino */
-            padding: 20px;
-            transition: left 0.3s ease-in-out;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
-            z-index: 999;
+            width: 100%;
+            background: ${PRIMARY};
           }
 
-          .menu.menu-open ul {
-            display: flex;
-            left: 0;
-          }
-
-          .mobile-menu-icon {
+          .ivd-menu.open {
             display: flex;
           }
 
-          .logo img {
-            width: 80px; /* Ajustado para móvil */
-            height: 80px; /* Ajustado para móvil */
-            max-height: 80px; /* Límite máximo */
-            margin-right: 10px; /* Espacio ajustado */
-            border: none; /* Eliminamos el borde */
-            box-shadow: none; /* Eliminamos la sombra */
+          .ivd-item {
+            width: 100%;
+            border-top: 1px solid rgba(255, 255, 255, .08);
           }
 
-          .logo h3 {
-            font-size: 1rem; /* Ajustado para móvil */
-            font-family: 'Arial', 'Helvetica', sans-serif; /* Tipografía explícita en móvil */
+          .ivd-link,
+          .ivd-login-btn {
+            padding: 16px 22px;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .ivd-logo {
+            max-width: 280px;
+          }
+
+          .ivd-social {
+            font-size: 21px;
           }
         }
       `}</style>
 
-      <header className="header">
-        <div className="logo">
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Logo de la Empresa"
-              style={{
-                width: '100px',
-                height: '100px',
-                objectFit: 'cover',
-                borderRadius: '50%',
-                border: '3px solid #800020',
-                background: '#fff',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                marginRight: '10px',
-              }}
-            />
-          )}
-          <h3>{nombreEmpresa}</h3>
-        </div>
-        <nav className={`menu ${isMobileMenuOpen ? 'menu-open' : ''}`} ref={menuRef}>
-          <ul>
-            <li className={active === 'home' ? 'active' : ''} onClick={() => { handleClick('home'); handleMenuClick('home'); }}>
-              <HomeOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Inicio
-            </li>
-            <li className={active === 'eventos' ? 'active' : ''} onClick={() => { handleClick('eventos'); handleMenuClick('eventos'); }}>
-              <ShopOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Eventos
-            </li>
-            <li className={active === 'resultadosA' ? 'active' : ''} onClick={() => { handleClick('resultadosA'); handleMenuClick('resultadosA'); }}>
-              <TrophyOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Resultados
-            </li>
-            <li className={active === 'convocatoria' ? 'active' : ''} onClick={() => { handleClick('convocatoria'); handleMenuClick('convocatoria'); }}>
-              <NotificationOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Convocatoria
-            </li>
-            <li className={active === 'perfilA' ? 'active' : ''} onClick={() => { handleClick('perfilA'); handleMenuClick('perfilA'); }}>
-              <UserOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Perfil
-            </li>
+      <header className="ivd-header" ref={menuRef}>
+        {/* Franja superior */}
+        <div className="ivd-top"></div>
 
-            <li className={active === 'cerrarSesion' ? 'active' : ''} onClick={() => { handleClick('cerrarSesion'); handleMenuClick('cerrarSesion'); }}>
-              <LogoutOutlined style={{ color: '#FFFFFF', marginRight: '8px' }} />
-              Cerrar Sesión
-            </li>
-          </ul>
-        </nav>
-        <div className="mobile-menu-icon" onClick={toggleMobileMenu}>
-          <div className="hamburger"></div>
-          <div className="hamburger"></div>
-          <div className="hamburger"></div>
+        {/* Logo */}
+        <div className="ivd-brand">
+          <div className="ivd-logo-link" onClick={() => handleMenuClick('home')}>
+            <img
+              src={LOGO_IVD}
+              alt="Instituto Veracruzano del Deporte"
+              className="ivd-logo"
+            />
+          </div>
         </div>
+
+        {/* Menú */}
+        <nav className="ivd-nav">
+          <div className="ivd-nav-container">
+            <ul className={`ivd-menu ${isMobileMenuOpen ? "open" : ""}`}>
+              {menu.map((item) => (
+                <li
+                  key={item.key}
+                  className={`ivd-item ${activo(item.ruta) ? "active" : ""}`}
+                  onClick={() => handleItemClick(item)}
+                >
+                  <span className="ivd-link">{item.texto}</span>
+                </li>
+              ))}
+
+              <li
+                className="ivd-item ivd-login-item"
+                onClick={() => handleItemClick(cerrarSesionItem)}
+              >
+                <span className="ivd-login-btn">{cerrarSesionItem.texto}</span>
+              </li>
+            </ul>
+
+            <button
+              className="mobile-button"
+              onClick={toggleMobileMenu}
+            >
+              {isMobileMenuOpen ? "Cerrar" : "Menú"}
+            </button>
+          </div>
+        </nav>
       </header>
     </>
   );
 };
 
-export default EncabezadoCliente;
+export default EncabezadoAtleta;

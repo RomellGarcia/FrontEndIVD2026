@@ -355,7 +355,7 @@ const ConvocatoriasAtleta = () => {
         )}
       </Container>
 
-      {/* ── Modal Confirmar Inscripción ── */}
+      {/* ── Confirmar Inscripción ── */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

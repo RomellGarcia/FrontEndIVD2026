@@ -58,7 +58,7 @@ const GestionarAtletas = () => {
   const [atletaToExpulsar, setAtletaToExpulsar] = useState(null);
 
   useEffect(() => {
-    if (!user || user.rol !== 'administrador') {
+    if (!user || user.rol !== 'admin') {
       navigate('/login');
       return;
     }
@@ -66,22 +66,34 @@ const GestionarAtletas = () => {
   }, [user, navigate]);
 
   const cargarDatos = async () => {
-    try {
-      setLoading(true);
-      const [atletasRes, clubesRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/atletas'),
-                  axios.get('http://localhost:5000/api/clubes')
-      ]);
-      setAtletas(atletasRes.data);
-      setClubes(clubesRes.data);
-      setError('');
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-      setError('Error al cargar los datos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const [atletasRes, clubesRes] = await Promise.all([
+      axios.get('http://localhost:5000/api/atletas'),
+      axios.get('http://localhost:5000/api/clubes')
+    ]);
+    const listaAtletas = Array.isArray(atletasRes.data)
+      ? atletasRes.data
+      : Array.isArray(atletasRes.data?.atletas)
+        ? atletasRes.data.atletas
+        : [];
+    const listaClubes = Array.isArray(clubesRes.data)
+      ? clubesRes.data
+      : Array.isArray(clubesRes.data?.clubes)
+        ? clubesRes.data.clubes
+        : [];
+    setAtletas(listaAtletas);
+    setClubes(listaClubes);
+    setError('');
+  } catch (error) {
+    console.error('Error al cargar datos:', error);
+    setError('Error al cargar los datos');
+    setAtletas([]);
+    setClubes([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDeleteClick = (atleta) => {
     setAtletaToDelete(atleta);

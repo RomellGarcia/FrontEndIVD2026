@@ -58,31 +58,43 @@ const GestionAtletas = () => {
   }, [filtroClub, verIndependientes]);
 
   const fetchAtletas = async () => {
-    try {
-      let url = 'http://localhost:5000/api/atletas';
-      if (verIndependientes) {
-        url += '?independientes=true';
-      } else if (filtroClub) {
-        url += `?clubId=${filtroClub}`;
-      }
-      const response = await axios.get(url);
-      setAtletas(response.data);
-      setErrorMessage('');
-    } catch (error) {
-      console.error('Error al obtener atletas:', error);
-      setErrorMessage('Error al cargar los atletas. Intente de nuevo.');
+  try {
+    let url = 'http://localhost:5000/api/atletas';
+    if (verIndependientes) {
+      url += '?independientes=true';
+    } else if (filtroClub) {
+      url += `?clubId=${filtroClub}`;
     }
-  };
+    const response = await axios.get(url);
+    const listaAtletas = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data?.atletas)
+        ? response.data.atletas
+        : [];
+    setAtletas(listaAtletas);
+    setErrorMessage('');
+  } catch (error) {
+    console.error('Error al obtener atletas:', error);
+    setErrorMessage('Error al cargar los atletas. Intente de nuevo.');
+    setAtletas([]);
+  }
+};
 
-  const fetchClubes = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/clubes');
-      setClubes(response.data);
-    } catch (error) {
-      console.error('Error al obtener clubes:', error);
-      setErrorMessage('Error al cargar los clubes. Intente de nuevo.');
-    }
-  };
+const fetchClubes = async () => {
+  try {
+    const response = await axios.get('http://localhost:5000/api/clubes');
+    const listaClubes = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data?.clubes)
+        ? response.data.clubes
+        : [];
+    setClubes(listaClubes);
+  } catch (error) {
+    console.error('Error al obtener clubes:', error);
+    setErrorMessage('Error al cargar los clubes. Intente de nuevo.');
+    setClubes([]);
+  }
+};
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

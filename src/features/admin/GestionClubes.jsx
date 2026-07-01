@@ -83,7 +83,7 @@ const GestionClubes = () => {
   const [selectedClubForAtletas, setSelectedClubForAtletas] = useState(null);
 
   useEffect(() => {
-    if (!user || user.rol !== 'administrador') {
+    if (!user || user.rol !== 'admin') {
       navigate('/login');
       return;
     }
@@ -91,18 +91,24 @@ const GestionClubes = () => {
   }, [user, navigate]);
 
   const cargarClubes = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/clubes');
-      setClubes(response.data);
-      setError('');
-    } catch (error) {
-      console.error('Error al cargar clubes:', error);
-      setError('Error al cargar los clubes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const response = await axios.get('http://localhost:5000/api/clubes');
+    const listaClubes = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data?.clubes)
+        ? response.data.clubes
+        : [];
+    setClubes(listaClubes);
+    setError('');
+  } catch (error) {
+    console.error('Error al cargar clubes:', error);
+    setError('Error al cargar los clubes');
+    setClubes([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleOpenModal = (club) => {
     setFormData({
@@ -176,13 +182,19 @@ const GestionClubes = () => {
   };
 
   const cargarAtletasClub = async (clubId) => {
-    try {
-      const response = await axios.get(`http://localhost:5000/api/atletas?club_id=${clubId}`);
-      setAtletasClub(response.data);
-    } catch (error) {
-      console.error('Error al cargar atletas del club:', error);
-    }
-  };
+  try {
+    const response = await axios.get(`http://localhost:5000/api/atletas?club_id=${clubId}`);
+    const listaAtletas = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data?.atletas)
+        ? response.data.atletas
+        : [];
+    setAtletasClub(listaAtletas);
+  } catch (error) {
+    console.error('Error al cargar atletas del club:', error);
+    setAtletasClub([]);
+  }
+};
 
   const handleOpenAtletasModal = async (club) => {
     setSelectedClubForAtletas(club);

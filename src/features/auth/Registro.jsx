@@ -124,7 +124,6 @@ function Registro() {
     certificaciones: [],
     añosExperiencia: '',
     clubId: '',
-    // Nuevos campos para club
     direccion: '',
     descripcion: '',
   });

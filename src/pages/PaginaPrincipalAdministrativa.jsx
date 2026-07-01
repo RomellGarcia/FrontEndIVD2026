@@ -31,7 +31,7 @@ import { atletasAPI, clubesAPI, eventosAPI, resultadosAPI } from '../api/index.j
 
 const BURGUNDY = '#800020';
 const PURPLE  = '#7A4069';
-const CREAM   = '#F5E8C7';
+const CREAM   = '#e4e4e5';
 
 const StatCard = ({ icon, value, label, sub, gradient }) => (
   <Card sx={{
