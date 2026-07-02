@@ -1,45 +1,39 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
 import {
   Box,
-  Button,
   Container,
-  Grid,
   Typography,
   Card,
   CardContent,
   Fade,
-  Slide,
   ThemeProvider,
   createTheme,
 } from '@mui/material';
-import { ArrowForward as ArrowRight } from '@mui/icons-material';
 
-// Tema personalizado adaptado al diseño del IVD
 const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#800020', // Granada/Vino para fondo y botones
+      main: '#800020',
       contrastText: '#FFFFFF',
     },
     secondary: {
-      main: '#7A4069', // Morado medio para secciones destacadas
+      main: '#7A4069',
       contrastText: '#FFFFFF',
     },
     background: {
-      default: '#FFFFFF', // Fondo blanco puro
-      paper: '#e4e4e5', // Beige claro para fondos secundarios
+      default: '#FFFFFF',
+      paper: '#F5E8C7',
     },
     text: {
-      primary: '#333333', // Gris oscuro para texto principal
-      secondary: '#FFFFFF', // Blanco para texto en fondos oscuros
+      primary: '#333333',
+      secondary: '#FFFFFF',
     },
   },
   typography: {
-    fontFamily: "'Arial', 'Helvetica', sans-serif", // Fuente sencilla y profesional
+    fontFamily: "'Arial', 'Helvetica', sans-serif",
     h1: {
-      fontWeight: 700,
+      fontWeight: 600,
       fontSize: '2.5rem',
       letterSpacing: 0,
       lineHeight: 1.2,
@@ -97,21 +91,28 @@ const theme = createTheme({
   },
 });
 
-// Contenido ajustado
+const IMAGEN_IZQUIERDA =
+  'https://res.cloudinary.com/dtnxbeqox/image/upload/v1782952585/VERT_ATLETA_kdfgpz.jpg';
+const IMAGEN_DERECHA =
+  'https://res.cloudinary.com/dtnxbeqox/image/upload/v1782952340/VERT_CACHE_alncsz.avif';
+
+
 const tarjetaContenido = [
   {
     titulo: '¡Únete a la Revolución Deportiva!',
-   texto: 'El Instituto Veracruzano del Deporte, transforma vidas a través de la promoción de la inclusión y la pasión por el deporte en cada comunidad veracruzana. Con programas de entrenamiento gratuito, acceso a instalaciones modernas y eventos que fomentan el desarrollo integral, el Instituto Veracruzano del Deporte invita a todos los veracruzanos a unirse a esta revolución que impulsa el bienestar físico y social, fortaleciendo valores como la disciplina y la perseverancia.',
+    texto:
+      'El Instituto Veracruzano del Deporte, transforma vidas a través de la promoción de la inclusión y la pasión por el deporte en cada comunidad veracruzana. Con programas de entrenamiento gratuito, acceso a instalaciones modernas y eventos que fomentan el desarrollo integral, el Instituto Veracruzano del Deporte invita a todos los veracruzanos a unirse a esta revolución que impulsa el bienestar físico y social, fortaleciendo valores como la disciplina y la perseverancia.',
   },
   {
     titulo: '¡Lidera el Cambio con Nosotros!',
-    texto: 'Impulsamos el deporte con capacitación lideramos el cambio impulsando el deporte con capacitaciones especializadas, infraestructura de vanguardia y competencias estatales que posicionan a Veracruz como un referente de excelencia. Colaboramos con asociaciones deportivas y la Universidad Veracruzana para diseñar programas que promueven el deporte popular, estudiantil y de alto rendimiento, invitándote a ser parte de esta transformación que eleva el nivel deportivo en todo el estado.',
+    texto:
+      'Impulsamos el deporte con capacitación lideramos el cambio impulsando el deporte con capacitaciones especializadas, infraestructura de vanguardia y competencias estatales que posicionan a Veracruz como un referente de excelencia. Colaboramos con asociaciones deportivas y la Universidad Veracruzana para diseñar programas que promueven el deporte popular, estudiantil y de alto rendimiento, invitándote a ser parte de esta transformación que eleva el nivel deportivo en todo el estado.',
   },
   {
     titulo: '¡Vive la Energía del Deporte!',
-    texto: 'Vive la energía del deporte con el Instituto a través de eventos emocionantes como los torneos locales y actividades que unen a familias enteras en la promoción de la disciplina y la perseverancia. Desde encuentros amistosos  hasta competencias en disciplinas como carrera de 75 metros, salto de garrocha, lanzamiento de disco y más, cada evento es una oportunidad para disfrutar y fortalecer el espíritu comunitario en Veracruz.',
+    texto:
+      'Vive la energía del deporte con el Instituto a través de eventos emocionantes como los torneos locales y actividades que unen a familias enteras en la promoción de la disciplina y la perseverancia. Desde encuentros amistosos hasta competencias en disciplinas como carrera de 75 metros, salto de garrocha, lanzamiento de disco y más, cada evento es una oportunidad para disfrutar y fortalecer el espíritu comunitario en Veracruz.',
   },
- 
 ];
 
 const PaginaPrincipal = () => {
@@ -123,41 +124,81 @@ const PaginaPrincipal = () => {
           backgroundColor: '#FFFFFF',
         }}
       >
-        {/* Header */}
-        <Container maxWidth="lg" sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h1" color="primary.main">
-            Instituto Veracruzano del Deporte
-          </Typography>
-        </Container>
-
-        {/* Tarjetas */}
-        <Container maxWidth="lg" sx={{ py: 4 }}>
+        {/* Un solo contenedor para controlar mejor el espaciado */}
+        <Container maxWidth="lg" sx={{ pt: 2, pb: 4 }}>
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Typography variant="h1" color="primary.main" sx={{ margin: 0 }}>
+              Instituto Veracruzano del Deporte
+            </Typography>
+          </Box>
+          {/* Imagen - Texto - Imagen */}
           <Fade in timeout={1000}>
-            <Grid container spacing={3} justifyContent="center">
-              {tarjetaContenido.map((item, index) => (
-                <Grid item xs={12} sm={6} md={3} key={index}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 2fr 1fr' },
+                gap: 3,
+                alignItems: 'stretch',
+              }}
+            >
+              {/* Columna izquierda: imagen vertical */}
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <Box
+                  component="img"
+                  src={IMAGEN_IZQUIERDA}
+                  alt="Deporte veracruzano"
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+              </Box>
+
+              {/* Columna central: tarjetas de texto */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                }}
+              >
+                {tarjetaContenido.map((item, index) => (
                   <Card
+                    key={index}
                     sx={{
-                      height: '300px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
                       backgroundColor: '#7A4069',
                       color: '#FFFFFF',
                     }}
                   >
-                    <CardContent sx={{ p: 2, flexGrow: 1 }}>
+                    <CardContent sx={{ p: 3 }}>
                       <Typography variant="h3" sx={{ mb: 1 }}>
                         {item.titulo}
                       </Typography>
-                      <Typography variant="body1">
-                        {item.texto}
-                      </Typography>
+                      <Typography variant="body1">{item.texto}</Typography>
                     </CardContent>
                   </Card>
-                </Grid>
-              ))}
-            </Grid>
+                ))}
+              </Box>
+
+              {/* Columna derecha: imagen vertical */}
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <Box
+                  component="img"
+                  src={IMAGEN_DERECHA}
+                  alt="Instalaciones del IVD"
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+              </Box>
+            </Box>
           </Fade>
         </Container>
       </Box>

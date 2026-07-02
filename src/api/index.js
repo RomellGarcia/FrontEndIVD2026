@@ -71,6 +71,7 @@ export const atletasAPI = {
   getById: (id) => api.get(`/atletas/${id}`),
   getPerfil: () => api.get('/atletas/perfil'),
   updatePerfil: (data) => api.put('/atletas/perfil', data),
+  updateAdmin: (id, data) => api.put(`/atletas/${id}`, data),
   updateClub: (id, data) => api.put(`/atletas/${id}/club`, data),
   remove: (id) => api.delete(`/atletas/${id}`),
   crearSolicitud: (data) => api.post('/atletas/solicitudes-club', data),
@@ -89,9 +90,12 @@ export const entrenadorAPI = {
 }
 
 export const entrenadoresAPI = {
+  getAll: () => api.get('/entrenadores'),
   getByClub: (clubId) => api.get(`/entrenadores/club/${clubId}`),
   getSolicitudesByClub: (clubId) => api.get(`/entrenadores/solicitudes-club/${clubId}`),
   updateSolicitud: (id, data) => api.put(`/entrenadores/solicitudes/${id}`, data),
+  updateAdmin: (id, data) => api.put(`/entrenadores/${id}`, data),
+  updateClub: (id, data) => api.put(`/entrenadores/${id}/club`, data),
 }
 
 export const eventosAPI = {
