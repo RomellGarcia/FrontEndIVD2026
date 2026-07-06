@@ -3,16 +3,12 @@ import {
   Box,
   Container,
   Typography,
-  Paper,
   Grid,
   Button,
   IconButton,
   Alert,
   Chip,
   Avatar,
-  List,
-  ListItem,
-  ListItemSecondaryAction,
   CircularProgress,
   Dialog,
   DialogTitle,
@@ -27,79 +23,288 @@ import {
   Tabs,
   Tab,
   Divider,
-  Card,
-  CardContent,
 } from '@mui/material';
 import {
   People as PeopleIcon,
   PersonAdd as PersonAddIcon,
   Check as CheckIcon,
   Close as CloseIcon,
-  Group as GroupIcon,
   PersonRemove as PersonRemoveIcon,
   Warning as WarningIcon,
   FitnessCenter as FitnessCenterIcon,
-  SportsBaseball as SportsIcon,
+  Search as SearchIcon,
+  Send as SendIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
-import axios from 'axios';
-import { entrenadoresAPI } from '../../api/index.js';
+import { atletasAPI, clubesAPI, entrenadoresAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-// --- Constantes de estilo ---
-const BURGUNDY = '#800020';
-const PURPLE = '#7A4069';
-const CREAM = '#e4e4e5';
-const GREEN = '#2E7D32';
+// --- Paleta institucional IVD ---
+// NOTA: el CREAM anterior (#e4e4e5) era un gris genérico, no el cream
+// institucional real. Se corrige aquí a #F5E8C7 para que coincida con el
+// resto de la plataforma (GestionarUsuarios, GestionClubesAdmin, etc).
+const COLORS = {
+  burgundy: '#800020',
+  burgundyDark: '#5C0017',
+  purple: '#7A4069',
+  cream: '#e4e4e5', // #F5E8C7
+  paper: '#FFFFFF',
+  ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)',
+  lineSoft: 'rgba(128,0,32,0.08)',
+};
 
-const SectionCard = ({ icon, title, color, action, children }) => (
-  <Card sx={{
-    borderRadius: 3,
-    height: '100%',
-    boxShadow: '0 2px 12px rgba(0,0,0,.06)',
-    display: 'flex',
-    flexDirection: 'column',
-    bgcolor: '#fff',
-  }}>
-    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar sx={{ bgcolor: color, width: 36, height: 36 }}>{icon}</Avatar>
-          <Typography variant="h6" sx={{ color, fontWeight: 'bold' }}>{title}</Typography>
+/**
+ * Panel de sección estilo "expediente institucional": borde definido +
+ * franja superior de color en vez de sombra difusa, con un eyebrow en
+ * mayúsculas en lugar del avatar circular flotante.
+ */
+const SectionCard = ({ icon, eyebrow, title, action, children }) => (
+  <Box
+    sx={{
+      bgcolor: COLORS.paper,
+      border: `1px solid ${COLORS.line}`,
+      borderTop: `3px solid ${COLORS.burgundy}`,
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+    }}
+  >
+    <Box sx={{ p: 3, pb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+        <Box>
+          <Typography
+            sx={{
+              color: COLORS.purple,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              mb: 0.5,
+            }}
+          >
+            {icon}
+            {eyebrow}
+          </Typography>
+          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
+            {title}
+          </Typography>
         </Box>
         {action}
       </Box>
-      <Divider sx={{ mb: 2 }} />
-      <Box sx={{ flex: 1 }}>{children}</Box>
-    </CardContent>
-  </Card>
+    </Box>
+    <Divider sx={{ borderColor: COLORS.line }} />
+    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+  </Box>
 );
 
-const ListItemCustom = ({ primary, secondary, actions }) => (
-  <ListItem
+/** Un campo de dato dentro de un expediente (label chico + valor). */
+const DatoCampo = ({ label, valor }) => (
+  <Box>
+    <Typography
+      sx={{
+        fontSize: '0.65rem',
+        color: COLORS.purple,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+      }}
+    >
+      {label}
+    </Typography>
+    <Typography sx={{ fontSize: '0.85rem', color: COLORS.ink }}>{valor || 'N/A'}</Typography>
+  </Box>
+);
+
+/**
+ * Tarjeta de solicitud con formato de "expediente": folio, estado y datos
+ * de quien solicita, con botones de acción con etiqueta (no solo ícono).
+ */
+const ExpedienteSolicitud = ({ folio, nombre, campos, fecha, onAceptar, onRechazar }) => (
+  <Box
     sx={{
-      border: '1px solid #e0e0e0',
-      borderRadius: 2,
-      mb: 1,
-      py: 1.5,
-      px: 2,
-      '&:hover': { backgroundColor: '#f9f9f9' },
+      border: `1px solid ${COLORS.line}`,
+      borderLeft: `4px solid ${COLORS.burgundy}`,
+      mb: 1.5,
+      '&:last-of-type': { mb: 0 },
     }}
   >
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography variant="body1" sx={{ fontWeight: 600, color: BURGUNDY, component: 'span' }}>
-        {primary}
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        px: 2,
+        py: 0.75,
+        bgcolor: COLORS.cream,
+        borderBottom: `1px solid ${COLORS.line}`,
+      }}
+    >
+      <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: COLORS.burgundy, letterSpacing: '0.06em' }}>
+        FOLIO #{folio}
       </Typography>
-      <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
-        {secondary}
+      <Chip
+        label="Pendiente"
+        size="small"
+        sx={{
+          bgcolor: 'transparent',
+          border: `1px solid ${COLORS.purple}`,
+          color: COLORS.purple,
+          fontWeight: 700,
+          fontSize: '0.68rem',
+          height: 22,
+        }}
+      />
+    </Box>
+    <Box sx={{ p: 2 }}>
+      <Typography sx={{ fontWeight: 700, color: COLORS.ink, mb: 1.25 }}>{nombre}</Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          columnGap: 2,
+          rowGap: 1,
+          mb: 1.5,
+        }}
+      >
+        {campos.map((c) => (
+          <DatoCampo key={c.label} label={c.label} valor={c.valor} />
+        ))}
+      </Box>
+      <Typography sx={{ fontSize: '0.72rem', color: COLORS.purple, mb: 1.5 }}>
+        Solicitado el {fecha}
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={<CheckIcon fontSize="small" />}
+          onClick={onAceptar}
+          sx={{
+            bgcolor: COLORS.burgundy,
+            '&:hover': { bgcolor: COLORS.burgundyDark },
+            textTransform: 'none',
+            fontWeight: 700,
+            boxShadow: 'none',
+          }}
+        >
+          Aceptar
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<CloseIcon fontSize="small" />}
+          onClick={onRechazar}
+          sx={{
+            borderColor: COLORS.purple,
+            color: COLORS.purple,
+            textTransform: 'none',
+            fontWeight: 700,
+            '&:hover': { borderColor: COLORS.burgundy, color: COLORS.burgundy, bgcolor: 'transparent' },
+          }}
+        >
+          Rechazar
+        </Button>
       </Box>
     </Box>
-    {actions && (
-      <ListItemSecondaryAction sx={{ position: 'relative', transform: 'none', right: 0, top: 0 }}>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>{actions}</Box>
-      </ListItemSecondaryAction>
-    )}
-  </ListItem>
+  </Box>
+);
+
+const tableHeadSx = {
+  fontWeight: 700,
+  color: COLORS.cream,
+  fontSize: '0.72rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+};
+
+/**
+ * Tarjeta de perfil de un atleta disponible (sin club), con acción de
+ * invitar o ver el perfil completo.
+ */
+const AtletaPerfilCard = ({ atleta, invitacionPendiente, onInvitar, onVerPerfil }) => (
+  <Box
+    sx={{
+      border: `1px solid ${COLORS.line}`,
+      borderTop: `3px solid ${COLORS.purple}`,
+      p: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1.25,
+    }}
+  >
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <Avatar sx={{ width: 36, height: 36, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
+        {atleta.nombreCompleto.charAt(0)}
+      </Avatar>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, color: COLORS.ink, fontSize: '0.9rem', lineHeight: 1.2 }} noWrap>
+          {atleta.nombreCompleto}
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: COLORS.purple }}>
+          {atleta.sexo} · {atleta.edad !== null ? `${atleta.edad} años` : 'Edad N/A'}
+        </Typography>
+      </Box>
+    </Box>
+
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1.5, rowGap: 0.75 }}>
+      <DatoCampo label="Municipio" valor={atleta.municipio} />
+      <DatoCampo label="Teléfono" valor={atleta.telefono} />
+    </Box>
+
+    <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<VisibilityIcon fontSize="small" />}
+        onClick={onVerPerfil}
+        sx={{
+          borderColor: COLORS.purple,
+          color: COLORS.purple,
+          textTransform: 'none',
+          fontWeight: 700,
+          flex: 1,
+          '&:hover': { borderColor: COLORS.burgundy, color: COLORS.burgundy, bgcolor: 'transparent' },
+        }}
+      >
+        Ver perfil
+      </Button>
+      {invitacionPendiente ? (
+        <Chip
+          label="Invitación enviada"
+          size="small"
+          sx={{
+            bgcolor: 'transparent',
+            border: `1px solid ${COLORS.purple}`,
+            color: COLORS.purple,
+            fontWeight: 700,
+            fontSize: '0.68rem',
+          }}
+        />
+      ) : (
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={<SendIcon fontSize="small" />}
+          onClick={onInvitar}
+          sx={{
+            bgcolor: COLORS.burgundy,
+            '&:hover': { bgcolor: COLORS.burgundyDark },
+            textTransform: 'none',
+            fontWeight: 700,
+            flex: 1,
+            boxShadow: 'none',
+          }}
+        >
+          Invitar
+        </Button>
+      )}
+    </Box>
+  </Box>
 );
 
 const GestionAtletas = () => {
@@ -108,17 +313,24 @@ const GestionAtletas = () => {
   const [loading, setLoading] = useState(true);
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [loadingEntrenadores, setLoadingEntrenadores] = useState(false);
+  const [loadingDisponibles, setLoadingDisponibles] = useState(false);
   const [error, setError] = useState('');
   const [atletas, setAtletas] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
   const [entrenadores, setEntrenadores] = useState([]);
   const [solicitudesEntrenadores, setSolicitudesEntrenadores] = useState([]);
+  const [atletasDisponibles, setAtletasDisponibles] = useState([]);
+  const [invitacionesEnviadas, setInvitacionesEnviadas] = useState([]); // atletaId de invitaciones pendientes
   const [modalExpulsionOpen, setModalExpulsionOpen] = useState(false);
   const [atletaAExpulsar, setAtletaAExpulsar] = useState(null);
   const [modalExpulsionEntrenadorOpen, setModalExpulsionEntrenadorOpen] = useState(false);
   const [entrenadorAExpulsar, setEntrenadorAExpulsar] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const [clubId, setClubId] = useState(null);
+  const [perfilDialogOpen, setPerfilDialogOpen] = useState(false);
+  const [perfilSeleccionado, setPerfilSeleccionado] = useState(null);
+  const [loadingPerfil, setLoadingPerfil] = useState(false);
+  const [invitando, setInvitando] = useState(null); // atletaId en proceso de invitación
 
   useEffect(() => {
     if (!user?.id) {
@@ -130,10 +342,10 @@ const GestionAtletas = () => {
 
   const obtenerClubIdYcargar = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/clubes');
+      const response = await clubesAPI.getAll();
       let clubes = response.data.clubes || response.data || [];
       if (!Array.isArray(clubes)) clubes = [clubes];
-      const club = clubes.find(c => c.email === user.email);
+      const club = clubes.find((c) => c.email === user.email);
       if (!club) {
         setError('No se encontró un club asociado a este usuario.');
         setLoading(false);
@@ -146,6 +358,8 @@ const GestionAtletas = () => {
         fetchSolicitudes(idClub),
         fetchEntrenadores(idClub),
         fetchSolicitudesEntrenadores(idClub),
+        fetchInvitacionesEnviadas(idClub),
+        fetchAtletasDisponibles(),
       ]);
       setLoading(false);
     } catch (error) {
@@ -155,33 +369,25 @@ const GestionAtletas = () => {
     }
   };
 
-  const getAuthHeaders = () => {
-    const token = user?.token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
+  const normalizarAtleta = (a) => ({
+    id: a.id,
+    nombreCompleto: [a.nombre, a.apellido_paterno, a.apellido_materno].filter(Boolean).join(' ') || 'Sin nombre',
+    curp: a.curp || 'N/A',
+    telefono: a.telefono || 'N/A',
+    gmail: a.email || 'N/A',
+    sexo: a.genero || 'N/A',
+    edad: a.edad ?? null,
+    municipio: a.municipio || 'N/A',
+    fechaNacimiento: a.fecha_nacimiento || null,
+    fechaIngresoClub: a.fecha_ingreso_club || null,
+  });
 
   const fetchAtletas = async (idClub) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/atletas?club_id=${idClub}`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await atletasAPI.getAll({ club_id: idClub });
       let data = response.data.atletas || response.data || [];
       if (!Array.isArray(data)) data = [];
-      const atletasNorm = data.map((a) => ({
-        id: a.id || a._id,
-        nombreCompleto: a.nombre
-          ? `${a.nombre} ${a.apellidopa || ''} ${a.apellidoma || ''}`.trim()
-          : a.usuario
-          ? `${a.usuario.nombre} ${a.usuario.apellido_paterno || ''} ${a.usuario.apellido_materno || ''}`.trim()
-          : 'Sin nombre',
-        curp: a.curp || a.usuario?.curp || 'N/A',
-        telefono: a.telefono || a.usuario?.telefono || 'N/A',
-        gmail: a.email || a.usuario?.email || 'N/A',
-        sexo: a.genero || a.usuario?.genero || 'N/A',
-        fechaNacimiento: a.fecha_nacimiento || a.usuario?.fecha_nacimiento || null,
-        fechaIngresoClub: a.fechaIngresoClub || a.createdAt || null,
-      }));
-      setAtletas(atletasNorm);
+      setAtletas(data.map(normalizarAtleta));
       setError('');
     } catch (error) {
       console.error('Error al obtener atletas:', error);
@@ -192,15 +398,46 @@ const GestionAtletas = () => {
     }
   };
 
+  const fetchAtletasDisponibles = async () => {
+    try {
+      setLoadingDisponibles(true);
+      const response = await atletasAPI.getAll({ sin_club: true });
+      let data = response.data.atletas || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      setAtletasDisponibles(data.map(normalizarAtleta));
+    } catch (error) {
+      console.error('Error al obtener atletas disponibles:', error);
+      setAtletasDisponibles([]);
+    } finally {
+      setLoadingDisponibles(false);
+    }
+  };
+
+  /**
+   * `findSolicitudesClub` (atleta.model.js) hace JOIN con `usuarios` y
+   * regresa los campos del solicitante planos en la misma fila (no
+   * anidados): nombre, apellido_paterno, apellido_materno, email,
+   * telefono, edad, genero, atleta_id.
+   */
+  const normalizarSolicitudAtleta = (s) => ({
+    id: s.id,
+    atletaId: s.atleta_id ?? null,
+    nombreCompleto: [s.nombre, s.apellido_paterno, s.apellido_materno].filter(Boolean).join(' ') || 'Atleta sin nombre',
+    edad: s.edad ?? null,
+    genero: s.genero || null,
+    telefono: s.telefono || null,
+    email: s.email || null,
+    tipo: s.tipo || null,
+    fechaSolicitud: s.fecha_solicitud || null,
+  });
+
   const fetchSolicitudes = async (idClub) => {
     try {
       setLoadingSolicitudes(true);
-      const response = await axios.get(`http://localhost:5000/api/atletas/solicitudes-club?clubId=${idClub}`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await atletasAPI.getSolicitudes({ club_id: idClub, tipo: 'asociar' });
       let data = response.data.solicitudes || response.data || [];
       if (!Array.isArray(data)) data = [];
-      const pendientes = data.filter((s) => s.estado === 'pendiente');
+      const pendientes = data.filter((s) => s.estado === 'pendiente').map(normalizarSolicitudAtleta);
       setSolicitudes(pendientes);
     } catch (error) {
       console.error('Error al cargar solicitudes de atletas:', error);
@@ -210,16 +447,28 @@ const GestionAtletas = () => {
     }
   };
 
+  // Invitaciones que este club ya envió y siguen pendientes de respuesta
+  // del atleta — se usan para no mostrar "Invitar" dos veces al mismo atleta.
+  const fetchInvitacionesEnviadas = async (idClub) => {
+    try {
+      const response = await atletasAPI.getSolicitudes({ club_id: idClub, tipo: 'invitacion' });
+      let data = response.data.solicitudes || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      const pendientesIds = data.filter((s) => s.estado === 'pendiente').map((s) => s.atleta_id);
+      setInvitacionesEnviadas(pendientesIds);
+    } catch (error) {
+      console.error('Error al cargar invitaciones enviadas:', error);
+      setInvitacionesEnviadas([]);
+    }
+  };
+
   const handleAceptarSolicitud = async (solicitudId) => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/atletas/solicitudes-club/${solicitudId}`,
-        { estado: 'aceptada' },
-        { headers: getAuthHeaders() }
-      );
+      await atletasAPI.procesarSolicitud(solicitudId, { estado: 'aceptada' });
       setError('');
       await fetchSolicitudes(clubId);
       await fetchAtletas(clubId);
+      await fetchAtletasDisponibles();
     } catch (error) {
       console.error('Error al aceptar solicitud:', error);
       setError('Error al procesar la solicitud. Intente de nuevo.');
@@ -228,11 +477,7 @@ const GestionAtletas = () => {
 
   const handleRechazarSolicitud = async (solicitudId) => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/atletas/solicitudes-club/${solicitudId}`,
-        { estado: 'rechazada' },
-        { headers: getAuthHeaders() }
-      );
+      await atletasAPI.procesarSolicitud(solicitudId, { estado: 'rechazada' });
       setError('');
       await fetchSolicitudes(clubId);
     } catch (error) {
@@ -241,8 +486,39 @@ const GestionAtletas = () => {
     }
   };
 
-  const handleVerSolicitud = (solicitud) => {
-    console.log('Ver solicitud:', solicitud);
+  const handleInvitarAtleta = async (atletaId) => {
+    try {
+      setInvitando(atletaId);
+      await atletasAPI.invitarClub(atletaId, { club_id: clubId });
+      setError('');
+      await fetchInvitacionesEnviadas(clubId);
+    } catch (error) {
+      console.error('Error al invitar atleta:', error);
+      setError(error.response?.data?.error || 'Error al enviar la invitación. Intente de nuevo.');
+    } finally {
+      setInvitando(null);
+    }
+  };
+
+  const handleVerPerfil = async (atletaId) => {
+    setPerfilDialogOpen(true);
+    setPerfilSeleccionado(null);
+    setLoadingPerfil(true);
+    try {
+      const response = await atletasAPI.getById(atletaId);
+      const data = response.data.atleta || response.data;
+      setPerfilSeleccionado(normalizarAtleta(data));
+    } catch (error) {
+      console.error('Error al obtener el perfil del atleta:', error);
+      setPerfilSeleccionado(null);
+    } finally {
+      setLoadingPerfil(false);
+    }
+  };
+
+  const cerrarPerfilDialog = () => {
+    setPerfilDialogOpen(false);
+    setPerfilSeleccionado(null);
   };
 
   const handleExpulsarAtleta = (atleta) => {
@@ -252,15 +528,12 @@ const GestionAtletas = () => {
 
   const confirmarExpulsion = async () => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/atletas/${atletaAExpulsar.id}/club`,
-        { clubId: null },
-        { headers: getAuthHeaders() }
-      );
+      await atletasAPI.updateClub(atletaAExpulsar.id, { club_id: null });
       setError('');
       setModalExpulsionOpen(false);
       setAtletaAExpulsar(null);
       await fetchAtletas(clubId);
+      await fetchAtletasDisponibles();
     } catch (error) {
       console.error('Error al expulsar atleta:', error);
       setError('Error al expulsar al atleta. Intente de nuevo.');
@@ -304,16 +577,12 @@ const GestionAtletas = () => {
       let data = response.data.entrenadores || response.data || [];
       if (!Array.isArray(data)) data = [];
       const entrenadoresNorm = data.map((e) => ({
-        id: e.id || e._id,
-        nombreCompleto: e.nombre
-          ? `${e.nombre} ${e.apellidopa || ''} ${e.apellidoma || ''}`.trim()
-          : e.usuario
-          ? `${e.usuario.nombre} ${e.usuario.apellido_paterno || ''} ${e.usuario.apellido_materno || ''}`.trim()
-          : 'Sin nombre',
-        gmail: e.email || e.usuario?.email || 'N/A',
-        telefono: e.telefono || e.usuario?.telefono || 'N/A',
+        id: e.id,
+        nombreCompleto: [e.nombre, e.apellido_paterno, e.apellido_materno].filter(Boolean).join(' ') || 'Sin nombre',
+        gmail: e.email || 'N/A',
+        telefono: e.telefono || 'N/A',
         especialidades: e.especialidades || [],
-        añosExperiencia: e.anos_experiencia || e.añosExperiencia || 'N/A',
+        añosExperiencia: e.anos_experiencia ?? 'N/A',
       }));
       setEntrenadores(entrenadoresNorm);
     } catch (error) {
@@ -324,12 +593,27 @@ const GestionAtletas = () => {
     }
   };
 
+  /**
+   * `findSolicitudesByClub` (entrenadores.model.js) también regresa los
+   * campos del solicitante planos: nombre, apellido_paterno,
+   * apellido_materno, email, telefono, anos_experiencia.
+   */
+  const normalizarSolicitudEntrenador = (s) => ({
+    id: s.id,
+    nombreCompleto: [s.nombre, s.apellido_paterno, s.apellido_materno].filter(Boolean).join(' ') || 'Entrenador sin nombre',
+    email: s.email || null,
+    telefono: s.telefono || null,
+    añosExperiencia: s.anos_experiencia ?? null,
+    mensaje: s.mensaje || null,
+    fechaSolicitud: s.fecha_solicitud || null,
+  });
+
   const fetchSolicitudesEntrenadores = async (idClub) => {
     try {
       const response = await entrenadoresAPI.getSolicitudesByClub(idClub);
       let data = response.data.solicitudes || response.data || [];
       if (!Array.isArray(data)) data = [];
-      const pendientes = data.filter((s) => s.estado === 'pendiente');
+      const pendientes = data.filter((s) => s.estado === 'pendiente').map(normalizarSolicitudEntrenador);
       setSolicitudesEntrenadores(pendientes);
     } catch (error) {
       console.error('Error al cargar solicitudes de entrenadores:', error);
@@ -339,11 +623,7 @@ const GestionAtletas = () => {
 
   const handleAceptarSolicitudEntrenador = async (solicitudId) => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/entrenadores/solicitudes/${solicitudId}`,
-        { estado: 'aceptada' },
-        { headers: getAuthHeaders() }
-      );
+      await entrenadoresAPI.updateSolicitud(solicitudId, { estado: 'aceptada' });
       setError('');
       await fetchSolicitudesEntrenadores(clubId);
       await fetchEntrenadores(clubId);
@@ -355,11 +635,7 @@ const GestionAtletas = () => {
 
   const handleRechazarSolicitudEntrenador = async (solicitudId) => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/entrenadores/solicitudes/${solicitudId}`,
-        { estado: 'rechazada' },
-        { headers: getAuthHeaders() }
-      );
+      await entrenadoresAPI.updateSolicitud(solicitudId, { estado: 'rechazada' });
       setError('');
       await fetchSolicitudesEntrenadores(clubId);
     } catch (error) {
@@ -375,11 +651,7 @@ const GestionAtletas = () => {
 
   const confirmarExpulsionEntrenador = async () => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/entrenadores/${entrenadorAExpulsar.id}/club`,
-        { clubId: null },
-        { headers: getAuthHeaders() }
-      );
+      await entrenadoresAPI.updateClub(entrenadorAExpulsar.id, { club_id: null });
       setError('');
       setModalExpulsionEntrenadorOpen(false);
       setEntrenadorAExpulsar(null);
@@ -399,215 +671,192 @@ const GestionAtletas = () => {
     setActiveTab(newValue);
   };
 
+  const folioDe = (id) => String(id ?? '').replace(/\D/g, '').slice(-6).padStart(6, '0') || '000000';
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
-        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%', py: 4 }}>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%', py: 4 }}>
       <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 } }}>
-        {/* Título principal */}
-        <Typography
-          variant="h4"
-          align="center"
-          gutterBottom
-          sx={{ color: BURGUNDY, fontWeight: 800, mb: 4 }}
-        >
-          Gestión del Club
-        </Typography>
+        {/* Encabezado institucional */}
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography
+            sx={{
+              color: COLORS.purple,
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+            }}
+          >
+            IVD · Panel de Club
+          </Typography>
+          <Typography variant="h4" sx={{ color: COLORS.burgundy, fontWeight: 800, mt: 0.5 }}>
+            Gestión del Club
+          </Typography>
+        </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 0, border: '1px solid', borderColor: 'error.main' }}>
             {error}
           </Alert>
         )}
 
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
+        <Box sx={{ borderBottom: `2px solid ${COLORS.line}`, mb: 4 }}>
           <Tabs
             value={activeTab}
             onChange={handleTabChange}
             sx={{
               '& .MuiTab-root': {
-                color: PURPLE,
-                fontWeight: 'bold',
-                fontSize: '1rem',
+                color: COLORS.purple,
+                fontWeight: 700,
+                fontSize: '0.95rem',
                 textTransform: 'none',
                 minWidth: 120,
               },
-              '& .Mui-selected': { color: `${BURGUNDY} !important` },
-              '& .MuiTabs-indicator': { backgroundColor: BURGUNDY },
+              '& .Mui-selected': { color: `${COLORS.burgundy} !important` },
+              '& .MuiTabs-indicator': { backgroundColor: COLORS.burgundy, height: 3 },
             }}
           >
-            <Tab
-              label="Atletas"
-              icon={<PeopleIcon />}
-              iconPosition="start"
-            />
-            <Tab
-              label="Entrenadores"
-              icon={<FitnessCenterIcon />}
-              iconPosition="start"
-            />
+            <Tab label="Atletas" icon={<PeopleIcon />} iconPosition="start" />
+            <Tab label="Entrenadores" icon={<FitnessCenterIcon />} iconPosition="start" />
+            <Tab label="Atletas Disponibles" icon={<SearchIcon />} iconPosition="start" />
           </Tabs>
         </Box>
 
+        {/* Contenido pestaña Atletas */}
         {activeTab === 0 && (
           <Grid container spacing={3}>
-            {/* Solicitudes de atletas */}
-            <Grid item xs={12} md={6}>
+            {/* Solicitudes de atletas — a todo lo ancho, en cuadrícula de expedientes */}
+            <Grid item xs={12}>
               <SectionCard
-                icon={<PersonAddIcon sx={{ fontSize: 20 }} />}
+                icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
+                eyebrow="Bandeja de entrada"
                 title="Solicitudes de Atletas"
-                color={BURGUNDY}
                 action={
                   solicitudes.length > 0 && (
                     <Chip
                       label={solicitudes.length}
-                      color="warning"
                       size="small"
-                      sx={{ fontWeight: 600 }}
+                      sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }}
                     />
                   )
                 }
               >
                 {loadingSolicitudes ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress size={30} sx={{ color: BURGUNDY }} />
+                    <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
                   </Box>
                 ) : solicitudes.length === 0 ? (
-                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
-                    No hay solicitudes pendientes.
+                  <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
+                    No hay solicitudes pendientes en este momento.
                   </Typography>
                 ) : (
-                  <List disablePadding>
-                    {solicitudes.map((s) => {
-                      const nombre = s.datosAtleta?.nombreCompleto || s.datosAtleta?.nombre || 'Atleta';
-                      return (
-                        <ListItemCustom
-                          key={s._id}
-                          primary={nombre}
-                          secondary={
-                            <Box component="span">
-                              <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
-                                <strong>Edad:</strong> {s.datosAtleta?.edad || 'N/A'} años
-                              </Typography>
-                              <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
-                                <strong>Género:</strong> {s.datosAtleta?.genero || 'N/A'}
-                              </Typography>
-                              <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
-                                <strong>Fecha:</strong> {formatearFecha(s.fechaSolicitud)}
-                              </Typography>
-                            </Box>
-                          }
-                          actions={
-                            <>
-                              <IconButton
-                                color="success"
-                                onClick={() => handleAceptarSolicitud(s._id)}
-                                title="Aceptar"
-                                size="small"
-                              >
-                                <CheckIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                color="error"
-                                onClick={() => handleRechazarSolicitud(s._id)}
-                                title="Rechazar"
-                                size="small"
-                              >
-                                <CloseIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                color="primary"
-                                onClick={() => handleVerSolicitud(s)}
-                                title="Ver detalles"
-                                size="small"
-                              >
-                                <GroupIcon fontSize="small" />
-                              </IconButton>
-                            </>
-                          }
-                        />
-                      );
-                    })}
-                  </List>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                      gap: 2,
+                    }}
+                  >
+                    {solicitudes.map((s) => (
+                      <ExpedienteSolicitud
+                        key={s.id}
+                        folio={folioDe(s.id)}
+                        nombre={s.nombreCompleto}
+                        fecha={formatearFecha(s.fechaSolicitud)}
+                        campos={[
+                          { label: 'Edad', valor: s.edad ? `${s.edad} años` : 'N/A' },
+                          { label: 'Género', valor: s.genero },
+                          { label: 'Teléfono', valor: s.telefono },
+                          { label: 'Correo', valor: s.email },
+                        ]}
+                        onAceptar={() => handleAceptarSolicitud(s.id)}
+                        onRechazar={() => handleRechazarSolicitud(s.id)}
+                      />
+                    ))}
+                  </Box>
                 )}
               </SectionCard>
             </Grid>
 
-            {/* Atletas del club */}
+            {/* Atletas del club — a todo lo ancho, debajo de las solicitudes */}
             <Grid item xs={12}>
               <SectionCard
-                icon={<PeopleIcon sx={{ fontSize: 20 }} />}
+                icon={<PeopleIcon sx={{ fontSize: 16 }} />}
+                eyebrow="Plantilla registrada"
                 title="Atletas del Club"
-                color={PURPLE}
                 action={
                   atletas.length > 0 && (
                     <Chip
                       label={`${atletas.length} atletas`}
-                      color="success"
                       size="small"
-                      sx={{ fontWeight: 600 }}
+                      sx={{ bgcolor: COLORS.purple, color: '#fff', fontWeight: 700 }}
                     />
                   )
                 }
               >
                 {atletas.length === 0 ? (
-                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
-                    No hay atletas registrados.
+                  <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
+                    Aún no hay atletas registrados en este club.
                   </Typography>
                 ) : (
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Nombre</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>CURP</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Teléfono</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Correo</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Género</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Edad</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Fecha Ingreso</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }} align="center">Acciones</TableCell>
+                        <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                          <TableCell sx={tableHeadSx}>Nombre</TableCell>
+                          <TableCell sx={tableHeadSx}>CURP</TableCell>
+                          <TableCell sx={tableHeadSx}>Teléfono</TableCell>
+                          <TableCell sx={tableHeadSx}>Correo</TableCell>
+                          <TableCell sx={tableHeadSx}>Género</TableCell>
+                          <TableCell sx={tableHeadSx}>Edad</TableCell>
+                          <TableCell sx={tableHeadSx}>Fecha Ingreso</TableCell>
+                          <TableCell sx={tableHeadSx} align="center">Acciones</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {atletas.map((a) => (
-                          <TableRow key={a.id} hover>
+                          <TableRow
+                            key={a.id}
+                            hover
+                            sx={{ '&:hover': { bgcolor: COLORS.lineSoft }, borderBottom: `1px solid ${COLORS.line}` }}
+                          >
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Avatar sx={{ width: 28, height: 28, bgcolor: BURGUNDY, fontSize: '0.75rem' }}>
+                                <Avatar sx={{ width: 26, height: 26, bgcolor: COLORS.burgundy, fontSize: '0.72rem' }}>
                                   {a.nombreCompleto.charAt(0)}
                                 </Avatar>
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: COLORS.ink }}>
                                   {a.nombreCompleto}
                                 </Typography>
                               </Box>
                             </TableCell>
-                            <TableCell>{a.curp}</TableCell>
-                            <TableCell>{a.telefono}</TableCell>
-                            <TableCell>{a.gmail}</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{a.curp}</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{a.telefono}</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{a.gmail}</TableCell>
                             <TableCell>
                               <Chip
                                 label={a.sexo}
                                 size="small"
-                                color={a.sexo === 'masculino' ? 'primary' : 'secondary'}
-                                sx={{ fontSize: '0.7rem' }}
+                                sx={{
+                                  fontSize: '0.7rem',
+                                  bgcolor: 'transparent',
+                                  border: `1px solid ${COLORS.purple}`,
+                                  color: COLORS.purple,
+                                }}
                               />
                             </TableCell>
-                            <TableCell>{calcularEdad(a.fechaNacimiento)} años</TableCell>
-                            <TableCell>{formatearFecha(a.fechaIngresoClub)}</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{calcularEdad(a.fechaNacimiento)} años</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{formatearFecha(a.fechaIngresoClub)}</TableCell>
                             <TableCell align="center">
-                              <IconButton
-                                color="error"
-                                onClick={() => handleExpulsarAtleta(a)}
-                                title="Expulsar"
-                                size="small"
-                              >
+                              <IconButton color="error" onClick={() => handleExpulsarAtleta(a)} title="Expulsar" size="small">
                                 <PersonRemoveIcon fontSize="small" />
                               </IconButton>
                             </TableCell>
@@ -625,129 +874,111 @@ const GestionAtletas = () => {
         {/* Contenido pestaña Entrenadores */}
         {activeTab === 1 && (
           <Grid container spacing={3}>
-            {/* Solicitudes de entrenadores */}
-            <Grid item xs={12} md={6}>
+            {/* Solicitudes de entrenadores — a todo lo ancho, en cuadrícula de expedientes */}
+            <Grid item xs={12}>
               <SectionCard
-                icon={<PersonAddIcon sx={{ fontSize: 20 }} />}
+                icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
+                eyebrow="Bandeja de entrada"
                 title="Solicitudes de Entrenadores"
-                color={BURGUNDY}
                 action={
                   solicitudesEntrenadores.length > 0 && (
                     <Chip
                       label={solicitudesEntrenadores.length}
-                      color="warning"
                       size="small"
-                      sx={{ fontWeight: 600 }}
+                      sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }}
                     />
                   )
                 }
               >
                 {loadingEntrenadores ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress size={30} sx={{ color: BURGUNDY }} />
+                    <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
                   </Box>
                 ) : solicitudesEntrenadores.length === 0 ? (
-                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
                     No hay solicitudes de entrenadores pendientes.
                   </Typography>
                 ) : (
-                  <List disablePadding>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                      gap: 2,
+                    }}
+                  >
                     {solicitudesEntrenadores.map((s) => (
-                      <ListItemCustom
-                        key={s._id}
-                        primary={s.nombreEntrenador || 'Entrenador'}
-                        secondary={
-                          <Box component="span">
-                            <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
-                              <strong>Email:</strong> {s.emailEntrenador || 'N/A'}
-                            </Typography>
-                            <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
-                              <strong>Teléfono:</strong> {s.telefonoEntrenador || 'N/A'}
-                            </Typography>
-                            <Typography variant="body2" component="span" display="block" sx={{ color: '#555' }}>
-                              <strong>Mensaje:</strong> {s.mensaje || 'Sin mensaje'}
-                            </Typography>
-                            <Typography variant="caption" display="block" sx={{ color: '#888' }}>
-                              {formatearFecha(s.fechaSolicitud)}
-                            </Typography>
-                          </Box>
-                        }
-                        actions={
-                          <>
-                            <IconButton
-                              color="success"
-                              onClick={() => handleAceptarSolicitudEntrenador(s._id)}
-                              title="Aceptar"
-                              size="small"
-                            >
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              color="error"
-                              onClick={() => handleRechazarSolicitudEntrenador(s._id)}
-                              title="Rechazar"
-                              size="small"
-                            >
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </>
-                        }
+                      <ExpedienteSolicitud
+                        key={s.id}
+                        folio={folioDe(s.id)}
+                        nombre={s.nombreCompleto}
+                        fecha={formatearFecha(s.fechaSolicitud)}
+                        campos={[
+                          { label: 'Correo', valor: s.email },
+                          { label: 'Teléfono', valor: s.telefono },
+                          { label: 'Años de experiencia', valor: s.añosExperiencia != null ? s.añosExperiencia : 'N/A' },
+                          { label: 'Mensaje', valor: s.mensaje || 'Sin mensaje' },
+                        ]}
+                        onAceptar={() => handleAceptarSolicitudEntrenador(s.id)}
+                        onRechazar={() => handleRechazarSolicitudEntrenador(s.id)}
                       />
                     ))}
-                  </List>
+                  </Box>
                 )}
               </SectionCard>
             </Grid>
 
-            {/* Entrenadores del club */}
+            {/* Entrenadores del club — a todo lo ancho, debajo de las solicitudes */}
             <Grid item xs={12}>
               <SectionCard
-                icon={<FitnessCenterIcon sx={{ fontSize: 20 }} />}
+                icon={<FitnessCenterIcon sx={{ fontSize: 16 }} />}
+                eyebrow="Plantilla registrada"
                 title="Entrenadores del Club"
-                color={PURPLE}
                 action={
                   entrenadores.length > 0 && (
                     <Chip
                       label={`${entrenadores.length} entrenadores`}
-                      color="success"
                       size="small"
-                      sx={{ fontWeight: 600 }}
+                      sx={{ bgcolor: COLORS.purple, color: '#fff', fontWeight: 700 }}
                     />
                   )
                 }
               >
                 {entrenadores.length === 0 ? (
-                  <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
-                    No hay entrenadores registrados.
+                  <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
+                    Aún no hay entrenadores registrados.
                   </Typography>
                 ) : (
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Nombre</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Email</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Teléfono</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Especialidades</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Años Exp.</TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: BURGUNDY }} align="center">Acciones</TableCell>
+                        <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                          <TableCell sx={tableHeadSx}>Nombre</TableCell>
+                          <TableCell sx={tableHeadSx}>Email</TableCell>
+                          <TableCell sx={tableHeadSx}>Teléfono</TableCell>
+                          <TableCell sx={tableHeadSx}>Especialidades</TableCell>
+                          <TableCell sx={tableHeadSx}>Años Exp.</TableCell>
+                          <TableCell sx={tableHeadSx} align="center">Acciones</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {entrenadores.map((e) => (
-                          <TableRow key={e.id} hover>
+                          <TableRow
+                            key={e.id}
+                            hover
+                            sx={{ '&:hover': { bgcolor: COLORS.lineSoft }, borderBottom: `1px solid ${COLORS.line}` }}
+                          >
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Avatar sx={{ width: 28, height: 28, bgcolor: BURGUNDY, fontSize: '0.75rem' }}>
+                                <Avatar sx={{ width: 26, height: 26, bgcolor: COLORS.burgundy, fontSize: '0.72rem' }}>
                                   {e.nombreCompleto.charAt(0)}
                                 </Avatar>
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: COLORS.ink }}>
                                   {e.nombreCompleto}
                                 </Typography>
                               </Box>
                             </TableCell>
-                            <TableCell>{e.gmail}</TableCell>
-                            <TableCell>{e.telefono}</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{e.gmail}</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{e.telefono}</TableCell>
                             <TableCell>
                               {Array.isArray(e.especialidades) && e.especialidades.length > 0 ? (
                                 e.especialidades.map((esp, idx) => (
@@ -755,22 +986,23 @@ const GestionAtletas = () => {
                                     key={idx}
                                     label={esp.nombre || esp}
                                     size="small"
-                                    color="primary"
-                                    sx={{ mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
+                                    sx={{
+                                      mr: 0.5,
+                                      mb: 0.5,
+                                      fontSize: '0.7rem',
+                                      bgcolor: 'transparent',
+                                      border: `1px solid ${COLORS.purple}`,
+                                      color: COLORS.purple,
+                                    }}
                                   />
                                 ))
                               ) : (
                                 'N/A'
                               )}
                             </TableCell>
-                            <TableCell>{e.añosExperiencia}</TableCell>
+                            <TableCell sx={{ color: COLORS.ink }}>{e.añosExperiencia}</TableCell>
                             <TableCell align="center">
-                              <IconButton
-                                color="error"
-                                onClick={() => handleExpulsarEntrenador(e)}
-                                title="Expulsar"
-                                size="small"
-                              >
+                              <IconButton color="error" onClick={() => handleExpulsarEntrenador(e)} title="Expulsar" size="small">
                                 <PersonRemoveIcon fontSize="small" />
                               </IconButton>
                             </TableCell>
@@ -784,11 +1016,114 @@ const GestionAtletas = () => {
             </Grid>
           </Grid>
         )}
+
+        {/* Contenido pestaña Atletas Disponibles */}
+        {activeTab === 2 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <SectionCard
+                icon={<SearchIcon sx={{ fontSize: 16 }} />}
+                eyebrow="Atletas sin club"
+                title="Atletas Disponibles"
+                action={
+                  atletasDisponibles.length > 0 && (
+                    <Chip
+                      label={`${atletasDisponibles.length} disponibles`}
+                      size="small"
+                      sx={{ bgcolor: COLORS.purple, color: '#fff', fontWeight: 700 }}
+                    />
+                  )
+                }
+              >
+                {loadingDisponibles ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
+                  </Box>
+                ) : atletasDisponibles.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
+                    No hay atletas independientes disponibles en este momento.
+                  </Typography>
+                ) : (
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                      gap: 2,
+                    }}
+                  >
+                    {atletasDisponibles.map((a) => (
+                      <AtletaPerfilCard
+                        key={a.id}
+                        atleta={a}
+                        invitacionPendiente={invitacionesEnviadas.includes(a.id) || invitando === a.id}
+                        onInvitar={() => handleInvitarAtleta(a.id)}
+                        onVerPerfil={() => handleVerPerfil(a.id)}
+                      />
+                    ))}
+                  </Box>
+                )}
+              </SectionCard>
+            </Grid>
+          </Grid>
+        )}
       </Container>
+
+      {/* Diálogo de perfil de atleta */}
+      <Dialog open={perfilDialogOpen} onClose={cerrarPerfilDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Perfil del Atleta</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {loadingPerfil ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
+            </Box>
+          ) : !perfilSeleccionado ? (
+            <Typography variant="body2" color="textSecondary">
+              No se pudo cargar el perfil del atleta.
+            </Typography>
+          ) : (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                <Avatar sx={{ width: 48, height: 48, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
+                  {perfilSeleccionado.nombreCompleto.charAt(0)}
+                </Avatar>
+                <Typography variant="h6" sx={{ color: COLORS.ink, fontWeight: 700 }}>
+                  {perfilSeleccionado.nombreCompleto}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5 }}>
+                <DatoCampo label="CURP" valor={perfilSeleccionado.curp} />
+                <DatoCampo label="Género" valor={perfilSeleccionado.sexo} />
+                <DatoCampo label="Edad" valor={perfilSeleccionado.edad !== null ? `${perfilSeleccionado.edad} años` : 'N/A'} />
+                <DatoCampo label="Municipio" valor={perfilSeleccionado.municipio} />
+                <DatoCampo label="Teléfono" valor={perfilSeleccionado.telefono} />
+                <DatoCampo label="Correo" valor={perfilSeleccionado.gmail} />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={cerrarPerfilDialog} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+            Cerrar
+          </Button>
+          {perfilSeleccionado && (
+            <Button
+              variant="contained"
+              startIcon={<SendIcon fontSize="small" />}
+              disabled={invitacionesEnviadas.includes(perfilSeleccionado.id) || invitando === perfilSeleccionado.id}
+              onClick={() => handleInvitarAtleta(perfilSeleccionado.id)}
+              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+            >
+              {invitacionesEnviadas.includes(perfilSeleccionado.id) ? 'Invitación enviada' : 'Invitar al club'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
       {/* Diálogo confirmar expulsión atleta */}
       <Dialog open={modalExpulsionOpen} onClose={cancelarExpulsion} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff' }}>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WarningIcon sx={{ color: '#fff' }} />
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Confirmar Expulsión</Typography>
@@ -809,7 +1144,7 @@ const GestionAtletas = () => {
           </ul>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={cancelarExpulsion} sx={{ color: PURPLE, fontWeight: 600 }}>
+          <Button onClick={cancelarExpulsion} sx={{ color: COLORS.purple, fontWeight: 600 }}>
             Cancelar
           </Button>
           <Button
@@ -826,7 +1161,7 @@ const GestionAtletas = () => {
 
       {/* Diálogo confirmar expulsión entrenador */}
       <Dialog open={modalExpulsionEntrenadorOpen} onClose={cancelarExpulsionEntrenador} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff' }}>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WarningIcon sx={{ color: '#fff' }} />
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Confirmar Expulsión de Entrenador</Typography>
@@ -847,7 +1182,7 @@ const GestionAtletas = () => {
           </ul>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={cancelarExpulsionEntrenador} sx={{ color: PURPLE, fontWeight: 600 }}>
+          <Button onClick={cancelarExpulsionEntrenador} sx={{ color: COLORS.purple, fontWeight: 600 }}>
             Cancelar
           </Button>
           <Button

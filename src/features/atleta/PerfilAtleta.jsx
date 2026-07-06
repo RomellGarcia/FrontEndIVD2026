@@ -158,24 +158,23 @@ const PerfilAtleta = () => {
   };
 
   const handleEnviarSolicitud = async () => {
-    try {
-      if (!user?.id) return;
-      limpiarMensaje();
-      setMensaje('');
+  try {
+    if (!user?.id) return;
+    limpiarMensaje();
+    setMensaje('');
 
-      await axios.post('http://localhost:5000/api/atletas/solicitudes-club', {
-        atletaId: user.id,
-        clubId: clubSeleccionado,
-        tipo: 'asociar',
-      });
+    await atletasAPI.crearSolicitud({
+      club_id: clubSeleccionado,
+      tipo: 'asociar',
+    });
 
-      setMensaje('Solicitud enviada correctamente. Espera la respuesta del club.');
-      setClubSeleccionado('');
-      fetchSolicitud();
-    } catch (error) {
-      setMensaje(error.response?.data?.error || 'Error al enviar solicitud');
-    }
-  };
+    setMensaje('Solicitud enviada correctamente. Espera la respuesta del club.');
+    setClubSeleccionado('');
+    fetchSolicitud();
+  } catch (error) {
+    setMensaje(error.response?.data?.error || 'Error al enviar solicitud');
+  }
+};
 
   const handleSalirClub = async () => {
     const result = await Swal.fire({
