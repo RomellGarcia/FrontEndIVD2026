@@ -1,11 +1,10 @@
-import { perfilEmpresaAPI } from '../../api/index.js';
+import { perfilEmpresaAPI, eventosAPI, catalogosAPI } from '../../api/index.js';
 // components/AgregarEvento.jsx
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 // import { PDFDownloadLink, Document, Page, Text, View, Image, StyleSheet, pdf } from '@react-pdf/renderer';
-import jsPDF from 'jspdf';
+
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -15,6 +14,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
 import PeopleIcon from '@mui/icons-material/People';
+import GroupsIcon from '@mui/icons-material/Groups';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AddIcon from '@mui/icons-material/Add';
@@ -38,7 +38,6 @@ import {
   Box, 
   Card, 
   CardContent, 
-  Grid,
   Chip,
   Divider,
   Table,
@@ -56,8 +55,17 @@ import {
   Avatar,
   Stack,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Tabs,
+  Tab,
+  Switch,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircle';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const MySwal = withReactContent(Swal);
 
@@ -72,6 +80,16 @@ const resolveArchivoUrl = (ruta) => {
   return `${API_BASE_URL}${ruta.startsWith('/') ? '' : '/'}${ruta}`;
 };
 
+// Los PDF los abre el navegador solo, sin ayuda. Los Word (.doc/.docx) no
+// se pueden ver en el navegador de forma nativa, así que esos pasan por el
+// visor público de Google Docs, que sabe renderizarlos sin descargarlos.
+const abrirDocumentoParaVer = (url) => {
+  if (!url) return;
+  const esPdf = /\.pdf(\?|$)/i.test(url);
+  const urlFinal = esPdf ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  window.open(urlFinal, '_blank', 'noopener,noreferrer');
+};
+
 // El backend podría devolver el campo de la imagen con distintos nombres
 // según cómo se haya implementado el endpoint; probamos los más comunes.
 const obtenerImagenEvento = (evento) => {
@@ -83,29 +101,8 @@ const obtenerImagenEvento = (evento) => {
   return '';
 };
 
-// Disciplinas extraídas del documento (puedes ajustar según necesidad)
-const disciplinas = [
-  '75 m. Planos', '150 m. Planos', '300 m. Planos', '600 m. Planos', '2000 m. Planos', '5000 m. Planos', '10000 m. Planos',
-  '80 m. con Vallas', '100 m. con Vallas', '110 m. con Vallas', '300 m. con Vallas', '400 m. con Vallas', '2000 m. con obstáculos',
-  '3000 m. con obstáculos', '5000 m. Marcha', '3000 m. Marcha', '10000 m. Caminata', 'Salto de Altura', 'Salto de Longitud',
-  'Salto Triple', 'Salto con Garrocha', 'Lanzamiento de Disco', 'Lanzamiento de Bala', 'Lanzamiento de Pelota', 'Lanzamiento de Martillo',
-  'Lanzamiento de Jabalina', 'Tetratlón', 'Heptatlón', 'Decatlón'
-];
-
-// Listas fijas de categorías y sus rangos de edad
-const categorias = [
-  { nombre: 'Sub-14', min: 12, max: 13 },
-  { nombre: 'Sub-16', min: 14, max: 15 },
-  { nombre: 'Sub-18', min: 16, max: 17 },
-  { nombre: 'Sub-20', min: 18, max: 19 },
-  { nombre: 'Sub-23', min: 20, max: 22 },
-  { nombre: 'Libre', min: 23, max: 35 }, // Puedes ajustar si hay otra categoría
-];
-const generos = [
-  { value: 'masculino', label: 'Masculino' },
-  { value: 'femenino', label: 'Femenino' },
-  { value: 'mixto', label: 'Mixto' },
-];
+// Disciplinas, categorías y géneros ya NO son listas fijas: se piden al
+// backend (catalogosAPI) para tener los id reales que espera createEventoSchema.
 
 const AgregarEvento = () => {
   const [evento, setEvento] = useState({
@@ -125,44 +122,99 @@ const AgregarEvento = () => {
 
   const [convocatorias, setConvocatorias] = useState([
     {
+      disciplina_id: '',
       disciplina: '',
+      categoria_id: '',
       categoria: '',
       edadMin: '',
       edadMax: '',
-      genero: 'mixto',
+      genero_id: '',
+      genero: '',
     }
   ]);
   const [showConvocatoriasForm, setShowConvocatoriasForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [modalParticipantesOpen, setModalParticipantesOpen] = useState(false);
-  const [modalEventoOpen, setModalEventoOpen] = useState(false);
+  const [vista, setVista] = useState('lista');
+  const [modalDetalleConvocatoriaOpen, setModalDetalleConvocatoriaOpen] = useState(false);
+  const [convocatoriaDetalle, setConvocatoriaDetalle] = useState(null);
   const [participantes, setParticipantes] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [loadingParticipantes, setLoadingParticipantes] = useState(false);
   const [eventos, setEventos] = useState([]);
   const [loadingEventos, setLoadingEventos] = useState(false);
-  const [modalPDFOpen, setModalPDFOpen] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('');
   const [modalConvocatoriasOpen, setModalConvocatoriasOpen] = useState(false);
   const [eventoConvocatorias, setEventoConvocatorias] = useState(null);
+  const [disciplinas, setDisciplinas] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [generos, setGeneros] = useState([]);
+  const [catalogosCargando, setCatalogosCargando] = useState(true);
+  const [tabActivo, setTabActivo] = useState('crear');
+  const [modalEditarOpen, setModalEditarOpen] = useState(false);
+  const [eventoAEditar, setEventoAEditar] = useState(null);
+  const [formEditar, setFormEditar] = useState({ titulo: '', fecha: '', hora: '', lugar: '', descripcion: '' });
+  const [imagenEditar, setImagenEditar] = useState(null);
+  const [documentoConvocatoriaEditar, setDocumentoConvocatoriaEditar] = useState(null);
+  const [documentoDeslindeEditar, setDocumentoDeslindeEditar] = useState(null);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [modalEditarConvocatoriaOpen, setModalEditarConvocatoriaOpen] = useState(false);
+  const [convocatoriaAEditar, setConvocatoriaAEditar] = useState(null);
+  const [formEditarConvocatoria, setFormEditarConvocatoria] = useState({
+    disciplina_id: '', disciplina: '', categoria_id: '', categoria: '',
+    edadMin: '', edadMax: '', genero_id: '', genero: '',
+  });
+  const [guardandoEdicionConvocatoria, setGuardandoEdicionConvocatoria] = useState(false);
+  const [modalAgregarConvocatoriaOpen, setModalAgregarConvocatoriaOpen] = useState(false);
+  const [formNuevaConvocatoria, setFormNuevaConvocatoria] = useState({
+    disciplina_id: '', disciplina: '', categoria_id: '', categoria: '',
+    edadMin: '', edadMax: '', genero_id: '', genero: '',
+  });
+  const [guardandoNuevaConvocatoria, setGuardandoNuevaConvocatoria] = useState(false);
 
   // Cargar eventos al montar el componente
   useEffect(() => {
     cargarEventos();
     fetchLogo();
+    cargarCatalogos();
   }, []);
+
+  const cargarCatalogos = async () => {
+    try {
+      setCatalogosCargando(true);
+      const [discRes, catRes, genRes] = await Promise.all([
+        catalogosAPI.getDisciplinas(),
+        catalogosAPI.getCategorias(),
+        catalogosAPI.getGeneros(),
+      ]);
+      setDisciplinas(discRes.data.disciplinas || []);
+      setCategorias(catRes.data.categorias || []);
+      setGeneros(genRes.data.generos || []);
+    } catch (error) {
+      console.error('Error al cargar catálogos:', error);
+      MySwal.fire({
+        title: 'Error!',
+        text: 'No se pudieron cargar las disciplinas/categorías/géneros. No podrás crear convocatorias hasta recargar la página.',
+        icon: 'error',
+      });
+    } finally {
+      setCatalogosCargando(false);
+    }
+  };
 
   const cargarEventos = async () => {
   try {
     setLoadingEventos(true);
-    const response = await axios.get('http://localhost:5000/api/eventos');
+    const response = await eventosAPI.getAll({ todos: true });
     const data = response.data;
     const listaEventos = Array.isArray(data)
       ? data
       : Array.isArray(data?.eventos)
         ? data.eventos
         : [];
+    // Los cerrados van siempre al final, para no mezclarlos con los activos
+    listaEventos.sort((a, b) => Number(!!b.estado) - Number(!!a.estado));
     setEventos(listaEventos);
     if (listaEventos.length > 0) {
       // Ayuda a depurar: revisa en la consola del navegador qué campo
@@ -185,23 +237,349 @@ const AgregarEvento = () => {
   }
 };
 
+  const handleAbrirEditar = (evento) => {
+    setEventoAEditar(evento);
+    setFormEditar({
+      titulo: evento.titulo || '',
+      fecha: evento.fecha ? evento.fecha.slice(0, 10) : '',
+      hora: evento.hora || '',
+      lugar: evento.lugar || '',
+      descripcion: evento.descripcion || '',
+    });
+    setImagenEditar(null);
+    setDocumentoConvocatoriaEditar(null);
+    setDocumentoDeslindeEditar(null);
+    setModalEditarOpen(true);
+  };
+
+  const handleCerrarEditar = () => {
+    setModalEditarOpen(false);
+    setEventoAEditar(null);
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!eventoAEditar) return;
+    try {
+      setGuardandoEdicion(true);
+      const formData = new FormData();
+      formData.append('titulo', formEditar.titulo);
+      formData.append('fecha', formEditar.fecha);
+      formData.append('hora', formEditar.hora);
+      formData.append('lugar', formEditar.lugar);
+      formData.append('descripcion', formEditar.descripcion);
+      if (imagenEditar) formData.append('imagen', imagenEditar);
+      if (documentoConvocatoriaEditar) formData.append('documentoConvocatoria', documentoConvocatoriaEditar);
+      if (documentoDeslindeEditar) formData.append('documentoDeslinde', documentoDeslindeEditar);
+
+      await eventosAPI.update(eventoAEditar.id, formData);
+      handleCerrarEditar();
+      await cargarEventos();
+      MySwal.fire({ title: 'Evento actualizado', icon: 'success', confirmButtonText: 'OK' });
+    } catch (error) {
+      console.error('Error al editar evento:', error);
+      MySwal.fire({
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo actualizar el evento.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+      });
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  const handleToggleEstado = async (evento) => {
+    const nuevoEstado = !evento.estado;
+    try {
+      await eventosAPI.toggleEstado(evento.id, nuevoEstado);
+      await cargarEventos();
+    } catch (error) {
+      console.error('Error al cambiar estado del evento:', error);
+      MySwal.fire({ title: 'Error', text: 'No se pudo cambiar el estado del evento.', icon: 'error', confirmButtonText: 'OK' });
+    }
+  };
+
+  const handleEliminarEvento = async (evento) => {
+    const result = await MySwal.fire({
+      title: '¿Eliminar este evento?',
+      html: `Esto borra el evento <b>"${evento.titulo}"</b>, todas sus convocatorias y sus archivos. Si hay atletas inscritos, se les da de baja automáticamente y se les notifica. <br/><br/><b>Esta acción no se puede deshacer.</b>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#800020',
+      cancelButtonColor: '#7A4069',
+      confirmButtonText: 'Sí, eliminar definitivamente',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await eventosAPI.deleteEvento(evento.id);
+      await cargarEventos();
+      const atletasAfectados = response.data?.atletasAfectados || 0;
+      MySwal.fire({
+        title: 'Evento eliminado',
+        text: atletasAfectados > 0 ? `Se notificó a ${atletasAfectados} atleta(s) que quedaron sin esta inscripción.` : undefined,
+        icon: 'success',
+        confirmButtonText: 'OK',
+      });
+    } catch (error) {
+      console.error('Error al eliminar evento:', error);
+      MySwal.fire({ title: 'Error', text: error.response?.data?.error || 'No se pudo eliminar el evento.', icon: 'error', confirmButtonText: 'OK' });
+    }
+  };
+
+  const handleEliminarConvocatoria = async (convocatoria, eventoPadre) => {
+    const result = await MySwal.fire({
+      title: '¿Eliminar esta convocatoria?',
+      html: `Se eliminará <b>"${convocatoria.disciplina} - ${convocatoria.categoria}"</b>. Si hay atletas inscritos, se les da de baja y se les notifica.<br/><br/><b>Esta acción no se puede deshacer.</b>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#800020',
+      cancelButtonColor: '#7A4069',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await eventosAPI.deleteConvocatoria(convocatoria.id);
+      await cargarEventos();
+      // Refrescar la convocatoria abierta en el modal, si sigue abierto
+      if (eventoConvocatorias?.id === eventoPadre?.id) {
+        const actualizado = (await eventosAPI.getAll()).data.eventos?.find((e) => e.id === eventoPadre.id);
+        setEventoConvocatorias(actualizado || null);
+      }
+      const atletasAfectados = response.data?.atletasAfectados || 0;
+      MySwal.fire({
+        title: 'Convocatoria eliminada',
+        text: atletasAfectados > 0 ? `Se notificó a ${atletasAfectados} atleta(s).` : undefined,
+        icon: 'success',
+        confirmButtonText: 'OK',
+      });
+    } catch (error) {
+      console.error('Error al eliminar convocatoria:', error);
+      MySwal.fire({ title: 'Error', text: error.response?.data?.error || 'No se pudo eliminar la convocatoria.', icon: 'error', confirmButtonText: 'OK' });
+    }
+  };
+
+  const handleAbrirEditarConvocatoria = (convocatoria, eventoPadre) => {
+    // El backend (findAll) no manda disciplina_id/categoria_id/genero_id, solo
+    // los nombres — así que los resolvemos contra los catálogos ya cargados.
+    const disc = disciplinas.find((d) => d.id === convocatoria.disciplina_id) || disciplinas.find((d) => (d.nombre || '').toLowerCase() === (convocatoria.disciplina || '').toLowerCase());
+    const cat = categorias.find((c) => c.id === convocatoria.categoria_id) || categorias.find((c) => (c.nombre || '').toLowerCase() === (convocatoria.categoria || '').toLowerCase());
+    const gen = generos.find((g) => g.id === convocatoria.genero_id) || generos.find((g) => (g.nombre || '').toLowerCase() === (convocatoria.genero || '').toLowerCase());
+
+    setConvocatoriaAEditar({ ...convocatoria, eventoPadreId: eventoPadre?.id });
+    setFormEditarConvocatoria({
+      disciplina_id: disc?.id ?? '',
+      disciplina: disc?.nombre ?? convocatoria.disciplina ?? '',
+      categoria_id: cat?.id ?? '',
+      categoria: cat?.nombre ?? convocatoria.categoria ?? '',
+      edadMin: cat?.edad_min ?? convocatoria.edadMin ?? '',
+      edadMax: cat?.edad_max ?? convocatoria.edadMax ?? '',
+      genero_id: gen?.id ?? '',
+      genero: gen?.nombre ?? convocatoria.genero ?? '',
+    });
+    setModalEditarConvocatoriaOpen(true);
+  };
+
+  const handleCerrarEditarConvocatoria = () => {
+    setModalEditarConvocatoriaOpen(false);
+    setConvocatoriaAEditar(null);
+  };
+
+  const handleDisciplinaChangeEditar = (e) => {
+    const id = Number(e.target.value);
+    const disc = disciplinas.find((d) => d.id === id);
+    setFormEditarConvocatoria((p) => ({ ...p, disciplina_id: id, disciplina: disc?.nombre || '' }));
+  };
+
+  const handleCategoriaChangeEditar = (e) => {
+    const id = Number(e.target.value);
+    const cat = categorias.find((c) => c.id === id);
+    setFormEditarConvocatoria((p) => ({
+      ...p,
+      categoria_id: id,
+      categoria: cat?.nombre || '',
+      edadMin: cat?.edad_min ?? '',
+      edadMax: cat?.edad_max ?? '',
+    }));
+  };
+
+  const handleGeneroChangeEditar = (e) => {
+    const id = Number(e.target.value);
+    const gen = generos.find((g) => g.id === id);
+    setFormEditarConvocatoria((p) => ({ ...p, genero_id: id, genero: gen?.nombre || '' }));
+  };
+
+  const handleGuardarEdicionConvocatoria = async () => {
+    if (!convocatoriaAEditar) return;
+    if (!formEditarConvocatoria.disciplina_id || !formEditarConvocatoria.categoria_id || !formEditarConvocatoria.genero_id) {
+      MySwal.fire({ title: 'Faltan datos', text: 'Selecciona disciplina, categoría y género.', icon: 'warning', confirmButtonText: 'OK' });
+      return;
+    }
+    try {
+      setGuardandoEdicionConvocatoria(true);
+      await eventosAPI.updateConvocatoria(convocatoriaAEditar.id, {
+        disciplina_id: formEditarConvocatoria.disciplina_id,
+        categoria_id: formEditarConvocatoria.categoria_id,
+        genero_id: formEditarConvocatoria.genero_id,
+      });
+      handleCerrarEditarConvocatoria();
+      await cargarEventos();
+      // Refrescar la convocatoria abierta en el modal, si sigue abierto
+      if (eventoConvocatorias?.id === convocatoriaAEditar.eventoPadreId) {
+        const actualizado = (await eventosAPI.getAll({ todos: true })).data.eventos?.find((e) => e.id === convocatoriaAEditar.eventoPadreId);
+        setEventoConvocatorias(actualizado || null);
+      }
+      MySwal.fire({ title: 'Convocatoria actualizada', icon: 'success', confirmButtonText: 'OK' });
+    } catch (error) {
+      console.error('Error al editar convocatoria:', error);
+      MySwal.fire({
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo actualizar la convocatoria.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+      });
+    } finally {
+      setGuardandoEdicionConvocatoria(false);
+    }
+  };
+
+  const handleAbrirAgregarConvocatoria = () => {
+    setFormNuevaConvocatoria({
+      disciplina_id: '', disciplina: '', categoria_id: '', categoria: '',
+      edadMin: '', edadMax: '', genero_id: '', genero: '',
+    });
+    setModalAgregarConvocatoriaOpen(true);
+  };
+
+  const handleCerrarAgregarConvocatoria = () => {
+    setModalAgregarConvocatoriaOpen(false);
+  };
+
+  const handleDisciplinaChangeNueva = (e) => {
+    const id = Number(e.target.value);
+    const disc = disciplinas.find((d) => d.id === id);
+    setFormNuevaConvocatoria((p) => ({ ...p, disciplina_id: id, disciplina: disc?.nombre || '' }));
+  };
+
+  const handleCategoriaChangeNueva = (e) => {
+    const id = Number(e.target.value);
+    const cat = categorias.find((c) => c.id === id);
+    setFormNuevaConvocatoria((p) => ({
+      ...p,
+      categoria_id: id,
+      categoria: cat?.nombre || '',
+      edadMin: cat?.edad_min ?? '',
+      edadMax: cat?.edad_max ?? '',
+    }));
+  };
+
+  const handleGeneroChangeNueva = (e) => {
+    const id = Number(e.target.value);
+    const gen = generos.find((g) => g.id === id);
+    setFormNuevaConvocatoria((p) => ({ ...p, genero_id: id, genero: gen?.nombre || '' }));
+  };
+
+  const handleGuardarNuevaConvocatoria = async () => {
+    if (!eventoConvocatorias?.id) return;
+    if (!formNuevaConvocatoria.disciplina_id || !formNuevaConvocatoria.categoria_id || !formNuevaConvocatoria.genero_id) {
+      MySwal.fire({ title: 'Faltan datos', text: 'Selecciona disciplina, categoría y género.', icon: 'warning', confirmButtonText: 'OK' });
+      return;
+    }
+    try {
+      setGuardandoNuevaConvocatoria(true);
+      await eventosAPI.addConvocatoria(eventoConvocatorias.id, {
+        disciplina_id: formNuevaConvocatoria.disciplina_id,
+        categoria_id: formNuevaConvocatoria.categoria_id,
+        genero_id: formNuevaConvocatoria.genero_id,
+      });
+      handleCerrarAgregarConvocatoria();
+      await cargarEventos();
+      // Refrescar la convocatoria abierta en el modal, para que la nueva aparezca en la tabla al toque
+      const actualizado = (await eventosAPI.getAll({ todos: true })).data.eventos?.find((e) => e.id === eventoConvocatorias.id);
+      setEventoConvocatorias(actualizado || null);
+      MySwal.fire({ title: 'Convocatoria agregada', icon: 'success', confirmButtonText: 'OK' });
+    } catch (error) {
+      console.error('Error al agregar convocatoria:', error);
+      MySwal.fire({
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo agregar la convocatoria.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+      });
+    } finally {
+      setGuardandoNuevaConvocatoria(false);
+    }
+  };
+
+  const handleDarDeBajaAtleta = async (participante) => {
+    const result = await MySwal.fire({
+      title: '¿Dar de baja a este atleta?',
+      text: `Se le quitará su inscripción y se le notificará.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#800020',
+      cancelButtonColor: '#7A4069',
+      confirmButtonText: 'Sí, dar de baja',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      await eventosAPI.removerAtletaDeConvocatoria(participante.id);
+      setParticipantes((prev) => prev.filter((p) => p.id !== participante.id));
+      MySwal.fire({ title: 'Atleta dado de baja', icon: 'success', confirmButtonText: 'OK' });
+    } catch (error) {
+      console.error('Error al dar de baja al atleta:', error);
+      MySwal.fire({ title: 'Error', text: error.response?.data?.error || 'No se pudo dar de baja al atleta.', icon: 'error', confirmButtonText: 'OK' });
+    }
+  };
+
   const fetchLogo = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/perfil-empresa');
+      const response = await perfilEmpresaAPI.get();
       setLogoUrl(response.data.perfil.logo || '');
     } catch (error) {
       setLogoUrl('');
     }
   };
 
-  const handleCategoriaChange = (index, e) => {
-    const cat = categorias.find(c => c.nombre === e.target.value);
+  const handleDisciplinaChange = (index, e) => {
+    const id = Number(e.target.value);
+    const disc = disciplinas.find(d => d.id === id);
     const nuevasConvocatorias = [...convocatorias];
     nuevasConvocatorias[index] = {
       ...nuevasConvocatorias[index],
-      categoria: cat.nombre,
-      edadMin: cat.min,
-      edadMax: cat.max,
+      disciplina_id: id,
+      disciplina: disc?.nombre || '',
+    };
+    setConvocatorias(nuevasConvocatorias);
+  };
+
+  const handleCategoriaChange = (index, e) => {
+    const id = Number(e.target.value);
+    const cat = categorias.find(c => c.id === id);
+    const nuevasConvocatorias = [...convocatorias];
+    nuevasConvocatorias[index] = {
+      ...nuevasConvocatorias[index],
+      categoria_id: id,
+      categoria: cat?.nombre || '',
+      edadMin: cat?.edad_min ?? '',
+      edadMax: cat?.edad_max ?? '',
+    };
+    setConvocatorias(nuevasConvocatorias);
+  };
+
+  const handleGeneroChange = (index, e) => {
+    const id = Number(e.target.value);
+    const gen = generos.find(g => g.id === id);
+    const nuevasConvocatorias = [...convocatorias];
+    nuevasConvocatorias[index] = {
+      ...nuevasConvocatorias[index],
+      genero_id: id,
+      genero: gen?.nombre || '',
     };
     setConvocatorias(nuevasConvocatorias);
   };
@@ -270,11 +648,14 @@ const AgregarEvento = () => {
     setConvocatorias([
       ...convocatorias,
       {
+        disciplina_id: '',
         disciplina: '',
+        categoria_id: '',
         categoria: '',
         edadMin: '',
         edadMax: '',
-        genero: 'mixto',
+        genero_id: '',
+        genero: '',
       }
     ]);
   };
@@ -313,7 +694,7 @@ const AgregarEvento = () => {
     // Validar convocatorias
     for (let i = 0; i < convocatorias.length; i++) {
       const conv = convocatorias[i];
-      if (!conv.disciplina || !conv.categoria || !conv.genero || !conv.edadMin || !conv.edadMax) {
+      if (!conv.disciplina_id || !conv.categoria_id || !conv.genero_id || !conv.edadMin || !conv.edadMax) {
         MySwal.fire({
           title: 'Error!',
           text: `Convocatoria ${i + 1}: Todos los campos son requeridos`,
@@ -328,15 +709,18 @@ const AgregarEvento = () => {
     try {
       const formData = new FormData();
       Object.entries(evento).forEach(([key, value]) => formData.append(key, value));
-      formData.append('convocatorias', JSON.stringify(convocatorias));
+      const convocatoriasParaEnviar = convocatorias.map((c) => ({
+        disciplina_id: c.disciplina_id,
+        categoria_id: c.categoria_id,
+        genero_id: c.genero_id,
+      }));
+      formData.append('convocatorias', JSON.stringify(convocatoriasParaEnviar));
       formData.append('aceptaDeslinde', 'true');
       if (imagenEvento) formData.append('imagen', imagenEvento);
       if (documentoConvocatoria) formData.append('documentoConvocatoria', documentoConvocatoria);
       if (documentoDeslinde) formData.append('documentoDeslinde', documentoDeslinde);
 
-      const response = await axios.post('http://localhost:5000/api/eventos', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await eventosAPI.create(formData);
       if (response.status === 201) {
         MySwal.fire({
           title: 'Éxito!',
@@ -389,8 +773,8 @@ const AgregarEvento = () => {
     setModalParticipantesOpen(true);
     setLoadingParticipantes(true);
     try {
-      const response = await axios.get(`http://localhost:5000/api/eventos/${evento.id}/participantes`);
-      setParticipantes(response.data);
+      const response = await eventosAPI.getParticipantes(evento.id);
+      setParticipantes(response.data.participantes || []);
     } catch (error) {
       setParticipantes([]);
     } finally {
@@ -400,30 +784,20 @@ const AgregarEvento = () => {
 
   const handleVerEvento = (evento) => {
     setEventoSeleccionado(evento);
-    setModalEventoOpen(true);
+    setVista('detalle');
   };
 
   const handleVerPDF = (evento) => {
-    try {
-      setPdfLoading(true);
-      setEventoSeleccionado(evento);
-      setModalPDFOpen(true);
-    } catch (error) {
-      console.error('Error al abrir modal PDF:', error);
+    if (!evento.documentoConvocatoria) {
       MySwal.fire({
-        title: 'Error!',
-        text: 'Error al abrir la convocatoria en PDF',
-        icon: 'error',
+        title: 'Sin documento',
+        text: 'Este evento no tiene un documento de convocatoria subido.',
+        icon: 'info',
         confirmButtonText: 'OK',
       });
-    } finally {
-      setPdfLoading(false);
+      return;
     }
-  };
-
-  const handleCerrarPDF = () => {
-      setModalPDFOpen(false);
-      setEventoSeleccionado(null);
+    abrirDocumentoParaVer(resolveArchivoUrl(evento.documentoConvocatoria));
   };
 
   const handleCerrarParticipantes = () => {
@@ -432,7 +806,7 @@ const AgregarEvento = () => {
   };
 
   const handleCerrarEvento = () => {
-      setModalEventoOpen(false);
+      setVista('lista');
       setEventoSeleccionado(null);
   };
 
@@ -449,6 +823,27 @@ const AgregarEvento = () => {
     return estado ? 'Activo' : 'Cancelado';
   };
 
+  // La comparación exacta contra 'masculino'/'mixto' en minúsculas fallaba
+  // silenciosamente a "Femenino" apenas el valor de la BD viniera con otra
+  // capitalización o espacios (p. ej. "Masculino" en vez de "masculino") —
+  // por eso una convocatoria masculina se veía marcada como femenina en la
+  // tabla. Normalizamos antes de comparar, y si de plano no reconocemos el
+  // valor, mostramos el valor crudo en vez de adivinar.
+  const textoGenero = (genero) => {
+    const v = (genero || '').toLowerCase().trim();
+    if (v === 'masculino') return 'Masculino';
+    if (v === 'femenino') return 'Femenino';
+    if (v === 'mixto') return 'Mixto';
+    return genero || 'N/A';
+  };
+
+  const colorGenero = (genero) => {
+    const v = (genero || '').toLowerCase().trim();
+    if (v === 'masculino') return 'primary';
+    if (v === 'femenino') return 'secondary';
+    return 'default';
+  };
+
   const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
     try {
@@ -462,193 +857,6 @@ const AgregarEvento = () => {
     }
   };
 
-  // Función para generar PDF del evento
-  const generarPDFEvento = (evento) => {
-    try {
-      const doc = new jsPDF();
-      
-      // Variables para posicionamiento
-      let y = 15;
-      const margin = 20;
-      const pageWidth = doc.internal.pageSize.width;
-      const contentWidth = pageWidth - (2 * margin);
-      
-      // Función para agregar texto con wrap
-      const addText = (text, x, y, maxWidth) => {
-        const lines = doc.splitTextToSize(text, maxWidth);
-        doc.text(lines, x, y);
-        return y + (lines.length * 5);
-      };
-      
-      // Función para agregar título centrado
-      const addCenteredTitle = (text, y, fontSize = 16) => {
-        doc.setFontSize(fontSize);
-        doc.setFont('helvetica', 'bold');
-        const textWidth = doc.getTextWidth(text);
-        const x = (pageWidth - textWidth) / 2;
-        doc.text(text, x, y);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        return y + 8;
-      };
-      
-      // Función para agregar subtítulo
-      const addSubtitle = (text, y, fontSize = 12) => {
-        doc.setFontSize(fontSize);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(128, 0, 32); // Color #800020 (marrón oscuro)
-        doc.text(text, margin, y);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-        return y + 6;
-      };
-      
-      // Logo en la esquina superior izquierda
-      if (logoUrl) {
-        try {
-          // Agregar logo circular en la esquina superior izquierda
-          doc.addImage(logoUrl, 'JPEG', margin, y, 20, 20);
-          y += 25; // Espacio después del logo
-        } catch (logoError) {
-          console.warn('No se pudo cargar el logo:', logoError);
-        }
-      }
-      
-      // Títulos del encabezado (centrados)
-      y = addCenteredTitle('INSTITUTO VERACRUZANO DEL DEPORTE', y, 16);
-      y = addCenteredTitle('Gobierno del Estado de Veracruz', y, 10);
-      y = addCenteredTitle('CONVOCATORIA OFICIAL', y, 14);
-      
-      y += 10;
-      
-      // Línea horizontal marrón separando el encabezado
-      doc.setDrawColor(128, 0, 32); // Color marrón #800020
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 12;
-      
-      // Fecha
-    const fechaActual = new Date().toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text(`Veracruz, Ver. a ${fechaActual}`, pageWidth - margin - doc.getTextWidth(`Veracruz, Ver. a ${fechaActual}`), y);
-      doc.setFontSize(10);
-      
-      y += 10;
-      
-      // Introducción
-      const introText = 'El Instituto Veracruzano del Deporte, a través de la presente convocatoria, invita a todos los atletas interesados a participar en el siguiente evento deportivo:';
-      y = addText(introText, margin, y, contentWidth);
-      
-      y += 8;
-      
-      // Título del evento (centrado y en marrón)
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(128, 0, 32); // Color marrón #800020
-      const eventTitle = evento.titulo || 'Evento Deportivo';
-      const eventTitleWidth = doc.getTextWidth(eventTitle);
-      const eventTitleX = (pageWidth - eventTitleWidth) / 2;
-      doc.text(eventTitle, eventTitleX, y);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0);
-      
-      y += 10;
-      
-      // Información del evento
-      y = addSubtitle('INFORMACIÓN DEL EVENTO:', y, 12);
-      
-      // Detalles del evento (más compactos)
-      const detalles = [
-        { label: 'Disciplina:', value: evento.disciplina || 'No especificada' },
-        { label: 'Categoría:', value: evento.categoria || 'No especificada' },
-        { label: 'Género:', value: evento.genero === 'mixto' ? 'Mixto (Masculino y Femenino)' : 
-                                  evento.genero === 'masculino' ? 'Masculino' : 
-                                  evento.genero === 'femenino' ? 'Femenino' : 'No especificado' },
-        { label: 'Rango de Edad:', value: `De ${evento.edadMin || 'N/A'} a ${evento.edadMax || 'N/A'} años` },
-        { label: 'Lugar:', value: evento.lugar || 'No especificado' },
-        { label: 'Fecha del Evento:', value: evento.fecha ? new Date(evento.fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-          }) : 'No especificada' },
-        { label: 'Hora:', value: evento.hora || 'No especificada' },
-        { label: 'Fecha Límite de Inscripción:', value: evento.fechaCierre ? new Date(evento.fechaCierre).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-          }) : 'No especificada' }
-      ];
-      
-      detalles.forEach(detalle => {
-        const labelText = `• ${detalle.label}`;
-        const valueText = detalle.value;
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(labelText, margin, y);
-        doc.setFont('helvetica', 'normal');
-        
-        const labelWidth = doc.getTextWidth(labelText);
-        const valueX = margin + labelWidth + 3;
-        const valueWidth = contentWidth - labelWidth - 3;
-        
-        y = addText(valueText, valueX, y, valueWidth);
-        y += 3;
-      });
-      
-      // Descripción adicional si existe
-      if (evento.descripcion) {
-        y += 3;
-        y = addSubtitle('INFORMACIÓN ADICIONAL:', y, 12);
-        y = addText(evento.descripcion, margin, y, contentWidth);
-      }
-      
-      y += 6;
-      
-      // Instrucciones
-      y = addSubtitle('INSTRUCCIONES:', y, 12);
-      
-      const instrucciones = [
-        'Los interesados deberán registrarse a través de la plataforma oficial del Instituto Veracruzano del Deporte.',
-        'Es obligatorio presentar la convocatoria oficial el día del evento.',
-        'Se recomienda llegar con 30 minutos de anticipación.',
-        'Para mayor información, consultar la página web oficial o contactar a la dirección de deportes.'
-      ];
-      
-      instrucciones.forEach(instruccion => {
-        y = addText(`• ${instruccion}`, margin, y, contentWidth);
-        y += 2;
-      });
-      
-      // Pie de página
-      y += 8;
-      
-      // Línea divisoria gris clara
-      doc.setDrawColor(200, 200, 200);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 6;
-      
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text('Esta convocatoria es oficial y ha sido emitida por el Instituto Veracruzano del Deporte.', pageWidth / 2, y, { align: 'center' });
-      y += 4;
-      doc.text(`Documento generado el ${fechaActual}`, pageWidth / 2, y, { align: 'center' });
-      
-      // Descargar el PDF
-      const fileName = `Convocatoria_${evento.titulo || 'evento'}.pdf`;
-      doc.save(fileName);
-      
-    } catch (error) {
-      console.error('Error al generar PDF:', error);
-      alert('Error al generar el documento PDF. Intente de nuevo.');
-    }
-  };
 
   const handleVerConvocatorias = (evento) => {
     setEventoConvocatorias(evento);
@@ -660,8 +868,8 @@ const AgregarEvento = () => {
     setModalParticipantesOpen(true);
     setLoadingParticipantes(true);
     try {
-              const response = await axios.get(`http://localhost:5000/api/eventos/${evento.id}/participantes&convocatoriaIndex=${index}`);
-      setParticipantes(response.data);
+      const response = await eventosAPI.getParticipantesPorConvocatoria(convocatoria.id);
+      setParticipantes(response.data.participantes || []);
     } catch (error) {
       setParticipantes([]);
     } finally {
@@ -670,30 +878,243 @@ const AgregarEvento = () => {
   };
 
   const handleVerEventoConvocatoria = (evento, convocatoria, index) => {
-    setEventoSeleccionado({ ...evento, convocatoriaSeleccionada: convocatoria, convocatoriaIndex: index });
-    setModalEventoOpen(true);
+    setConvocatoriaDetalle({ ...convocatoria, eventoTitulo: evento?.titulo, convocatoriaIndex: index });
+    setModalDetalleConvocatoriaOpen(true);
   };
 
-  const handleVerPDFConvocatoria = (evento, convocatoria, index) => {
-    try {
-      setPdfLoading(true);
-      setEventoSeleccionado({ ...evento, convocatoriaSeleccionada: convocatoria, convocatoriaIndex: index });
-      setModalPDFOpen(true);
-    } catch (error) {
-      console.error('Error al abrir modal PDF:', error);
-      MySwal.fire({
-        title: 'Error!',
-        text: 'Error al abrir la convocatoria en PDF',
-        icon: 'error',
-        confirmButtonText: 'OK',
-      });
-    } finally {
-      setPdfLoading(false);
-    }
+  const handleCerrarDetalleConvocatoria = () => {
+    setModalDetalleConvocatoriaOpen(false);
+    setConvocatoriaDetalle(null);
   };
+
+  if (vista === 'detalle' && eventoSeleccionado) {
+    return (
+      <Box sx={{ bgcolor: '#e4e4e5', minHeight: '100vh' }}>
+        <style>{`.swal2-container { z-index: 2000 !important; }`}</style>
+
+        <Box sx={{ bgcolor: '#800020', color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
+          <Box sx={{ maxWidth: 1100, mx: 'auto', px: { xs: 2, sm: 3 } }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={handleCerrarEvento}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              Volver a Eventos
+            </Button>
+            <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+              IVD · Panel Administrativo
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+              {eventoSeleccionado.titulo}
+            </Typography>
+            {eventoSeleccionado.convocatoriaSeleccionada && (
+              <Typography sx={{ opacity: 0.9, mt: 0.5 }}>
+                Convocatoria: {eventoSeleccionado.convocatoriaSeleccionada.disciplina} - {eventoSeleccionado.convocatoriaSeleccionada.categoria}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+
+        <Box sx={{ maxWidth: 1100, mx: 'auto', px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
+          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '360px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
+
+            {/* Columna izquierda: imagen + info general */}
+            <Box sx={{ bgcolor: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
+              {obtenerImagenEvento(eventoSeleccionado) && (
+                <Box
+                  component="img"
+                  src={resolveArchivoUrl(obtenerImagenEvento(eventoSeleccionado))}
+                  alt={eventoSeleccionado.titulo}
+                  sx={{ width: '100%', height: { xs: 260, md: 300 }, objectFit: 'cover', borderRadius: '8px', mb: 2.5 }}
+                />
+              )}
+
+              <Chip
+                label={obtenerTextoEstado(eventoSeleccionado.estado)}
+                color={obtenerColorEstado(eventoSeleccionado.estado)}
+                size="small"
+                sx={{ fontWeight: 700 }}
+              />
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2.5 }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <AccessTimeIcon sx={{ fontSize: 16, color: '#800020' }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: '#7A4069', fontWeight: 700, textTransform: 'uppercase' }}>Fecha y hora</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {formatearFecha(eventoSeleccionado.fecha)}{eventoSeleccionado.hora ? ` — ${eventoSeleccionado.hora}` : ''}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <PlaceIcon sx={{ fontSize: 16, color: '#800020' }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: '#7A4069', fontWeight: 700, textTransform: 'uppercase' }}>Lugar</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{eventoSeleccionado.lugar}</Typography>
+                </Box>
+                {eventoSeleccionado.descripcion && (
+                  <Box>
+                    <Typography sx={{ fontSize: '0.65rem', color: '#7A4069', fontWeight: 700, textTransform: 'uppercase' }}>Descripción</Typography>
+                    <Typography variant="body2" sx={{ mt: .3, lineHeight: 1.6, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                      {eventoSeleccionado.descripcion}
+                    </Typography>
+                  </Box>
+                )}
+                <Divider sx={{ my: 0.5 }} />
+                <Box>
+                  <Typography sx={{ fontSize: '0.65rem', color: '#7A4069', fontWeight: 700, textTransform: 'uppercase' }}>Fecha de cierre de inscripción</Typography>
+                  <Typography variant="body2" sx={{ mt: .3 }}>{formatearFecha(eventoSeleccionado.fecha_cierre)}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.65rem', color: '#7A4069', fontWeight: 700, textTransform: 'uppercase' }}>ID / Creado</Typography>
+                  <Typography variant="body2" sx={{ mt: .3 }}>#{eventoSeleccionado.id} — {formatearFecha(eventoSeleccionado.created_at)}</Typography>
+                </Box>
+              </Box>
+
+              {(eventoSeleccionado.documentoConvocatoria || eventoSeleccionado.documentoDeslinde) && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1, mt: 2.5 }}>
+                  {eventoSeleccionado.documentoConvocatoria && (
+                    <Chip
+                      icon={<DownloadIcon />}
+                      label="Convocatoria"
+                      onClick={() => abrirDocumentoParaVer(resolveArchivoUrl(eventoSeleccionado.documentoConvocatoria))}
+                      clickable
+                      size="small"
+                      sx={{ color: '#800020' }}
+                    />
+                  )}
+                  {eventoSeleccionado.documentoDeslinde && (
+                    <Chip
+                      icon={<ShieldIcon />}
+                      label="Deslinde"
+                      onClick={() => abrirDocumentoParaVer(resolveArchivoUrl(eventoSeleccionado.documentoDeslinde))}
+                      clickable
+                      size="small"
+                    />
+                  )}
+                </Stack>
+              )}
+            </Box>
+
+            {/* Columna derecha: convocatorias */}
+            <Box sx={{ bgcolor: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: { xs: 2.5, md: 3.5 } }}>
+              <Typography variant="h6" sx={{ color: '#800020', fontWeight: 800, mb: 2 }}>
+                {eventoSeleccionado.convocatoriaSeleccionada ? 'Convocatoria seleccionada' : 'Convocatorias de este Evento'}
+              </Typography>
+
+              {eventoSeleccionado.convocatoriaSeleccionada ? (
+                <Box sx={{ p: 2, borderRadius: '8px', border: '1px solid rgba(128,0,32,0.18)' }}>
+                  <Typography sx={{ fontWeight: 700 }}>{eventoSeleccionado.convocatoriaSeleccionada.disciplina}</Typography>
+                  <Box sx={{ display: 'flex', gap: .75, mt: 1, flexWrap: 'wrap' }}>
+                    <Chip label={eventoSeleccionado.convocatoriaSeleccionada.categoria} size="small" sx={{ border: '1px solid #7A4069', bgcolor: 'transparent', color: '#7A4069' }} />
+                    <Chip
+                      label={textoGenero(eventoSeleccionado.convocatoriaSeleccionada.genero)}
+                      size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                    />
+                    <Chip
+                      label={`${eventoSeleccionado.convocatoriaSeleccionada.edadMin}-${eventoSeleccionado.convocatoriaSeleccionada.edadMax} años`}
+                      size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                    />
+                  </Box>
+                </Box>
+              ) : eventoSeleccionado.convocatorias?.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {eventoSeleccionado.convocatorias.map((conv, i) => (
+                    <Box
+                      key={conv.id || i}
+                      sx={{ p: 2, borderRadius: '8px', border: '1px solid rgba(128,0,32,0.18)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}
+                    >
+                      <Box>
+                        <Typography sx={{ fontWeight: 700 }}>{conv.disciplina || 'Disciplina N/D'}</Typography>
+                        <Box sx={{ display: 'flex', gap: .75, mt: .5, flexWrap: 'wrap' }}>
+                          <Chip label={conv.categoria || 'Categoría N/D'} size="small" sx={{ border: '1px solid #7A4069', bgcolor: 'transparent', color: '#7A4069' }} />
+                          {conv.genero && (
+                            <Chip
+                              label={textoGenero(conv.genero)}
+                              size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                            />
+                          )}
+                          {conv.edadMin != null && conv.edadMax != null && (
+                            <Chip label={`${conv.edadMin}-${conv.edadMax} años`} size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }} />
+                          )}
+                          <Chip
+                            label={obtenerTextoEstado(conv.estado)}
+                            color={obtenerColorEstado(conv.estado)}
+                            size="small"
+                          />
+                        </Box>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Este evento todavía no tiene convocatorias registradas.
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', my: { xs: 2, md: 4 }, px: { xs: 1.5, md: 2 } }}>
+    <Box sx={{ bgcolor: '#e4e4e5', minHeight: '100vh', '& .MuiFormLabel-asterisk': { display: 'none' } }}>
+      {/* Los modales de MUI usan z-index ~1300; SweetAlert2 por default usa
+          1060, así que si se abre un Swal mientras hay un Dialog de MUI
+          abierto, queda tapado detrás (invisible, aunque sí se dispare). */}
+      <style>{`.swal2-container { z-index: 2000 !important; }`}</style>
+
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: '#800020', color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
+        <Box sx={{ maxWidth: 1200, mx: 'auto', textAlign: 'center', px: { xs: 2, md: 3 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel Administrativo
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            Gestión de Eventos
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ maxWidth: 1200, mx: 'auto', px: { xs: 1.5, md: 2 }, pb: { xs: 3, md: 5 } }}>
+
+        {/* ── Stat-strip flotante ── */}
+        <Box
+          sx={{
+            mt: { xs: -5, md: -6 }, mb: 3,
+            bgcolor: '#fff', borderRadius: 3,
+            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            display: 'flex', justifyContent: 'center',
+            p: { xs: 2, md: 2.75 }, textAlign: 'center',
+          }}
+        >
+          <Box>
+            <Typography sx={{ fontWeight: 800, color: '#800020', lineHeight: 1.1, fontSize: { xs: '1.5rem', md: '1.8rem' } }}>{eventos.length}</Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: '#2B1E1E', fontWeight: 700, mt: 0.2 }}>Eventos Creados</Typography>
+          </Box>
+        </Box>
+
+        {/* ── Pestañas ── */}
+        <Tabs
+          value={tabActivo}
+          onChange={(e, v) => setTabActivo(v)}
+          sx={{
+            mb: 4,
+            borderBottom: '2px solid #eee',
+            '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', fontSize: '1rem', color: '#7A4069' },
+            '& .Mui-selected': { color: '#800020 !important' },
+            '& .MuiTabs-indicator': { backgroundColor: '#800020', height: 3 },
+          }}
+        >
+          <Tab icon={<AddCircleOutlineIcon />} iconPosition="start" label="Crear Evento" value="crear" />
+          <Tab icon={<EventAvailableIcon />} iconPosition="start" label="Eventos Existentes" value="ver" />
+        </Tabs>
+
+        {tabActivo === 'crear' && (
+        <>
       {/* Formulario para crear evento */}
       <Paper elevation={0} sx={{ p: { xs: 2.5, md: 4 }, mb: 4, borderRadius: 3, border: '1px solid #eee' }}>
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 3 }}>
@@ -704,8 +1125,8 @@ const AgregarEvento = () => {
         </Stack>
 
         <form onSubmit={handleSubmit}>
-          <Grid container spacing={2.5}>
-            <Grid item xs={12} md={7}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '20px' }}>
+            <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 7' } }}>
               <TextField
                 fullWidth
                 label="Título del evento"
@@ -715,8 +1136,8 @@ const AgregarEvento = () => {
                 required
                 placeholder="Ej. Torneo Nacional Sub-18 2026"
               />
-            </Grid>
-            <Grid item xs={12} md={5}>
+            </Box>
+            <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 5' } }}>
               <TextField
                 fullWidth
                 label="Lugar"
@@ -725,16 +1146,18 @@ const AgregarEvento = () => {
                 onChange={handleChange}
                 required
                 placeholder="Ej. Estadio Central"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PlaceIcon sx={{ color: '#800020' }} fontSize="small" />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PlaceIcon sx={{ color: '#800020' }} fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+            </Box>
+            <Box sx={{ gridColumn: { xs: 'span 12', sm: 'span 6' } }}>
               <TextField
                 fullWidth
                 type="date"
@@ -743,17 +1166,19 @@ const AgregarEvento = () => {
                 value={evento.fecha}
                 onChange={handleChange}
                 required
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <EventIcon sx={{ color: '#800020' }} fontSize="small" />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EventIcon sx={{ color: '#800020' }} fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+            </Box>
+            <Box sx={{ gridColumn: { xs: 'span 12', sm: 'span 6' } }}>
               <TextField
                 fullWidth
                 type="time"
@@ -762,17 +1187,19 @@ const AgregarEvento = () => {
                 value={evento.hora}
                 onChange={handleChange}
                 required
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <AccessTimeIcon sx={{ color: '#800020' }} fontSize="small" />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <AccessTimeIcon sx={{ color: '#800020' }} fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box sx={{ gridColumn: 'span 12' }}>
               <TextField
                 fullWidth
                 multiline
@@ -783,8 +1210,8 @@ const AgregarEvento = () => {
                 onChange={handleChange}
                 placeholder="Detalles del evento (opcional)"
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
           {/* ===================== ZONA DE CONVOCATORIA ===================== */}
           <Box
@@ -803,9 +1230,9 @@ const AgregarEvento = () => {
               </Typography>
             </Stack>
 
-            <Grid container spacing={2.5}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: '20px' }}>
               {/* Imagen del evento */}
-              <Grid item xs={12} md={4}>
+              <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1, color: '#555', fontWeight: 700 }}>
                   <ImageIcon sx={{ fontSize: 18, verticalAlign: 'middle', mr: 0.5 }} />
                   Imagen / Flyer del evento
@@ -866,10 +1293,10 @@ const AgregarEvento = () => {
                     <input hidden type="file" accept="image/*" onChange={handleImagenChange} />
                   </Button>
                 )}
-              </Grid>
+              </Box>
 
               {/* Documento de convocatoria oficial */}
-              <Grid item xs={12} md={4}>
+              <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1, color: '#555', fontWeight: 700 }}>
                   <DescriptionIcon sx={{ fontSize: 18, verticalAlign: 'middle', mr: 0.5 }} />
                   Documento de convocatoria
@@ -914,10 +1341,10 @@ const AgregarEvento = () => {
                 <Typography variant="caption" color="text.secondary">
                   PDF o Word con las bases oficiales del evento.
                 </Typography>
-              </Grid>
+              </Box>
 
               {/* Deslinde de responsabilidad */}
-              <Grid item xs={12} md={4}>
+              <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1, color: '#555', fontWeight: 700 }}>
                   <ShieldIcon sx={{ fontSize: 18, verticalAlign: 'middle', mr: 0.5 }} />
                   Deslinde de responsabilidad
@@ -962,8 +1389,8 @@ const AgregarEvento = () => {
                 <Typography variant="caption" color="text.secondary">
                   Aviso de riesgo / consentimiento firmado (opcional).
                 </Typography>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             <Alert
               severity="warning"
@@ -1013,7 +1440,7 @@ const AgregarEvento = () => {
           <Collapse in={showConvocatoriasForm}>
             <Box sx={{ mt: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fafafa' }}>
               <Typography variant="h6" sx={{ color: '#800020', mb: 2 }}>
-                🎯 Convocatorias del Evento
+                Convocatorias del Evento
               </Typography>
               
               {convocatorias.map((convocatoria, index) => (
@@ -1035,46 +1462,46 @@ const AgregarEvento = () => {
                     )}
                   </Box>
                   
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: '16px' }}>
+                    <Box>
                       <TextField
                         select
                         fullWidth
                         label="Disciplina"
-                        name="disciplina"
-                        value={convocatoria.disciplina}
-                        onChange={(e) => handleConvocatoriaChange(index, e)}
+                        name="disciplina_id"
+                        value={convocatoria.disciplina_id}
+                        onChange={(e) => handleDisciplinaChange(index, e)}
                         required
-                        SelectProps={{ native: true }}
-                        InputLabelProps={{ shrink: true }}
+                        disabled={catalogosCargando}
+                        slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
                       >
                         <option value="">Seleccione una disciplina</option>
-                        {disciplinas.map((disc, discIndex) => (
-                          <option key={discIndex} value={disc}>{disc}</option>
+                        {disciplinas.map((disc) => (
+                          <option key={disc.id} value={disc.id}>{disc.nombre}</option>
                         ))}
                       </TextField>
-                    </Grid>
+                    </Box>
                     
-                    <Grid item xs={12} sm={6}>
+                    <Box>
                       <TextField
                         select
                         fullWidth
                         label="Categoría"
-                        name="categoria"
-                        value={convocatoria.categoria}
+                        name="categoria_id"
+                        value={convocatoria.categoria_id}
                         onChange={(e) => handleCategoriaChange(index, e)}
                         required
-                        SelectProps={{ native: true }}
-                        InputLabelProps={{ shrink: true }}
+                        disabled={catalogosCargando}
+                        slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
                       >
                         <option value="">Seleccione una categoría</option>
-                        {categorias.map((cat, catIndex) => (
-                          <option key={catIndex} value={cat.nombre}>{cat.nombre}</option>
+                        {categorias.map((cat) => (
+                          <option key={cat.id} value={cat.id}>{cat.nombre}</option>
                         ))}
                       </TextField>
-                    </Grid>
+                    </Box>
                     
-                    <Grid item xs={12} sm={6}>
+                    <Box>
                       <TextField
                         fullWidth
                         type="number"
@@ -1085,9 +1512,9 @@ const AgregarEvento = () => {
                         inputProps={{ min: 12, max: 35 }}
                         required
                       />
-                    </Grid>
+                    </Box>
                     
-                    <Grid item xs={12} sm={6}>
+                    <Box>
                       <TextField
                         fullWidth
                         type="number"
@@ -1098,26 +1525,27 @@ const AgregarEvento = () => {
                         inputProps={{ min: convocatoria.edadMin || 12, max: 35 }}
                         required
                       />
-                    </Grid>
+                    </Box>
                     
-                    <Grid item xs={12} sm={6}>
+                    <Box>
                       <TextField
                         select
                         fullWidth
                         label="Género"
-                        name="genero"
-                        value={convocatoria.genero}
-                        onChange={(e) => handleConvocatoriaChange(index, e)}
+                        name="genero_id"
+                        value={convocatoria.genero_id}
+                        onChange={(e) => handleGeneroChange(index, e)}
                         required
-                        SelectProps={{ native: true }}
-                        InputLabelProps={{ shrink: true }}
+                        disabled={catalogosCargando}
+                        slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
                       >
-                        {generos.map((g, gIndex) => (
-                          <option key={gIndex} value={g.value}>{g.label}</option>
+                        <option value="">Seleccione un género</option>
+                        {generos.map((g) => (
+                          <option key={g.id} value={g.id}>{g.nombre}</option>
                         ))}
                       </TextField>
-                    </Grid>
-                  </Grid>
+                    </Box>
+                  </Box>
                 </Box>
               ))}
               
@@ -1162,7 +1590,11 @@ const AgregarEvento = () => {
           </Button>
         </form>
       </Paper>
+        </>
+        )}
 
+        {tabActivo === 'ver' && (
+        <>
       {/* Lista de eventos creados */}
       <Paper elevation={0} sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 3, border: '1px solid #eee' }}>
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 3 }}>
@@ -1195,15 +1627,16 @@ const AgregarEvento = () => {
           >
             {eventos.map((evento) => (
               <Card
-                key={evento._id}
+                key={evento.id}
                 variant="outlined"
                 sx={{
                   borderRadius: 3,
-                  overflow: 'hidden',
                   width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
-                  transition: 'box-shadow .2s, transform .2s',
+                  transition: 'box-shadow .2s, transform .2s, background-color .2s',
+                  bgcolor: evento.estado ? '#fff' : '#f2f2f2',
+                  borderColor: evento.estado ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.08)',
                   '&:hover': { boxShadow: '0 10px 24px rgba(0,0,0,0.12)', transform: 'translateY(-2px)' },
                 }}
               >
@@ -1212,7 +1645,12 @@ const AgregarEvento = () => {
                       component="img"
                       src={resolveArchivoUrl(obtenerImagenEvento(evento))}
                       alt={evento.titulo}
-                      sx={{ width: '100%', height: 150, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                      sx={{
+                        width: '100%', height: 150, objectFit: 'cover', display: 'block', flexShrink: 0,
+                        borderTopLeftRadius: 12, borderTopRightRadius: 12,
+                        filter: evento.estado ? 'none' : 'grayscale(85%)',
+                        opacity: evento.estado ? 1 : 0.75,
+                      }}
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   ) : (
@@ -1220,7 +1658,9 @@ const AgregarEvento = () => {
                       sx={{
                         width: '100%', height: 150, flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        backgroundColor: '#fdf6f8', color: '#c9a2ad'
+                        borderTopLeftRadius: 12, borderTopRightRadius: 12,
+                        backgroundColor: evento.estado ? '#fdf6f8' : '#e8e8e8',
+                        color: evento.estado ? '#c9a2ad' : '#aaa',
                       }}
                     >
                       <ImageIcon sx={{ fontSize: 42 }} />
@@ -1228,21 +1668,42 @@ const AgregarEvento = () => {
                   )}
 
                   <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight="bold"
-                      sx={{
-                        color: '#800020',
-                        mb: 0.5,
-                        minHeight: '2.6em',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {evento.titulo}
-                    </Typography>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 0.5 }}>
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight="bold"
+                        sx={{
+                          color: evento.estado ? '#800020' : '#8a8a8a',
+                          minHeight: '2.6em',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          flex: 1,
+                        }}
+                      >
+                        {evento.titulo}
+                      </Typography>
+                    </Stack>
+
+                    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
+                      <Switch
+                        size="small"
+                        checked={!!evento.estado}
+                        onChange={() => handleToggleEstado(evento)}
+                        sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#800020' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#800020' } }}
+                      />
+                      <Chip
+                        size="small"
+                        label={evento.estado ? 'Activo' : 'Cerrado'}
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: evento.estado ? 'rgba(46,125,50,0.1)' : 'rgba(0,0,0,0.1)',
+                          color: evento.estado ? '#2e7d32' : '#757575',
+                        }}
+                      />
+                    </Stack>
+
                     <Stack spacing={0.5} sx={{ mb: 1.5, color: 'text.secondary' }}>
                       <Stack direction="row" spacing={0.7} alignItems="center">
                         <EventIcon fontSize="inherit" />
@@ -1260,9 +1721,7 @@ const AgregarEvento = () => {
                           size="small"
                           icon={<DescriptionIcon />}
                           label="Convocatoria"
-                          component="a"
-                          href={resolveArchivoUrl(evento.documentoConvocatoria)}
-                          target="_blank"
+                          onClick={() => abrirDocumentoParaVer(resolveArchivoUrl(evento.documentoConvocatoria))}
                           clickable
                           sx={{ color: '#800020' }}
                         />
@@ -1272,9 +1731,7 @@ const AgregarEvento = () => {
                           size="small"
                           icon={<ShieldIcon />}
                           label="Deslinde"
-                          component="a"
-                          href={resolveArchivoUrl(evento.documentoDeslinde)}
-                          target="_blank"
+                          onClick={() => abrirDocumentoParaVer(resolveArchivoUrl(evento.documentoDeslinde))}
                           clickable
                         />
                       )}
@@ -1291,6 +1748,8 @@ const AgregarEvento = () => {
                           sx={{
                             color: '#800020',
                             borderColor: '#800020',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
                             '&:hover': { borderColor: '#800020', backgroundColor: 'rgba(128, 0, 32, 0.04)' }
                           }}
                         >
@@ -1306,6 +1765,21 @@ const AgregarEvento = () => {
                             <PictureAsPdfIcon fontSize="small" />
                           </MuiIconButton>
                         </Tooltip>
+                        <Tooltip title="Ver todos los participantes del evento">
+                          <MuiIconButton size="small" onClick={() => handleVerParticipantes(evento)} sx={{ color: '#7A4069' }}>
+                            <GroupsIcon fontSize="small" />
+                          </MuiIconButton>
+                        </Tooltip>
+                        <Tooltip title="Editar evento">
+                          <MuiIconButton size="small" onClick={() => handleAbrirEditar(evento)} sx={{ color: '#1565c0' }}>
+                            <EditIcon fontSize="small" />
+                          </MuiIconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar evento">
+                          <MuiIconButton size="small" onClick={() => handleEliminarEvento(evento)} sx={{ color: '#A13A3A' }}>
+                            <DeleteIcon fontSize="small" />
+                          </MuiIconButton>
+                        </Tooltip>
                       </Stack>
                     </Box>
                   </CardContent>
@@ -1314,13 +1788,17 @@ const AgregarEvento = () => {
           </Box>
         )}
       </Paper>
+        </>
+        )}
+
+      </Box>
 
       {/* Modal de Participantes */}
       <Dialog open={modalParticipantesOpen} onClose={handleCerrarParticipantes} maxWidth="sm" fullWidth>
         <DialogTitle>
           Participantes de "{eventoSeleccionado?.titulo}"
           {eventoSeleccionado?.convocatoriaSeleccionada && (
-            <Typography variant="subtitle2" sx={{ color: '#800020', mt: 1 }}>
+            <Typography variant="subtitle2" component="div" sx={{ color: '#800020', mt: 1 }}>
               Convocatoria: {eventoSeleccionado.convocatoriaSeleccionada.disciplina} - {eventoSeleccionado.convocatoriaSeleccionada.categoria}
             </Typography>
           )}
@@ -1335,14 +1813,25 @@ const AgregarEvento = () => {
           ) : (
             <List>
               {participantes.map((p, idx) => (
-                <ListItem key={idx} divider>
+                <ListItem
+                  key={idx}
+                  divider
+                  secondaryAction={
+                    <Tooltip title="Dar de baja a este atleta">
+                      <MuiIconButton edge="end" onClick={() => handleDarDeBajaAtleta(p)} sx={{ color: '#A13A3A' }}>
+                        <PersonRemoveIcon />
+                      </MuiIconButton>
+                    </Tooltip>
+                  }
+                >
                   <ListItemText
-                    primary={p.datosAtleta?.nombreCompleto || 'Nombre no disponible'}
+                    primary={[p.nombre, p.apellido_paterno, p.apellido_materno].filter(Boolean).join(' ') || 'Nombre no disponible'}
                     secondary={
                       <>
-                        <b>Edad:</b> {p.datosAtleta?.edad || 'N/A'} años <br />
-                        <b>Género:</b> {p.datosAtleta?.genero || 'N/A'} <br />
-                        <b>Fecha de Inscripción:</b> {formatearFecha(p.fechaInscripcion)} <br />
+                        <b>Edad:</b> {p.edad ?? 'N/A'} años <br />
+                        <b>Género:</b> {p.genero || 'N/A'} <br />
+                        <b>Disciplina:</b> <Box component="span" sx={{ color: '#A13A3A', fontWeight: 700 }}>{p.disciplina || 'N/A'}</Box> — <b>Categoría:</b> {p.categoria || 'N/A'} <br />
+                        <b>Fecha de Inscripción:</b> {formatearFecha(p.fecha_inscripcion)} <br />
                         <b>Estado:</b> {p.validado ? 'Validado' : 'Pendiente'}
                       </>
                     }
@@ -1357,291 +1846,63 @@ const AgregarEvento = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal de Detalles del Evento */}
-      <Dialog open={modalEventoOpen} onClose={handleCerrarEvento} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-            📋 Detalles del Evento
-            {eventoSeleccionado?.convocatoriaSeleccionada && (
-              <Typography variant="subtitle2" sx={{ color: '#800020', mt: 1 }}>
-                Convocatoria: {eventoSeleccionado.convocatoriaSeleccionada.disciplina} - {eventoSeleccionado.convocatoriaSeleccionada.categoria}
-              </Typography>
-            )}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {eventoSeleccionado && (
-            <Box>
-              <Grid container spacing={3}>
-                {obtenerImagenEvento(eventoSeleccionado) && (
-                  <Grid item xs={12}>
-                    <Box
-                      component="img"
-                      src={resolveArchivoUrl(obtenerImagenEvento(eventoSeleccionado))}
-                      alt={eventoSeleccionado.titulo}
-                      sx={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 2 }}
-                    />
-                  </Grid>
-                )}
-                <Grid item xs={12}>
-                  <Typography variant="h5" gutterBottom sx={{ color: '#800020' }}>
-                    {eventoSeleccionado.titulo}
-                  </Typography>
-                  {(eventoSeleccionado.documentoConvocatoria || eventoSeleccionado.documentoDeslinde) && (
-                    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
-                      {eventoSeleccionado.documentoConvocatoria && (
-                        <Chip
-                          icon={<DownloadIcon />}
-                          label="Descargar convocatoria"
-                          component="a"
-                          href={resolveArchivoUrl(eventoSeleccionado.documentoConvocatoria)}
-                          target="_blank"
-                          clickable
-                          sx={{ color: '#800020' }}
-                        />
-                      )}
-                      {eventoSeleccionado.documentoDeslinde && (
-                        <Chip
-                          icon={<ShieldIcon />}
-                          label="Deslinde de responsabilidad"
-                          component="a"
-                          href={resolveArchivoUrl(eventoSeleccionado.documentoDeslinde)}
-                          target="_blank"
-                          clickable
-                        />
-                      )}
-                    </Stack>
-                  )}
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>📅 Información General</Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Fecha:</strong> {formatearFecha(eventoSeleccionado.fecha || eventoSeleccionado.createdAt)}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Hora:</strong> {eventoSeleccionado.hora}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Lugar:</strong> {eventoSeleccionado.lugar}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Estado:</strong> 
-                        <Chip 
-                          label={obtenerTextoEstado(eventoSeleccionado.estado)} 
-                          color={obtenerColorEstado(eventoSeleccionado.estado)}
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>🏃 Información Deportiva</Typography>
-                      {eventoSeleccionado.convocatoriaSeleccionada ? (
-                        <>
-                          <Typography variant="body2" paragraph>
-                            <strong>Disciplina:</strong> {eventoSeleccionado.convocatoriaSeleccionada.disciplina}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Categoría:</strong> {eventoSeleccionado.convocatoriaSeleccionada.categoria}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Rango de Edad:</strong> {eventoSeleccionado.convocatoriaSeleccionada.edadMin} - {eventoSeleccionado.convocatoriaSeleccionada.edadMax} años
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Género:</strong> {eventoSeleccionado.convocatoriaSeleccionada.genero === 'mixto' ? 'Mixto' : 
-                                                      eventoSeleccionado.convocatoriaSeleccionada.genero === 'masculino' ? 'Masculino' : 'Femenino'}
-                          </Typography>
-                        </>
-                      ) : (
-                        <>
-                          <Typography variant="body2" paragraph>
-                            <strong>Disciplina:</strong> {eventoSeleccionado.disciplina || 'No especificada'}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Categoría:</strong> {eventoSeleccionado.categoria || 'No especificada'}
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Rango de Edad:</strong> {eventoSeleccionado.edadMin || 'N/A'} - {eventoSeleccionado.edadMax || 'N/A'} años
-                          </Typography>
-                          <Typography variant="body2" paragraph>
-                            <strong>Género:</strong> {eventoSeleccionado.genero || 'No especificado'}
-                          </Typography>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                {eventoSeleccionado.descripcion && (
-                  <Grid item xs={12}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>📝 Descripción</Typography>
-                        <Typography variant="body2">
-                          {eventoSeleccionado.descripcion}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                )}
-                
-                <Grid item xs={12}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>📊 Información Técnica</Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>ID del Evento:</strong> {eventoSeleccionado._id}
-                      </Typography>
-                      {eventoSeleccionado.convocatoriaSeleccionada && (
-                        <Typography variant="body2" paragraph>
-                          <strong>Índice de la Convocatoria:</strong> {eventoSeleccionado.convocatoriaIndex !== undefined ? eventoSeleccionado.convocatoriaIndex + 1 : 'N/A'}
-                        </Typography>
-                      )}
-                      <Typography variant="body2" paragraph>
-                        <strong>Fecha de Creación:</strong> {formatearFecha(eventoSeleccionado.createdAt)}
-                      </Typography>
-                      <Typography variant="body2" paragraph>
-                        <strong>Fecha de Cierre:</strong> {formatearFecha(eventoSeleccionado.fechaCierre)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCerrarEvento} color="primary">
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Modal PDF del Evento */}
-      <Dialog 
-        open={modalPDFOpen} 
-        onClose={handleCerrarPDF} 
-        maxWidth="md" 
-        fullWidth
-      >
-        <DialogTitle>
-          <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-            📄 Convocatoria Oficial en PDF - {eventoSeleccionado?.titulo}
-            {eventoSeleccionado?.convocatoriaSeleccionada && (
-              <Typography variant="subtitle2" sx={{ color: '#800020', mt: 1 }}>
-                Convocatoria: {eventoSeleccionado.convocatoriaSeleccionada.disciplina} - {eventoSeleccionado.convocatoriaSeleccionada.categoria}
-              </Typography>
-            )}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {eventoSeleccionado ? (
-            <Box sx={{ textAlign: 'center', p: 2 }}>
-              <Typography variant="body1" sx={{ mb: 3 }}>
-                Haz clic en el botón para descargar la convocatoria oficial en formato PDF
-                {eventoSeleccionado.convocatoriaSeleccionada && (
-                  <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                    Esta convocatoria incluirá solo la información específica de la disciplina y categoría seleccionada.
-                  </Typography>
-                )}
-              </Typography>
-              <Button
-                variant="contained"
-                onClick={() => generarPDFEvento(eventoSeleccionado)}
-                color="success"
-                startIcon={pdfLoading ? <CircularProgress size={20} /> : <PictureAsPdfIcon />}
-                disabled={pdfLoading}
-                sx={{
-                  textDecoration: 'none',
-                  padding: '12px 24px',
-                  backgroundColor: '#800020',
-                  color: 'white',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  display: 'inline-block',
-                  margin: '8px'
-                }}
-              >
-                {pdfLoading ? 'Generando Convocatoria...' : '📥 Descargar Convocatoria Oficial'}
-              </Button>
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="body2" color="textSecondary">
-                  La convocatoria incluye toda la información oficial del evento con el logo del instituto y redacción profesional
-                </Typography>
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ textAlign: 'center', p: 2 }}>
-              <CircularProgress />
-              <Typography variant="body2" sx={{ mt: 2 }}>
-                Cargando convocatoria...
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCerrarPDF} color="primary">
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Modal de Convocatorias */}
-      <Dialog open={modalConvocatoriasOpen} onClose={handleCerrarConvocatorias} maxWidth="lg" fullWidth>
+      <Dialog open={modalConvocatoriasOpen} onClose={handleCerrarConvocatorias} maxWidth="md" fullWidth>
         <DialogTitle>
-          <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-            🎯 Convocatorias del Evento: {eventoConvocatorias?.titulo}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
+              Convocatorias del Evento: {eventoConvocatorias?.titulo}
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleAbrirAgregarConvocatoria}
+              sx={{ bgcolor: '#800020', '&:hover': { bgcolor: '#5c0017' }, whiteSpace: 'nowrap' }}
+            >
+              Agregar Convocatoria
+            </Button>
+          </Box>
         </DialogTitle>
         <DialogContent>
           {eventoConvocatorias && eventoConvocatorias.convocatorias ? (
-            <Table>
+            <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell><strong>Disciplina</strong></TableCell>
-                  <TableCell><strong>Categoría</strong></TableCell>
-                  <TableCell><strong>Rango de Edad</strong></TableCell>
-                  <TableCell><strong>Género</strong></TableCell>
-                  <TableCell><strong>Estado</strong></TableCell>
-                  <TableCell><strong>Acciones</strong></TableCell>
+                  <TableCell sx={{ width: '18%' }}><strong>Disciplina</strong></TableCell>
+                  <TableCell sx={{ width: '14%' }}><strong>Categoría</strong></TableCell>
+                  <TableCell sx={{ width: '16%' }}><strong>Rango de Edad</strong></TableCell>
+                  <TableCell sx={{ width: '14%' }}><strong>Género</strong></TableCell>
+                  <TableCell sx={{ width: '12%' }}><strong>Estado</strong></TableCell>
+                  <TableCell sx={{ width: '26%' }}><strong>Acciones</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {eventoConvocatorias.convocatorias.map((convocatoria, index) => (
                   <TableRow key={index}>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight="bold">
+                    <TableCell sx={{ width: '18%' }}>
+                      <Typography variant="subtitle2" fontWeight="bold" noWrap>
                         {convocatoria.disciplina}
                       </Typography>
                     </TableCell>
-                    <TableCell>{convocatoria.categoria}</TableCell>
-                    <TableCell>{convocatoria.edadMin} - {convocatoria.edadMax} años</TableCell>
-                    <TableCell>
+                    <TableCell sx={{ width: '14%' }}>{convocatoria.categoria}</TableCell>
+                    <TableCell sx={{ width: '16%' }}>{convocatoria.edadMin} - {convocatoria.edadMax} años</TableCell>
+                    <TableCell sx={{ width: '14%' }}>
                       <Chip 
-                        label={convocatoria.genero === 'mixto' ? 'Mixto' : 
-                               convocatoria.genero === 'masculino' ? 'Masculino' : 'Femenino'} 
-                        color={convocatoria.genero === 'mixto' ? 'default' : 
-                               convocatoria.genero === 'masculino' ? 'primary' : 'secondary'}
+                        label={textoGenero(convocatoria.genero)}
+                        color={colorGenero(convocatoria.genero)}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ width: '12%' }}>
                       <Chip 
-                        label={obtenerTextoEstado(eventoConvocatorias.estado)} 
-                        color={obtenerColorEstado(eventoConvocatorias.estado)}
+                        label={obtenerTextoEstado(convocatoria.estado)} 
+                        color={obtenerColorEstado(convocatoria.estado)}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>
-                      <Box display="flex" gap={1}>
+                    <TableCell sx={{ width: '26%' }}>
+                      <Box display="flex" gap={0.5}>
                         <IconButton 
                           size="small" 
                           onClick={() => handleVerEventoConvocatoria(eventoConvocatorias, convocatoria, index)}
@@ -1652,20 +1913,27 @@ const AgregarEvento = () => {
                         </IconButton>
                         <IconButton 
                           size="small" 
-                          onClick={() => handleVerPDFConvocatoria(eventoConvocatorias, convocatoria, index)}
-                          color="success"
-                          title="Ver convocatoria en PDF"
-                          disabled={pdfLoading}
-                        >
-                          {pdfLoading ? <CircularProgress size={20} /> : <PictureAsPdfIcon />}
-                        </IconButton>
-                        <IconButton 
-                          size="small" 
                           onClick={() => handleVerParticipantesConvocatoria(eventoConvocatorias, convocatoria, index)}
                           color="secondary"
                           title="Ver participantes de esta convocatoria"
                         >
                           <PeopleIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleAbrirEditarConvocatoria(convocatoria, eventoConvocatorias)}
+                          sx={{ color: '#1565c0' }}
+                          title="Editar convocatoria"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEliminarConvocatoria(convocatoria, eventoConvocatorias)}
+                          sx={{ color: '#A13A3A' }}
+                          title="Eliminar convocatoria"
+                        >
+                          <DeleteIcon />
                         </IconButton>
                       </Box>
                     </TableCell>
@@ -1682,6 +1950,297 @@ const AgregarEvento = () => {
         <DialogActions>
           <Button onClick={handleCerrarConvocatorias} color="primary">
             Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Detalle de una Convocatoria (no de todo el evento) */}
+      <Dialog open={modalDetalleConvocatoriaOpen} onClose={handleCerrarDetalleConvocatoria} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
+            Detalles de la Convocatoria
+          </Typography>
+          {convocatoriaDetalle?.eventoTitulo && (
+            <Typography variant="subtitle2" component="div" sx={{ color: '#7A4069', mt: 0.5 }}>
+              {convocatoriaDetalle.eventoTitulo}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent dividers>
+          {convocatoriaDetalle && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography sx={{ fontSize: '0.65rem', color: '#7A4069', fontWeight: 700, textTransform: 'uppercase' }}>Disciplina</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700 }}>{convocatoriaDetalle.disciplina}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                <Chip label={convocatoriaDetalle.categoria} size="small" sx={{ border: '1px solid #7A4069', bgcolor: 'transparent', color: '#7A4069' }} />
+                <Chip
+                  label={textoGenero(convocatoriaDetalle.genero)}
+                  size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                />
+                <Chip label={`${convocatoriaDetalle.edadMin}-${convocatoriaDetalle.edadMax} años`} size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }} />
+                <Chip
+                  label={obtenerTextoEstado(convocatoriaDetalle.estado)}
+                  color={obtenerColorEstado(convocatoriaDetalle.estado)}
+                  size="small"
+                />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCerrarDetalleConvocatoria} color="primary">
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Editar Evento */}
+      <Dialog open={modalEditarOpen} onClose={handleCerrarEditar} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
+            Editar Evento
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2.5} sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Título del evento"
+              value={formEditar.titulo}
+              onChange={(e) => setFormEditar((p) => ({ ...p, titulo: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              label="Lugar"
+              value={formEditar.lugar}
+              onChange={(e) => setFormEditar((p) => ({ ...p, lugar: e.target.value }))}
+            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Fecha"
+                value={formEditar.fecha}
+                onChange={(e) => setFormEditar((p) => ({ ...p, fecha: e.target.value }))}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+              <TextField
+                fullWidth
+                type="time"
+                label="Hora"
+                value={formEditar.hora}
+                onChange={(e) => setFormEditar((p) => ({ ...p, hora: e.target.value }))}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Stack>
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              label="Descripción"
+              value={formEditar.descripcion}
+              onChange={(e) => setFormEditar((p) => ({ ...p, descripcion: e.target.value }))}
+            />
+
+            <Divider />
+            <Typography variant="subtitle2" sx={{ color: '#7A4069', fontWeight: 700 }}>
+              Reemplazar archivos (opcional — deja en blanco para conservar los actuales)
+            </Typography>
+
+            <Button variant="outlined" component="label" startIcon={<ImageIcon />} sx={{ justifyContent: 'flex-start', color: '#7A4069', borderColor: '#7A4069' }}>
+              {imagenEditar ? imagenEditar.name : 'Reemplazar imagen del evento'}
+              <input type="file" accept="image/*" hidden onChange={(e) => setImagenEditar(e.target.files?.[0] || null)} />
+            </Button>
+            <Button variant="outlined" component="label" startIcon={<DescriptionIcon />} sx={{ justifyContent: 'flex-start', color: '#7A4069', borderColor: '#7A4069' }}>
+              {documentoConvocatoriaEditar ? documentoConvocatoriaEditar.name : 'Reemplazar documento de convocatoria'}
+              <input type="file" accept=".pdf,.doc,.docx" hidden onChange={(e) => setDocumentoConvocatoriaEditar(e.target.files?.[0] || null)} />
+            </Button>
+            <Button variant="outlined" component="label" startIcon={<ShieldIcon />} sx={{ justifyContent: 'flex-start', color: '#7A4069', borderColor: '#7A4069' }}>
+              {documentoDeslindeEditar ? documentoDeslindeEditar.name : 'Reemplazar deslinde de responsabilidad'}
+              <input type="file" accept=".pdf,.doc,.docx,image/*" hidden onChange={(e) => setDocumentoDeslindeEditar(e.target.files?.[0] || null)} />
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+          <Button
+            onClick={() => { handleCerrarEditar(); handleEliminarEvento(eventoAEditar); }}
+            startIcon={<DeleteIcon />}
+            sx={{ color: '#A13A3A' }}
+          >
+            Eliminar Evento
+          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={handleCerrarEditar} sx={{ color: '#7A4069' }}>Cancelar</Button>
+            <Button
+              onClick={handleGuardarEdicion}
+              variant="contained"
+              disabled={guardandoEdicion}
+              sx={{ bgcolor: '#800020', '&:hover': { bgcolor: '#5c0017' } }}
+            >
+              {guardandoEdicion ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Editar Convocatoria */}
+      <Dialog open={modalEditarConvocatoriaOpen} onClose={handleCerrarEditarConvocatoria} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
+            Editar Convocatoria
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: '16px', pt: 1 }}>
+            <TextField
+              select
+              fullWidth
+              label="Disciplina"
+              value={formEditarConvocatoria.disciplina_id}
+              onChange={handleDisciplinaChangeEditar}
+              disabled={catalogosCargando}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+            >
+              <option value="">Seleccione una disciplina</option>
+              {disciplinas.map((disc) => (
+                <option key={disc.id} value={disc.id}>{disc.nombre}</option>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              label="Categoría"
+              value={formEditarConvocatoria.categoria_id}
+              onChange={handleCategoriaChangeEditar}
+              disabled={catalogosCargando}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+            >
+              <option value="">Seleccione una categoría</option>
+              {categorias.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+              ))}
+            </TextField>
+
+            <TextField
+              fullWidth
+              label="Rango de edad"
+              value={formEditarConvocatoria.edadMin !== '' ? `${formEditarConvocatoria.edadMin} - ${formEditarConvocatoria.edadMax} años` : ''}
+              slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+              helperText="Se define automáticamente según la categoría"
+            />
+
+            <TextField
+              select
+              fullWidth
+              label="Género"
+              value={formEditarConvocatoria.genero_id}
+              onChange={handleGeneroChangeEditar}
+              disabled={catalogosCargando}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+            >
+              <option value="">Seleccione un género</option>
+              {generos.map((g) => (
+                <option key={g.id} value={g.id}>{g.nombre}</option>
+              ))}
+            </TextField>
+          </Box>
+          <Alert severity="info" sx={{ mt: 2.5 }}>
+            Si hay atletas ya inscritos en esta convocatoria, el cambio no los da de baja — pero sí puede dejarlos
+            inscritos en una disciplina/categoría/género distinto al que eligieron originalmente. Úsalo con cuidado
+            si ya hay inscripciones.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCerrarEditarConvocatoria} sx={{ color: '#7A4069' }}>Cancelar</Button>
+          <Button
+            onClick={handleGuardarEdicionConvocatoria}
+            variant="contained"
+            disabled={guardandoEdicionConvocatoria}
+            sx={{ bgcolor: '#800020', '&:hover': { bgcolor: '#5c0017' } }}
+          >
+            {guardandoEdicionConvocatoria ? 'Guardando...' : 'Guardar Cambios'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Agregar Convocatoria */}
+      <Dialog open={modalAgregarConvocatoriaOpen} onClose={handleCerrarAgregarConvocatoria} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
+            Agregar Convocatoria
+          </Typography>
+          <Typography variant="subtitle2" component="div" sx={{ color: '#7A4069', mt: 0.5 }}>
+            {eventoConvocatorias?.titulo}
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: '16px', pt: 1 }}>
+            <TextField
+              select
+              fullWidth
+              label="Disciplina"
+              value={formNuevaConvocatoria.disciplina_id}
+              onChange={handleDisciplinaChangeNueva}
+              disabled={catalogosCargando}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+            >
+              <option value="">Seleccione una disciplina</option>
+              {disciplinas.map((disc) => (
+                <option key={disc.id} value={disc.id}>{disc.nombre}</option>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              label="Categoría"
+              value={formNuevaConvocatoria.categoria_id}
+              onChange={handleCategoriaChangeNueva}
+              disabled={catalogosCargando}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+            >
+              <option value="">Seleccione una categoría</option>
+              {categorias.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+              ))}
+            </TextField>
+
+            <TextField
+              fullWidth
+              label="Rango de edad"
+              value={formNuevaConvocatoria.edadMin !== '' ? `${formNuevaConvocatoria.edadMin} - ${formNuevaConvocatoria.edadMax} años` : ''}
+              slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+              helperText="Se define automáticamente según la categoría"
+            />
+
+            <TextField
+              select
+              fullWidth
+              label="Género"
+              value={formNuevaConvocatoria.genero_id}
+              onChange={handleGeneroChangeNueva}
+              disabled={catalogosCargando}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+            >
+              <option value="">Seleccione un género</option>
+              {generos.map((g) => (
+                <option key={g.id} value={g.id}>{g.nombre}</option>
+              ))}
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCerrarAgregarConvocatoria} sx={{ color: '#7A4069' }}>Cancelar</Button>
+          <Button
+            onClick={handleGuardarNuevaConvocatoria}
+            variant="contained"
+            disabled={guardandoNuevaConvocatoria}
+            sx={{ bgcolor: '#800020', '&:hover': { bgcolor: '#5c0017' } }}
+          >
+            {guardandoNuevaConvocatoria ? 'Guardando...' : 'Agregar Convocatoria'}
           </Button>
         </DialogActions>
       </Dialog>

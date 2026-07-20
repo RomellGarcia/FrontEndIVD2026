@@ -2,25 +2,41 @@ import { resultadosAPI, perfilEmpresaAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
-  Paper, Container, Button, IconButton, Alert, CircularProgress, Chip,
+  Container, Button, IconButton, Alert, CircularProgress, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Divider, Pagination,
 } from '@mui/material';
 import {
   Visibility as ViewIcon, PictureAsPdf as PdfIcon,
   EmojiEvents as TrophyIcon, Person as PersonIcon,
-  CalendarToday as CalendarIcon, LocationOn as LocationIcon,
+  CalendarToday as CalendarIcon,
   Close as CloseIcon, SportsScore as SportsIcon,
-  Group as GroupIcon, FitnessCenter as FitnessIcon,
+  BarChart as BarChartIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
 
-const BURGUNDY = '#800020';
-const PURPLE = '#7A4069';
-const CREAM = '#e3e4e5';
-const GREEN = '#2E7D32';
+// --- Paleta institucional IVD (misma que las páginas principales) ---
+const COLORS = {
+  burgundy: '#800020',
+  burgundyDark: '#5C0017',
+  purple: '#7A4069',
+  cream: '#e4e4e5',
+  paper: '#FFFFFF',
+  ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)',
+  lineSoft: 'rgba(128,0,32,0.08)',
+};
+
+const tableHeadSx = {
+  fontWeight: 700,
+  color: '#fff',
+  fontSize: '0.72rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  py: 2,
+};
 
 const ResultadosAtleta = () => {
   const { user } = useAuth();
@@ -78,6 +94,8 @@ const ResultadosAtleta = () => {
   const handleCerrar = () => { setModalOpen(false); setSeleccionado(null); };
 
   const resultadosPaginados = resultados.slice((page - 1) * porPagina, page * porPagina);
+  const totalPruebas = resultados.reduce((acc, r) => acc + (r.pruebas?.length || 0), 0);
+  const disciplinasDistintas = new Set(resultados.map((r) => getDisciplina(r.pruebas))).size;
 
   /* ── Generar PDF ── */
   const handleDownloadPDF = async (resultado) => {
@@ -114,7 +132,6 @@ const ResultadosAtleta = () => {
         return yPos + 6;
       };
 
-      // Logo
       if (logoUrl) {
         try { doc.addImage(logoUrl, 'JPEG', margin, y, 20, 20); y += 25; } catch { /* sin logo */ }
       }
@@ -143,7 +160,6 @@ const ResultadosAtleta = () => {
       doc.setTextColor(0, 0, 0);
       y += 10;
 
-      // Info atleta
       y = addSubtitle('INFORMACIÓN DEL ATLETA:', y);
       const infoAtleta = [
         ['Nombre Completo:', resultado.nombreAtleta || '—'],
@@ -207,102 +223,139 @@ const ResultadosAtleta = () => {
       doc.text(`Documento generado el ${fechaActual}`, pageWidth / 2, y, { align: 'center' });
 
       doc.save(`Resultado_${resultado.nombreAtleta || 'atleta'}_${resultado.nombreEvento || 'evento'}.pdf`);
-      Swal.fire({ icon: 'success', title: 'PDF Generado', text: 'El reporte se descargó exitosamente', confirmButtonColor: BURGUNDY });
+      Swal.fire({ icon: 'success', title: 'PDF Generado', text: 'El reporte se descargó exitosamente', confirmButtonColor: COLORS.burgundy });
     } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Error', text: `Error al generar el PDF: ${error.message}`, confirmButtonColor: BURGUNDY });
+      Swal.fire({ icon: 'error', title: 'Error', text: `Error al generar el PDF: ${error.message}`, confirmButtonColor: COLORS.burgundy });
     }
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
-        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', pb: 4 }}>
-      <Container maxWidth="lg" sx={{ pt: { xs: 3, md: 5 } }}>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
 
-        {/* ── Header ── */}
-        <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, textAlign: 'center', mb: .5 }}>
-          Mis Resultados
-        </Typography>
-        <Typography variant="body1" sx={{ color: PURPLE, textAlign: 'center', mb: 4, opacity: .8 }}>
-          Historial de participaciones y marcas obtenidas
-        </Typography>
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
+        <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel de Atleta
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            Mis Resultados
+          </Typography>
+          <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
+            Historial de participaciones y marcas obtenidas
+          </Typography>
+        </Container>
+      </Box>
+
+      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
+
+        {/* ── Stat-strip flotante ── */}
+        <Box
+          sx={{
+            mt: { xs: -5, md: -6 }, mb: 4,
+            bgcolor: COLORS.paper, borderRadius: '10px',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+            overflow: 'hidden',
+          }}
+        >
+          {[
+            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: resultados.length, label: 'Resultados', accent: COLORS.burgundy },
+            { icon: <SportsIcon sx={{ fontSize: 24 }} />, value: disciplinasDistintas, label: 'Disciplinas', accent: COLORS.purple },
+            { icon: <BarChartIcon sx={{ fontSize: 24 }} />, value: totalPruebas, label: 'Pruebas Registradas', accent: COLORS.burgundy },
+          ].map((s, i) => (
+            <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
+              <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+              <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
+              <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+            </Box>
+          ))}
+        </Box>
 
         {errorMessage && (
-          <Alert severity="error" onClose={() => setErrorMessage('')} sx={{ mb: 3, borderRadius: 2 }}>
+          <Alert severity="error" onClose={() => setErrorMessage('')} sx={{ mb: 3, borderRadius: '8px' }}>
             {errorMessage}
           </Alert>
         )}
 
         {/* ── Contenido ── */}
         {resultados.length === 0 ? (
-          <Paper sx={{ borderRadius: 3, textAlign: 'center', py: 6, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
-            <Avatar sx={{ bgcolor: `${PURPLE}14`, width: 64, height: 64, mx: 'auto', mb: 2 }}>
-              <TrophyIcon sx={{ fontSize: 32, color: PURPLE }} />
+          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', textAlign: 'center', py: 6 }}>
+            <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
+              <TrophyIcon sx={{ fontSize: 32, color: COLORS.purple }} />
             </Avatar>
-            <Typography variant="h6" sx={{ color: PURPLE }}>Sin resultados registrados</Typography>
-            <Typography variant="body2" sx={{ color: '#999', mt: .5 }}>
-              Los resultados aparecerán aquí una vez que participes en eventos
+            <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>Sin resultados registrados</Typography>
+            <Typography variant="body2" sx={{ color: COLORS.purple, opacity: .8, mt: .5 }}>
+              Los resultados aparecerán aquí una vez que participes en eventos.
             </Typography>
-          </Paper>
+          </Box>
         ) : (
-          <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: BURGUNDY }}>
+                <TableRow sx={{ bgcolor: COLORS.burgundy }}>
                   {['Fecha', 'Evento', 'Disciplina', 'Marca', 'Categoría', 'Acciones'].map((h) => (
-                    <TableCell key={h} sx={{ fontWeight: 700, color: '#fff', py: 2 }}>{h}</TableCell>
+                    <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {resultadosPaginados.map((r, i) => (
-                  <TableRow key={r.id || r._id || i} hover sx={{ '&:hover': { bgcolor: `${CREAM}66` } }}>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <TableRow key={r.id || r._id || i} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                    <TableCell sx={{ borderColor: COLORS.line }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
                         {fmtCorta(r.fechaEvento || r.evento_fecha)}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
+                    <TableCell sx={{ borderColor: COLORS.line }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
                         {r.nombreEvento || r.evento_titulo || '—'}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5 }}>
-                        <SportsIcon sx={{ fontSize: 16, color: BURGUNDY }} />
+                    <TableCell sx={{ borderColor: COLORS.line }}>
+                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5, color: COLORS.ink }}>
+                        <SportsIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
                         {getDisciplina(r.pruebas)}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ borderColor: COLORS.line }}>
                       <Chip
                         label={getMarca(r.pruebas)}
                         size="small"
-                        sx={{ bgcolor: `${GREEN}14`, color: GREEN, fontWeight: 700 }}
+                        sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ borderColor: COLORS.line }}>
                       <Chip
                         label={r.categoria || '—'}
                         size="small"
-                        sx={{ bgcolor: `${PURPLE}14`, color: PURPLE, fontWeight: 600 }}
+                        sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ borderColor: COLORS.line }}>
                       <Box sx={{ display: 'flex', gap: .5 }}>
-                        <IconButton size="small" onClick={() => handleVerDetalle(r)}
-                          sx={{ color: BURGUNDY, '&:hover': { bgcolor: `${BURGUNDY}08` } }}
-                          title="Ver detalles">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleVerDetalle(r)}
+                          sx={{ color: COLORS.burgundy, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                          title="Ver detalles"
+                        >
                           <ViewIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" onClick={() => handleDownloadPDF(r)}
-                          sx={{ color: GREEN, '&:hover': { bgcolor: `${GREEN}08` } }}
-                          title="Descargar PDF">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDownloadPDF(r)}
+                          sx={{ color: COLORS.purple, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                          title="Descargar PDF"
+                        >
                           <PdfIcon fontSize="small" />
                         </IconButton>
                       </Box>
@@ -313,21 +366,21 @@ const ResultadosAtleta = () => {
             </Table>
 
             {resultados.length > porPagina && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: '1px solid #eee' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
                 <Pagination
                   count={Math.ceil(resultados.length / porPagina)}
                   page={page} onChange={(e, v) => setPage(v)}
-                  sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: BURGUNDY, color: '#fff' } }}
+                  sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }}
                 />
               </Box>
             )}
-          </Paper>
+          </Box>
         )}
       </Container>
 
       {/* Detalle */}
       <Dialog open={modalOpen} onClose={handleCerrar} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff', py: 2 }}>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff', py: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TrophyIcon />
@@ -345,96 +398,96 @@ const ResultadosAtleta = () => {
               {/* Evento */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: `${BURGUNDY}14`, width: 32, height: 32 }}>
-                    <CalendarIcon sx={{ fontSize: 18, color: BURGUNDY }} />
+                  <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
+                    <CalendarIcon sx={{ fontSize: 18, color: COLORS.burgundy }} />
                   </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: BURGUNDY, fontWeight: 700 }}>
+                  <Typography variant="subtitle1" sx={{ color: COLORS.burgundy, fontWeight: 700 }}>
                     Información del Evento
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pl: 5.5 }}>
                   <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Evento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Evento</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
                       {seleccionado.nombreEvento || seleccionado.evento_titulo || '—'}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Fecha</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
                       {fmt(seleccionado.fechaEvento || seleccionado.evento_fecha)}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Categoría</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{seleccionado.categoria || '—'}</Typography>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{seleccionado.categoria || '—'}</Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Año competitivo</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Año competitivo</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
                       {seleccionado.añoCompetitivo || seleccionado.ano_competitivo || '—'}
                     </Typography>
                   </Box>
                 </Box>
               </Box>
 
-              <Divider />
+              <Divider sx={{ borderColor: COLORS.line }} />
 
               {/* Pruebas */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: `${GREEN}14`, width: 32, height: 32 }}>
-                    <TrophyIcon sx={{ fontSize: 18, color: GREEN }} />
+                  <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
+                    <TrophyIcon sx={{ fontSize: 18, color: COLORS.burgundy }} />
                   </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: GREEN, fontWeight: 700 }}>
+                  <Typography variant="subtitle1" sx={{ color: COLORS.burgundy, fontWeight: 700 }}>
                     Pruebas y Marcas
                   </Typography>
                 </Box>
                 {seleccionado.pruebas?.length > 0 ? (
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, pl: 5.5 }}>
                     {seleccionado.pruebas.map((p, i) => (
-                      <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center' }}>
-                        <Typography variant="caption" sx={{ color: '#888' }}>{p.nombre || `Prueba ${i + 1}`}</Typography>
-                        <Typography variant="h5" sx={{ color: BURGUNDY, fontWeight: 800, mt: .5 }}>
+                      <Box key={i} sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}`, textAlign: 'center' }}>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>{p.nombre || `Prueba ${i + 1}`}</Typography>
+                        <Typography variant="h5" sx={{ color: COLORS.burgundy, fontWeight: 800, mt: .5 }}>
                           {p.marca || '0'}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: PURPLE }}>{p.unidad || ''}</Typography>
-                      </Paper>
+                        <Typography variant="caption" sx={{ color: COLORS.purple }}>{p.unidad || ''}</Typography>
+                      </Box>
                     ))}
                   </Box>
                 ) : (
-                  <Typography variant="body2" sx={{ color: '#999', pl: 5.5 }}>Sin pruebas registradas</Typography>
+                  <Typography variant="body2" sx={{ color: COLORS.purple, pl: 5.5 }}>Sin pruebas registradas</Typography>
                 )}
               </Box>
 
-              <Divider />
+              <Divider sx={{ borderColor: COLORS.line }} />
 
               {/* Info adicional */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: `${PURPLE}14`, width: 32, height: 32 }}>
-                    <PersonIcon sx={{ fontSize: 18, color: PURPLE }} />
+                  <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
+                    <PersonIcon sx={{ fontSize: 18, color: COLORS.purple }} />
                   </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: PURPLE, fontWeight: 700 }}>
+                  <Typography variant="subtitle1" sx={{ color: COLORS.purple, fontWeight: 700 }}>
                     Información Adicional
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pl: 5.5 }}>
                   <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Municipio</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Municipio</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
                       {seleccionado.municipio || '—'}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Club</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Club</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
                       {seleccionado.club || seleccionado.club_nombre || '—'}
                     </Typography>
                   </Box>
                   <Box sx={{ gridColumn: '1 / -1' }}>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Lugar de entrenamiento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar de entrenamiento</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
                       {seleccionado.lugarEntrenamiento || seleccionado.lugar_entrenamiento || '—'}
                     </Typography>
                   </Box>
@@ -444,12 +497,19 @@ const ResultadosAtleta = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button onClick={handleCerrar} variant="outlined"
-            sx={{ color: BURGUNDY, borderColor: BURGUNDY, textTransform: 'none', fontWeight: 600 }}>
+          <Button
+            onClick={handleCerrar}
+            variant="outlined"
+            sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 600 }}
+          >
             Cerrar
           </Button>
-          <Button onClick={() => handleDownloadPDF(seleccionado)} variant="contained" startIcon={<PdfIcon />}
-            sx={{ bgcolor: BURGUNDY, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#600018' } }}>
+          <Button
+            onClick={() => handleDownloadPDF(seleccionado)}
+            variant="contained"
+            startIcon={<PdfIcon />}
+            sx={{ bgcolor: COLORS.burgundy, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+          >
             Descargar PDF
           </Button>
         </DialogActions>

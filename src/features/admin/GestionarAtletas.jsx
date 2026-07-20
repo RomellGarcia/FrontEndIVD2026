@@ -51,18 +51,16 @@ const C = {
   primary2:   '#600018',
   secondary:  '#7A4069',
   secondary2: '#5C304F',
-  cream:      '#F5E8C7',
   bg:         '#e4e4e5',
   green:      '#3F7D52',
   greenDark:  '#2C5B3B',
   danger:     '#A13A3A',
-  dangerDark: '#7E2C2C',
 };
 
 const ROL_STYLES = {
   admin:       { color: C.primary,   bg: 'rgba(128,0,32,0.1)',   label: 'Administrador', icon: <AdminIcon fontSize="small" /> },
   entrenador:  { color: C.secondary, bg: 'rgba(122,64,105,0.1)', label: 'Entrenador',    icon: <CoachIcon fontSize="small" /> },
-  atleta:      { color: C.green,     bg: 'rgba(63,125,82,0.1)',  label: 'Atleta',        icon: <SportsIcon fontSize="small" /> },
+  atleta:      { color: '#2B1E1E',   bg: 'rgba(43,30,30,0.08)',  label: 'Atleta',        icon: <SportsIcon fontSize="small" /> },
 };
 
 const outlineSecondarySx = {
@@ -85,7 +83,7 @@ const solidDangerSx = {
   bgcolor: C.danger,
   fontWeight: 'bold',
   boxShadow: 'none',
-  '&:hover': { bgcolor: C.dangerDark, boxShadow: 'none' },
+  '&:hover': { bgcolor: C.primary, boxShadow: 'none' },
 };
 
 const solidExpulsarSx = {
@@ -364,16 +362,49 @@ const GestionarUsuarios = () => {
   }
 
   const clubActualNombre = usuarioToEdit?.club_nombre || 'Sin club asignado';
+  const totalAtletas = usuarios.filter((u) => u.rol === 'atleta').length;
+  const totalEntrenadores = usuarios.filter((u) => u.rol === 'entrenador').length;
+  const totalAdmins = usuarios.filter((u) => u.rol === 'admin').length;
 
   return (
     <Box sx={{ bgcolor: C.bg, minHeight: '100vh', width: '100%' }}>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Typography variant="h4" sx={{ color: C.primary, fontWeight: 'bold' }}>
+
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: C.primary, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
+        <Container maxWidth="xl" sx={{ textAlign: 'center' }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel Administrativo
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
             Gestión de Usuarios
           </Typography>
-          <Box sx={{ width: 64, height: 4, bgcolor: C.secondary, borderRadius: 2, mx: 'auto', mt: 1.5 }} />
+        </Container>
+      </Box>
+
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+
+        {/* ── Stat-strip flotante ── */}
+        <Box
+          sx={{
+            mt: { xs: -5, md: -6 }, mb: 3,
+            bgcolor: '#fff', borderRadius: 3,
+            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+            overflow: 'hidden',
+          }}
+        >
+          {[
+            { value: totalAtletas, label: 'Atletas', accent: '#2B1E1E' },
+            { value: totalEntrenadores, label: 'Entrenadores', accent: C.secondary },
+            { value: totalAdmins, label: 'Administradores', accent: C.primary },
+          ].map((s, i) => (
+            <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? '1px solid rgba(128,0,32,0.12)' : 'none' }}>
+              <Typography sx={{ fontWeight: 800, color: s.accent, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
+              <Typography sx={{ fontSize: '0.72rem', color: '#2B1E1E', fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+            </Box>
+          ))}
         </Box>
+
 
         {error && (
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError('')}>
@@ -388,11 +419,11 @@ const GestionarUsuarios = () => {
 
         <Box
           sx={{
-            mb: 3, p: 2, borderRadius: 2, bgcolor: C.cream, border: '1px solid rgba(128,0,32,0.12)',
+            mb: 3, p: 2, borderRadius: 2, bgcolor: C.primary, border: '1px solid rgba(128,0,32,0.12)',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2,
           }}
         >
-          <Typography variant="subtitle1" sx={{ color: C.primary, fontWeight: 600 }}>
+          <Typography variant="subtitle1" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
             Total de Usuarios: {usuariosFiltrados.length}
           </Typography>
           <FormControl sx={{ minWidth: 200, bgcolor: '#fff', borderRadius: 1 }} size="small">
@@ -484,7 +515,7 @@ const GestionarUsuarios = () => {
                               label={usuario.club_nombre || 'Independiente'}
                               size="small"
                               sx={usuario.club_id
-                                ? { bgcolor: 'rgba(63,125,82,0.12)', color: C.greenDark, fontWeight: 600 }
+                                ? { bgcolor: 'transparent', border: `1px solid ${C.secondary}`, color: C.secondary, fontWeight: 600 }
                                 : { bgcolor: 'rgba(0,0,0,0.06)', color: 'text.secondary', fontWeight: 600 }}
                             />
                           </Box>
@@ -496,7 +527,7 @@ const GestionarUsuarios = () => {
                               sx={{ bgcolor: 'rgba(122,64,105,0.12)', color: C.secondary2, fontWeight: 600 }}
                             />
                             {usuario.club_id && (
-                              <Chip label={usuario.club_nombre} size="small" variant="outlined" sx={{ borderColor: C.green, color: C.greenDark, fontWeight: 600 }} />
+                              <Chip label={usuario.club_nombre} size="small" variant="outlined" sx={{ borderColor: C.secondary, color: C.secondary, fontWeight: 600 }} />
                             )}
                           </Stack>
                         ) : (
@@ -538,7 +569,7 @@ const GestionarUsuarios = () => {
         </Paper>
 
         <Dialog open={openDeleteModal} onClose={handleDeleteCancel} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-          <DialogTitle sx={{ bgcolor: C.cream }}>
+          <DialogTitle sx={{ bgcolor: C.primarys }}>
             <Typography component="span" variant="h6" sx={{ color: C.primary, fontWeight: 'bold' }}>
               Confirmar Eliminación
             </Typography>
@@ -565,7 +596,7 @@ const GestionarUsuarios = () => {
         </Dialog>
 
         <Dialog open={openExpulsarModal} onClose={handleExpulsarCancel} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-          <DialogTitle sx={{ bgcolor: C.cream }}>
+          <DialogTitle sx={{ bgcolor: C.primary }}>
             <Typography component="span" variant="h6" sx={{ color: C.primary, fontWeight: 'bold' }}>
               Confirmar Expulsión del Club
             </Typography>
@@ -628,25 +659,25 @@ const GestionarUsuarios = () => {
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
                     label="Correo electrónico" name="email" type="email" value={editFormData.email} onChange={handleEditChange} fullWidth size="small"
-                    InputProps={{ startAdornment: <EmailIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> }}
+                    slotProps={{ input: { startAdornment: <EmailIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
                     label="Teléfono (10 dígitos)" name="telefono" value={editFormData.telefono} onChange={handleEditChange} fullWidth size="small"
-                    InputProps={{ startAdornment: <PhoneIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> }}
+                    slotProps={{ input: { startAdornment: <PhoneIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
                     label="CURP" name="curp" value={editFormData.curp} onChange={handleEditChange} fullWidth size="small"
-                    InputProps={{ startAdornment: <BadgeIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> }}
+                    slotProps={{ input: { startAdornment: <BadgeIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
                     label="Fecha de Nacimiento" name="fecha_nacimiento" type="date" value={editFormData.fecha_nacimiento}
-                    onChange={handleEditChange} fullWidth size="small" InputLabelProps={{ shrink: true }}
+                    onChange={handleEditChange} fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
@@ -688,7 +719,7 @@ const GestionarUsuarios = () => {
                       label={clubActualNombre}
                       size="small"
                       sx={usuarioToEdit?.club_id
-                        ? { bgcolor: 'rgba(63,125,82,0.12)', color: C.greenDark, fontWeight: 600 }
+                        ? { bgcolor: 'transparent', border: `1px solid ${C.secondary}`, color: C.secondary, fontWeight: 600 }
                         : { bgcolor: 'rgba(0,0,0,0.06)', color: 'text.secondary', fontWeight: 600 }}
                     />
                   </Box>

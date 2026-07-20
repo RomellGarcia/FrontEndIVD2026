@@ -4,7 +4,6 @@ import {
   Container,
   Typography,
   Paper,
-  Grid,
   Card,
   CardContent,
   Button,
@@ -54,20 +53,18 @@ import { useNavigate } from 'react-router-dom';
 
 const C = {
   primary:    '#800020',
-  primary2:   '#600018',
   secondary:  '#7A4069',
   secondary2: '#5C304F',
-  cream:      '#F5E8C7',
+  cream:      '#7E2C2C',
   bg:         '#e4e4e5',
   green:      '#3F7D52',
   greenDark:  '#2C5B3B',
   danger:     '#A13A3A',
-  dangerDark: '#7E2C2C',
 };
 
 const ESTADO_STYLES = {
-  activo:   { bg: 'rgba(63,125,82,0.12)',  border: C.green,  text: C.greenDark,  avatar: C.green   },
-  inactivo: { bg: 'rgba(161,58,58,0.12)',  border: C.danger, text: C.dangerDark, avatar: C.danger  },
+  activo:   { border: C.secondary, text: C.secondary, avatar: C.primary },
+  inactivo: { border: 'rgba(128,0,32,0.18)', text: '#2B1E1E', avatar: C.secondary },
 };
 
 const fieldSx = {
@@ -93,7 +90,7 @@ const solidPrimarySx = {
   bgcolor: C.primary,
   fontWeight: 'bold',
   boxShadow: 'none',
-  '&:hover': { bgcolor: C.primary2, boxShadow: 'none' },
+  '&:hover': { bgcolor: C.primary, boxShadow: 'none' },
 };
 
 const solidDangerSx = {
@@ -101,7 +98,7 @@ const solidDangerSx = {
   bgcolor: C.danger,
   fontWeight: 'bold',
   boxShadow: 'none',
-  '&:hover': { bgcolor: C.dangerDark, boxShadow: 'none' },
+  '&:hover': { bgcolor: C.primary, boxShadow: 'none' },
 };
 
 const FORM_EMPTY = {
@@ -132,10 +129,10 @@ const EstadoChip = ({ estado }) => {
       label={estado === 'activo' ? 'Activo' : 'Inactivo'}
       size="small"
       sx={{
-        bgcolor: s.bg,
+        bgcolor: 'transparent',
         color: s.text,
-        fontWeight: 600,
-        border: `1px solid ${s.border}44`,
+        fontWeight: 700,
+        border: `1px solid ${s.border}`,
       }}
     />
   );
@@ -166,11 +163,11 @@ const ModalHeader = ({ titulo, subtitulo, onClose }) => (
       alignItems: 'center',
       pb: 1,
       pr: 1,
-      bgcolor: C.cream,
+      bgcolor: C.primary,
     }}
   >
     <Box>
-      <Typography variant="h6" sx={{ color: C.primary, fontWeight: 'bold', lineHeight: 1.3 }}>
+      <Typography variant="h6" sx={{ color: '#FFFFFF', fontWeight: 'bold', lineHeight: 1.3 }}>
         {titulo}
       </Typography>
       {subtitulo && (
@@ -334,15 +331,41 @@ const GestionClubesAdmin = () => {
 
   return (
     <Box sx={{ bgcolor: C.bg, minHeight: '100vh', width: '100%' }}>
-      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, px: { xs: 2, md: 4 } }}>
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Typography
-            variant={isMobile ? 'h5' : 'h4'}
-            sx={{ color: C.primary, fontWeight: 'bold' }}
-          >
-            Gestion de Clubes Deportivos
+
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: C.primary, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
+        <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, md: 4 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel Administrativo
           </Typography>
-          <Box sx={{ width: 64, height: 4, bgcolor: C.secondary, borderRadius: 2, mx: 'auto', mt: 1.5 }} />
+          <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ fontWeight: 800, mt: 1 }}>
+            Gestión de Clubes Deportivos
+          </Typography>
+        </Container>
+      </Box>
+
+      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, px: { xs: 2, md: 4 } }}>
+
+        {/* ── Stat-strip flotante ── */}
+        <Box
+          sx={{
+            mt: { xs: -5, md: -6 }, mb: 3,
+            bgcolor: '#fff', borderRadius: 3,
+            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+            overflow: 'hidden',
+          }}
+        >
+          {[
+            { value: clubes.length, label: 'Clubes Registrados', accent: C.primary },
+            { value: totalActivos, label: 'Activos', accent: C.secondary },
+            { value: totalInactivos, label: 'Inactivos', accent: C.primary },
+          ].map((s, i) => (
+            <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? '1px solid rgba(128,0,32,0.12)' : 'none' }}>
+              <Typography sx={{ fontWeight: 800, color: s.accent, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
+              <Typography sx={{ fontSize: '0.72rem', color: '#2B1E1E', fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+            </Box>
+          ))}
         </Box>
 
         {error && (
@@ -351,28 +374,6 @@ const GestionClubesAdmin = () => {
         {success && (
           <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setSuccess('')}>{success}</Alert>
         )}
-
-        <Box
-          sx={{
-            mb: 3,
-            p: 2,
-            borderRadius: 2,
-            bgcolor: C.cream,
-            border: '1px solid rgba(128,0,32,0.12)',
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            gap: 1,
-          }}
-        >
-          <Typography variant="subtitle1" sx={{ color: C.primary, fontWeight: 600 }}>
-            Total de clubes registrados: {clubes.length}
-          </Typography>
-          <Typography variant="body2" sx={{ color: C.secondary2 }}>
-            Los clubes se registran desde el apartado de registro
-          </Typography>
-        </Box>
 
         <Paper sx={{ width: '100%', mb: 3, borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(128,0,32,0.1)' }}>
           <Tabs
@@ -383,7 +384,7 @@ const GestionClubesAdmin = () => {
             sx={{
               borderBottom: 1,
               borderColor: 'rgba(128,0,32,0.12)',
-              bgcolor: C.dangerDark,
+              bgcolor: C.primary,
               '& .MuiTab-root': { fontWeight: 600, color: C.bg },
               '& .MuiTab-root.Mui-selected': { color: C.bg },
               '& .MuiTabs-indicator': { bgcolor: C.bg, height: 3 },
@@ -458,9 +459,9 @@ const GestionClubesAdmin = () => {
 
             {activeTab === 1 && (
               clubes.length === 0 ? <EmptyState mensaje="No hay clubes registrados aun." /> : (
-                <Grid container spacing={3}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
                   {clubes.map((club) => (
-                    <Grid item xs={12} sm={6} md={4} key={club.id} sx={{ display: 'flex' }}>
+                    <Box key={club.id} sx={{ display: 'flex' }}>
                       <Card sx={{
                         flex: 1, borderRadius: 3, transition: 'box-shadow 0.2s',
                         border: '1px solid rgba(128,0,32,0.08)',
@@ -512,7 +513,7 @@ const GestionClubesAdmin = () => {
                                   borderRadius: 2,
                                   borderColor: C.primary,
                                   color: C.primary,
-                                  '&:hover': { borderColor: C.primary2, bgcolor: 'rgba(128,0,32,0.05)' },
+                                  '&:hover': { borderColor: C.primary, bgcolor: 'rgba(128,0,32,0.05)' },
                                 }}>
                                 Editar
                               </Button>
@@ -520,82 +521,76 @@ const GestionClubesAdmin = () => {
                           </Box>
                         </CardContent>
                       </Card>
-                    </Grid>
+                    </Box>
                   ))}
-                </Grid>
+                </Box>
               )
             )}
 
             {activeTab === 2 && (
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={5}>
-                  <Card sx={{ borderRadius: 3, height: '100%', border: '1px solid rgba(128,0,32,0.08)' }}>
-                    <CardContent sx={{ p: 3 }}>
-                      <Typography variant="h6" sx={{ color: C.primary, fontWeight: 'bold', mb: 3 }}>
-                        Resumen General
-                      </Typography>
-                      <Grid container spacing={2}>
-                        {[
-                          { label: 'Total de Clubes',  value: clubes.length,  color: C.secondary },
-                          { label: 'Clubes Activos',   value: totalActivos,   color: C.green   },
-                          { label: 'Clubes Inactivos', value: totalInactivos, color: C.danger },
-                        ].map((stat) => (
-                          <Grid item xs={4} key={stat.label}>
-                            <Box sx={{
-                              textAlign: 'center', p: 2, borderRadius: 2,
-                              bgcolor: `${stat.color}0D`, border: `2px solid ${stat.color}33`,
-                            }}>
-                              <Typography variant="h4" sx={{ color: stat.color, fontWeight: 'bold' }}>
-                                {stat.value}
-                              </Typography>
-                              <Typography variant="caption" color="textSecondary">
-                                {stat.label}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={7}>
-                  <Card sx={{ borderRadius: 3, height: '100%', border: '1px solid rgba(128,0,32,0.08)' }}>
-                    <CardContent sx={{ p: 3 }}>
-                      <Typography variant="h6" sx={{ color: C.primary, fontWeight: 'bold', mb: 2 }}>
-                        Clubes por Estado
-                      </Typography>
-                      {clubes.length === 0 ? <EmptyState mensaje="No hay clubes registrados." /> : (
-                        <List disablePadding>
-                          {clubes.map((club, i) => {
-                            const s = ESTADO_STYLES[club.estado] || ESTADO_STYLES.inactivo;
-                            return (
-                              <React.Fragment key={club.id}>
-                                <ListItem sx={{ px: 0, py: 1 }}>
-                                  <ListItemAvatar>
-                                    <Avatar sx={{ bgcolor: s.avatar, width: 36, height: 36 }}>
-                                      <SportsIcon fontSize="small" />
-                                    </Avatar>
-                                  </ListItemAvatar>
-                                  <ListItemText
-                                    primary={
-                                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                        {club.nombre}
-                                      </Typography>
-                                    }
-                                    secondary={club.telefono}
-                                  />
-                                  <EstadoChip estado={club.estado} />
-                                </ListItem>
-                                {i < clubes.length - 1 && <Divider sx={{ borderColor: 'rgba(128,0,32,0.08)' }} />}
-                              </React.Fragment>
-                            );
-                          })}
-                        </List>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, gap: 3 }}>
+                <Card sx={{ borderRadius: 3, height: '100%', border: '1px solid rgba(128,0,32,0.08)' }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#FFFFFF', fontWeight: 'bold', mb: 3 }}>
+                      Resumen General
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+                      {[
+                        { label: 'Total de Clubes',  value: clubes.length,  color: C.primary },
+                        { label: 'Clubes Activos',   value: totalActivos,   color: C.secondary },
+                        { label: 'Clubes Inactivos', value: totalInactivos, color: '#2B1E1E' },
+                      ].map((stat) => (
+                        <Box key={stat.label} sx={{
+                          textAlign: 'center', p: 2, borderRadius: 2,
+                          bgcolor: `${stat.color}0D`, border: `2px solid ${stat.color}33`,
+                        }}>
+                          <Typography variant="h4" sx={{ color: stat.color, fontWeight: 'bold' }}>
+                            {stat.value}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {stat.label}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+                <Card sx={{ borderRadius: 3, height: '100%', border: '1px solid rgba(128,0,32,0.08)' }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#FFFFFF', fontWeight: 'bold', mb: 2 }}>
+                      Clubes por Estado
+                    </Typography>
+                    {clubes.length === 0 ? <EmptyState mensaje="No hay clubes registrados." /> : (
+                      <List disablePadding>
+                        {clubes.map((club, i) => {
+                          const s = ESTADO_STYLES[club.estado] || ESTADO_STYLES.inactivo;
+                          return (
+                            <React.Fragment key={club.id}>
+                              <ListItem sx={{ px: 0, py: 1 }}>
+                                <ListItemAvatar>
+                                  <Avatar sx={{ bgcolor: s.avatar, width: 36, height: 36 }}>
+                                    <SportsIcon fontSize="small" />
+                                  </Avatar>
+                                </ListItemAvatar>
+                                <ListItemText
+                                  primary={
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                                      {club.nombre}
+                                    </Typography>
+                                  }
+                                  secondary={club.telefono}
+                                />
+                                <EstadoChip estado={club.estado} />
+                              </ListItem>
+                              {i < clubes.length - 1 && <Divider sx={{ borderColor: 'rgba(128,0,32,0.08)' }} />}
+                            </React.Fragment>
+                          );
+                        })}
+                      </List>
+                    )}
+                  </CardContent>
+                </Card>
+              </Box>
             )}
           </Box>
         </Paper>
@@ -617,79 +612,67 @@ const GestionClubesAdmin = () => {
               Datos del Club
             </Typography>
 
-            <Grid container spacing={2.5} sx={{ mt: 0.5, mb: 3 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Nombre del Club"
-                  value={formData.nombre}
-                  onChange={patchForm('nombre')}
-                  sx={fieldSx}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Direccion"
-                  value={formData.direccion}
-                  onChange={patchForm('direccion')}
-                  sx={fieldSx}
-                />
-              </Grid>
-            </Grid>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 0.5, mb: 3 }}>
+              <TextField
+                fullWidth
+                label="Nombre del Club"
+                value={formData.nombre}
+                onChange={patchForm('nombre')}
+                sx={fieldSx}
+              />
+              <TextField
+                fullWidth
+                label="Direccion"
+                value={formData.direccion}
+                onChange={patchForm('direccion')}
+                sx={fieldSx}
+              />
+            </Box>
 
             <Typography variant="overline" sx={{ color: C.secondary, fontWeight: 700, letterSpacing: 1 }}>
               Contacto
             </Typography>
 
-            <Grid container spacing={2.5} sx={{ mt: 0.5, mb: 3 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Telefono"
-                  value={formData.telefono}
-                  onChange={patchForm('telefono')}
-                  sx={fieldSx}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  value={formData.email}
-                  onChange={patchForm('email')}
-                  sx={fieldSx}
-                />
-              </Grid>
-            </Grid>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5, mt: 0.5, mb: 3 }}>
+              <TextField
+                fullWidth
+                label="Telefono"
+                value={formData.telefono}
+                onChange={patchForm('telefono')}
+                sx={fieldSx}
+              />
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={formData.email}
+                onChange={patchForm('email')}
+                sx={fieldSx}
+              />
+            </Box>
 
             <Typography variant="overline" sx={{ color: C.secondary, fontWeight: 700, letterSpacing: 1 }}>
               Informacion Adicional
             </Typography>
 
-            <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Descripcion"
-                  multiline
-                  rows={3}
-                  value={formData.descripcion}
-                  onChange={patchForm('descripcion')}
-                  sx={fieldSx}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth sx={fieldSx}>
-                  <InputLabel>Estado</InputLabel>
-                  <Select value={formData.estado} onChange={patchForm('estado')} label="Estado">
-                    <MenuItem value="activo">Activo</MenuItem>
-                    <MenuItem value="inactivo">Inactivo</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 0.5 }}>
+              <TextField
+                fullWidth
+                label="Descripcion"
+                multiline
+                rows={3}
+                value={formData.descripcion}
+                onChange={patchForm('descripcion')}
+                sx={fieldSx}
+              />
+              <FormControl fullWidth sx={{ ...fieldSx, maxWidth: { sm: '50%' } }}>
+                <InputLabel>Estado</InputLabel>
+                <Select value={formData.estado} onChange={patchForm('estado')} label="Estado">
+                  <MenuItem value="activo">Activo</MenuItem>
+                  <MenuItem value="inactivo">Inactivo</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
           </DialogContent>
 
           <Divider />
@@ -740,45 +723,44 @@ const GestionClubesAdmin = () => {
             {atletasClub.length === 0 ? (
               <EmptyState mensaje="No hay atletas asociados a este club." />
             ) : (
-              <Grid container spacing={2}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                 {atletasClub.map((atleta) => (
-                  <Grid item xs={12} sm={6} key={atleta.id}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 1.5,
-                        p: 2,
-                        borderRadius: 2,
-                        border: '1px solid rgba(128,0,32,0.1)',
-                        bgcolor: '#fff',
-                        height: '100%',
-                      }}
-                    >
-                      <Avatar sx={{ bgcolor: C.primary, flexShrink: 0 }}>
-                        {atleta.nombre?.charAt(0)?.toUpperCase() || 'A'}
-                      </Avatar>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }} noWrap>
-                          {atleta.nombre} {atleta.apellido_paterno} {atleta.apellido_materno}
+                  <Box
+                    key={atleta.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1.5,
+                      p: 2,
+                      borderRadius: 2,
+                      border: '1px solid rgba(128,0,32,0.1)',
+                      bgcolor: '#fff',
+                      height: '100%',
+                    }}
+                  >
+                    <Avatar sx={{ bgcolor: C.primary, flexShrink: 0 }}>
+                      {atleta.nombre?.charAt(0)?.toUpperCase() || 'A'}
+                    </Avatar>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }} noWrap>
+                        {atleta.nombre} {atleta.apellido_paterno} {atleta.apellido_materno}
+                      </Typography>
+                      {[
+                        { label: 'Edad',    value: `${calcularEdad(atleta.fecha_nacimiento)} años` },
+                        { label: 'Genero',  value: atleta.genero || 'N/A' },
+                        { label: 'Telefono', value: atleta.telefono || 'N/A' },
+                        { label: 'Email',   value: atleta.email || 'N/A' },
+                        { label: 'Estado',  value: atleta.estado_nacimiento || 'N/A' },
+                      ].map(({ label, value }) => (
+                        <Typography key={label} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                          <Box component="span" sx={{ fontWeight: 600, color: C.secondary }}>{label}: </Box>
+                          {value}
                         </Typography>
-                        {[
-                          { label: 'Edad',    value: `${calcularEdad(atleta.fecha_nacimiento)} años` },
-                          { label: 'Genero',  value: atleta.genero || 'N/A' },
-                          { label: 'Telefono', value: atleta.telefono || 'N/A' },
-                          { label: 'Email',   value: atleta.email || 'N/A' },
-                          { label: 'Estado',  value: atleta.estado_nacimiento || 'N/A' },
-                        ].map(({ label, value }) => (
-                          <Typography key={label} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                            <Box component="span" sx={{ fontWeight: 600, color: C.secondary }}>{label}: </Box>
-                            {value}
-                          </Typography>
-                        ))}
-                      </Box>
+                      ))}
                     </Box>
-                  </Grid>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             )}
           </DialogContent>
 

@@ -27,15 +27,21 @@ const EncabezadoAtleta = () => {
         break;
       case 'eventos':
         navigate('/atleta/eventos');
+        break;  
+      case 'convocatoria':
+        navigate('/atleta/convocatoria');
+        break;
+      case 'misConvocatorias':
+        navigate('/atleta/mis-convocatorias');
         break;
       case 'resultadosA':
         navigate('/atleta/resultados');
         break;
-      case 'convocatoria':
-        navigate('/atleta/convocatoria');
-        break;
       case 'perfilA':
         navigate('/atleta/perfil');
+        break;
+      case 'club':
+        navigate('/atleta/club');
         break;
 
       case 'cerrarSesion':
@@ -102,8 +108,10 @@ const EncabezadoAtleta = () => {
   const menu = [
     { texto: 'Inicio', key: 'home', ruta: '/atleta' },
     { texto: 'Eventos', key: 'eventos', ruta: '/atleta/eventos' },
-    { texto: 'Resultados', key: 'resultadosA', ruta: '/atleta/resultados' },
     { texto: 'Convocatoria', key: 'convocatoria', ruta: '/atleta/convocatoria' },
+    { texto: 'Mis Convocatorias', key: 'misConvocatorias', ruta: '/atleta/mis-convocatorias' },
+    { texto: 'Resultados', key: 'resultadosA', ruta: '/atleta/resultados' },
+    { texto: 'Club', key: 'club', ruta: '/atleta/club' },
     { texto: 'Perfil', key: 'perfilA', ruta: '/atleta/perfil' },
   ];
 
@@ -186,11 +194,12 @@ const EncabezadoAtleta = () => {
         .ivd-link,
         .ivd-login-btn {
           display: block;
-          padding: 7px 35px 7px;
+          padding: 7px 22px 7px;
           font-size: 1.064em;
           font-weight: 500;
           color: #ffffff;
           text-transform: uppercase;
+          white-space: nowrap;
           transition: .25s;
         }
 
@@ -260,6 +269,7 @@ const EncabezadoAtleta = () => {
           .ivd-link,
           .ivd-login-btn {
             padding: 16px 22px;
+            white-space: normal;
           }
         }
 

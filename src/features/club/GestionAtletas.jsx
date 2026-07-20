@@ -3,7 +3,6 @@ import {
   Box,
   Container,
   Typography,
-  Grid,
   Button,
   IconButton,
   Alert,
@@ -64,11 +63,13 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   <Box
     sx={{
       bgcolor: COLORS.paper,
+      borderRadius: '10px',
       border: `1px solid ${COLORS.line}`,
-      borderTop: `3px solid ${COLORS.burgundy}`,
+      boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
+      overflow: 'hidden',
     }}
   >
     <Box sx={{ p: 3, pb: 2 }}>
@@ -129,6 +130,8 @@ const ExpedienteSolicitud = ({ folio, nombre, campos, fecha, onAceptar, onRechaz
     sx={{
       border: `1px solid ${COLORS.line}`,
       borderLeft: `4px solid ${COLORS.burgundy}`,
+      borderRadius: '8px',
+      overflow: 'hidden',
       mb: 1.5,
       '&:last-of-type': { mb: 0 },
     }}
@@ -231,6 +234,7 @@ const AtletaPerfilCard = ({ atleta, invitacionPendiente, onInvitar, onVerPerfil 
     sx={{
       border: `1px solid ${COLORS.line}`,
       borderTop: `3px solid ${COLORS.purple}`,
+      borderRadius: '8px',
       p: 2,
       display: 'flex',
       flexDirection: 'column',
@@ -307,6 +311,112 @@ const AtletaPerfilCard = ({ atleta, invitacionPendiente, onInvitar, onVerPerfil 
   </Box>
 );
 
+/**
+ * Tarjeta de perfil de un entrenador disponible (sin club), con acción de
+ * invitar o ver el perfil completo.
+ */
+const EntrenadorPerfilCard = ({ entrenador, invitacionPendiente, onInvitar, onVerPerfil }) => (
+  <Box
+    sx={{
+      border: `1px solid ${COLORS.line}`,
+      borderTop: `3px solid ${COLORS.purple}`,
+      borderRadius: '8px',
+      p: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1.25,
+    }}
+  >
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <Avatar sx={{ width: 36, height: 36, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
+        {entrenador.nombreCompleto.charAt(0)}
+      </Avatar>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, color: COLORS.ink, fontSize: '0.9rem', lineHeight: 1.2 }} noWrap>
+          {entrenador.nombreCompleto}
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: COLORS.purple }}>
+          {entrenador.añosExperiencia !== null && entrenador.añosExperiencia !== 'N/A'
+            ? `${entrenador.añosExperiencia} años de experiencia`
+            : 'Experiencia N/A'}
+        </Typography>
+      </Box>
+    </Box>
+
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1.5, rowGap: 0.75 }}>
+      <DatoCampo label="Teléfono" valor={entrenador.telefono} />
+      <DatoCampo label="Correo" valor={entrenador.gmail} />
+    </Box>
+
+    {Array.isArray(entrenador.especialidades) && entrenador.especialidades.length > 0 && (
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        {entrenador.especialidades.map((esp, idx) => (
+          <Chip
+            key={idx}
+            label={esp.nombre || esp}
+            size="small"
+            sx={{
+              fontSize: '0.68rem',
+              bgcolor: 'transparent',
+              border: `1px solid ${COLORS.purple}`,
+              color: COLORS.purple,
+            }}
+          />
+        ))}
+      </Box>
+    )}
+
+    <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<VisibilityIcon fontSize="small" />}
+        onClick={onVerPerfil}
+        sx={{
+          borderColor: COLORS.purple,
+          color: COLORS.purple,
+          textTransform: 'none',
+          fontWeight: 700,
+          flex: 1,
+          '&:hover': { borderColor: COLORS.burgundy, color: COLORS.burgundy, bgcolor: 'transparent' },
+        }}
+      >
+        Ver perfil
+      </Button>
+      {invitacionPendiente ? (
+        <Chip
+          label="Invitación enviada"
+          size="small"
+          sx={{
+            bgcolor: 'transparent',
+            border: `1px solid ${COLORS.purple}`,
+            color: COLORS.purple,
+            fontWeight: 700,
+            fontSize: '0.68rem',
+          }}
+        />
+      ) : (
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={<SendIcon fontSize="small" />}
+          onClick={onInvitar}
+          sx={{
+            bgcolor: COLORS.burgundy,
+            '&:hover': { bgcolor: COLORS.burgundyDark },
+            textTransform: 'none',
+            fontWeight: 700,
+            flex: 1,
+            boxShadow: 'none',
+          }}
+        >
+          Invitar
+        </Button>
+      )}
+    </Box>
+  </Box>
+);
+
 const GestionAtletas = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -321,6 +431,13 @@ const GestionAtletas = () => {
   const [solicitudesEntrenadores, setSolicitudesEntrenadores] = useState([]);
   const [atletasDisponibles, setAtletasDisponibles] = useState([]);
   const [invitacionesEnviadas, setInvitacionesEnviadas] = useState([]); // atletaId de invitaciones pendientes
+  const [entrenadoresDisponibles, setEntrenadoresDisponibles] = useState([]);
+  const [loadingDisponiblesEntrenadores, setLoadingDisponiblesEntrenadores] = useState(false);
+  const [invitacionesEnviadasEntrenador, setInvitacionesEnviadasEntrenador] = useState([]); // entrenadorId pendientes
+  const [invitandoEntrenador, setInvitandoEntrenador] = useState(null);
+  const [perfilEntrenadorDialogOpen, setPerfilEntrenadorDialogOpen] = useState(false);
+  const [perfilEntrenadorSeleccionado, setPerfilEntrenadorSeleccionado] = useState(null);
+  const [loadingPerfilEntrenador, setLoadingPerfilEntrenador] = useState(false);
   const [modalExpulsionOpen, setModalExpulsionOpen] = useState(false);
   const [atletaAExpulsar, setAtletaAExpulsar] = useState(null);
   const [modalExpulsionEntrenadorOpen, setModalExpulsionEntrenadorOpen] = useState(false);
@@ -360,6 +477,8 @@ const GestionAtletas = () => {
         fetchSolicitudesEntrenadores(idClub),
         fetchInvitacionesEnviadas(idClub),
         fetchAtletasDisponibles(),
+        fetchEntrenadoresDisponibles(),
+        fetchInvitacionesEnviadasEntrenador(idClub),
       ]);
       setLoading(false);
     } catch (error) {
@@ -379,6 +498,8 @@ const GestionAtletas = () => {
     edad: a.edad ?? null,
     municipio: a.municipio || 'N/A',
     fechaNacimiento: a.fecha_nacimiento || null,
+    estadoNacimiento: a.estado_nacimiento || 'N/A',
+    lugarEntrenamiento: a.lugar_entrenamiento || 'N/A',
     fechaIngresoClub: a.fecha_ingreso_club || null,
   });
 
@@ -667,6 +788,85 @@ const GestionAtletas = () => {
     setEntrenadorAExpulsar(null);
   };
 
+  const normalizarEntrenador = (e) => ({
+    id: e.id,
+    nombreCompleto: [e.nombre, e.apellido_paterno, e.apellido_materno].filter(Boolean).join(' ') || 'Sin nombre',
+    gmail: e.email || 'N/A',
+    telefono: e.telefono || 'N/A',
+    especialidades: e.especialidades || [],
+    certificaciones: e.certificaciones || [],
+    añosExperiencia: e.anos_experiencia ?? 'N/A',
+    curp: e.curp || 'N/A',
+    fechaNacimiento: e.fecha_nacimiento || null,
+    estadoNacimiento: e.estado_nacimiento || 'N/A',
+    sexo: e.genero || 'N/A',
+  });
+
+  // Entrenadores sin club asignado, disponibles para invitar.
+  const fetchEntrenadoresDisponibles = async () => {
+    try {
+      setLoadingDisponiblesEntrenadores(true);
+      const response = await entrenadoresAPI.getAll({ sin_club: true });
+      let data = response.data.entrenadores || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      setEntrenadoresDisponibles(data.map(normalizarEntrenador));
+    } catch (error) {
+      console.error('Error al obtener entrenadores disponibles:', error);
+      setEntrenadoresDisponibles([]);
+    } finally {
+      setLoadingDisponiblesEntrenadores(false);
+    }
+  };
+
+  // Invitaciones que este club ya envió a entrenadores y siguen pendientes.
+  const fetchInvitacionesEnviadasEntrenador = async (idClub) => {
+    try {
+      const response = await entrenadoresAPI.getSolicitudesByClub(idClub, { tipo: 'invitacion' });
+      let data = response.data.solicitudes || response.data || [];
+      if (!Array.isArray(data)) data = [];
+      const pendientesIds = data.filter((s) => s.estado === 'pendiente').map((s) => s.entrenador_id);
+      setInvitacionesEnviadasEntrenador(pendientesIds);
+    } catch (error) {
+      console.error('Error al cargar invitaciones enviadas a entrenadores:', error);
+      setInvitacionesEnviadasEntrenador([]);
+    }
+  };
+
+  const handleInvitarEntrenador = async (entrenadorId) => {
+    try {
+      setInvitandoEntrenador(entrenadorId);
+      await entrenadoresAPI.invitarClub(entrenadorId, { club_id: clubId });
+      setError('');
+      await fetchInvitacionesEnviadasEntrenador(clubId);
+    } catch (error) {
+      console.error('Error al invitar entrenador:', error);
+      setError(error.response?.data?.error || 'Error al enviar la invitación. Intente de nuevo.');
+    } finally {
+      setInvitandoEntrenador(null);
+    }
+  };
+
+  const handleVerPerfilEntrenador = async (entrenadorId) => {
+    setPerfilEntrenadorDialogOpen(true);
+    setPerfilEntrenadorSeleccionado(null);
+    setLoadingPerfilEntrenador(true);
+    try {
+      const response = await entrenadoresAPI.getById(entrenadorId);
+      const data = response.data.entrenador || response.data;
+      setPerfilEntrenadorSeleccionado(normalizarEntrenador(data));
+    } catch (error) {
+      console.error('Error al obtener el perfil del entrenador:', error);
+      setPerfilEntrenadorSeleccionado(null);
+    } finally {
+      setLoadingPerfilEntrenador(false);
+    }
+  };
+
+  const cerrarPerfilEntrenadorDialog = () => {
+    setPerfilEntrenadorDialogOpen(false);
+    setPerfilEntrenadorSeleccionado(null);
+  };
+
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
@@ -682,28 +882,24 @@ const GestionAtletas = () => {
   }
 
   return (
-    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%', py: 4 }}>
-      <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 } }}>
-        {/* Encabezado institucional */}
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Typography
-            sx={{
-              color: COLORS.purple,
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-            }}
-          >
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
+
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
+        <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Club
           </Typography>
-          <Typography variant="h4" sx={{ color: COLORS.burgundy, fontWeight: 800, mt: 0.5 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
             Gestión del Club
           </Typography>
-        </Box>
+        </Container>
+      </Box>
+
+      <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 3, md: 4 }, pb: { xs: 5, md: 7 } }}>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: 0, border: '1px solid', borderColor: 'error.main' }}>
+          <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
             {error}
           </Alert>
         )}
@@ -727,14 +923,15 @@ const GestionAtletas = () => {
             <Tab label="Atletas" icon={<PeopleIcon />} iconPosition="start" />
             <Tab label="Entrenadores" icon={<FitnessCenterIcon />} iconPosition="start" />
             <Tab label="Atletas Disponibles" icon={<SearchIcon />} iconPosition="start" />
+            <Tab label="Entrenadores Disponibles" icon={<SearchIcon />} iconPosition="start" />
           </Tabs>
         </Box>
 
         {/* Contenido pestaña Atletas */}
         {activeTab === 0 && (
-          <Grid container spacing={3}>
-            {/* Solicitudes de atletas — a todo lo ancho, en cuadrícula de expedientes */}
-            <Grid item xs={12}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, gap: 3, alignItems: 'start' }}>
+            {/* Solicitudes de atletas */}
+            <Box>
               <SectionCard
                 icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Bandeja de entrada"
@@ -784,10 +981,10 @@ const GestionAtletas = () => {
                   </Box>
                 )}
               </SectionCard>
-            </Grid>
+            </Box>
 
-            {/* Atletas del club — a todo lo ancho, debajo de las solicitudes */}
-            <Grid item xs={12}>
+            {/* Atletas del club */}
+            <Box>
               <SectionCard
                 icon={<PeopleIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Plantilla registrada"
@@ -867,15 +1064,15 @@ const GestionAtletas = () => {
                   </TableContainer>
                 )}
               </SectionCard>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         )}
 
         {/* Contenido pestaña Entrenadores */}
         {activeTab === 1 && (
-          <Grid container spacing={3}>
-            {/* Solicitudes de entrenadores — a todo lo ancho, en cuadrícula de expedientes */}
-            <Grid item xs={12}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, gap: 3, alignItems: 'start' }}>
+            {/* Solicitudes de entrenadores */}
+            <Box>
               <SectionCard
                 icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Bandeja de entrada"
@@ -925,10 +1122,10 @@ const GestionAtletas = () => {
                   </Box>
                 )}
               </SectionCard>
-            </Grid>
+            </Box>
 
-            {/* Entrenadores del club — a todo lo ancho, debajo de las solicitudes */}
-            <Grid item xs={12}>
+            {/* Entrenadores del club */}
+            <Box>
               <SectionCard
                 icon={<FitnessCenterIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Plantilla registrada"
@@ -1013,17 +1210,16 @@ const GestionAtletas = () => {
                   </TableContainer>
                 )}
               </SectionCard>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         )}
 
         {/* Contenido pestaña Atletas Disponibles */}
         {activeTab === 2 && (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <SectionCard
-                icon={<SearchIcon sx={{ fontSize: 16 }} />}
-                eyebrow="Atletas sin club"
+          <Box>
+            <SectionCard
+              icon={<SearchIcon sx={{ fontSize: 16 }} />}
+              eyebrow="Atletas sin club"
                 title="Atletas Disponibles"
                 action={
                   atletasDisponibles.length > 0 && (
@@ -1063,10 +1259,148 @@ const GestionAtletas = () => {
                   </Box>
                 )}
               </SectionCard>
-            </Grid>
-          </Grid>
+          </Box>
+        )}
+
+        {/* Contenido pestaña Entrenadores Disponibles */}
+        {activeTab === 3 && (
+          <Box>
+            <SectionCard
+              icon={<SearchIcon sx={{ fontSize: 16 }} />}
+              eyebrow="Entrenadores sin club"
+              title="Entrenadores Disponibles"
+              action={
+                entrenadoresDisponibles.length > 0 && (
+                  <Chip
+                    label={`${entrenadoresDisponibles.length} disponibles`}
+                    size="small"
+                    sx={{ bgcolor: COLORS.purple, color: '#fff', fontWeight: 700 }}
+                  />
+                )
+              }
+            >
+              {loadingDisponiblesEntrenadores ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
+                </Box>
+              ) : entrenadoresDisponibles.length === 0 ? (
+                <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
+                  No hay entrenadores independientes disponibles en este momento.
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                    gap: 2,
+                  }}
+                >
+                  {entrenadoresDisponibles.map((e) => (
+                    <EntrenadorPerfilCard
+                      key={e.id}
+                      entrenador={e}
+                      invitacionPendiente={invitacionesEnviadasEntrenador.includes(e.id) || invitandoEntrenador === e.id}
+                      onInvitar={() => handleInvitarEntrenador(e.id)}
+                      onVerPerfil={() => handleVerPerfilEntrenador(e.id)}
+                    />
+                  ))}
+                </Box>
+              )}
+            </SectionCard>
+          </Box>
         )}
       </Container>
+
+      {/* Diálogo de perfil de entrenador */}
+      <Dialog open={perfilEntrenadorDialogOpen} onClose={cerrarPerfilEntrenadorDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Perfil del Entrenador</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {loadingPerfilEntrenador ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
+            </Box>
+          ) : !perfilEntrenadorSeleccionado ? (
+            <Typography variant="body2" color="textSecondary">
+              No se pudo cargar el perfil del entrenador.
+            </Typography>
+          ) : (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                <Avatar sx={{ width: 48, height: 48, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
+                  {perfilEntrenadorSeleccionado.nombreCompleto.charAt(0)}
+                </Avatar>
+                <Typography variant="h6" sx={{ color: COLORS.ink, fontWeight: 700 }}>
+                  {perfilEntrenadorSeleccionado.nombreCompleto}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5, mb: 2 }}>
+                <DatoCampo label="CURP" valor={perfilEntrenadorSeleccionado.curp} />
+                <DatoCampo label="Género" valor={perfilEntrenadorSeleccionado.sexo} />
+                <DatoCampo label="Fecha de nacimiento" valor={formatearFecha(perfilEntrenadorSeleccionado.fechaNacimiento)} />
+                <DatoCampo label="Estado de nacimiento" valor={perfilEntrenadorSeleccionado.estadoNacimiento} />
+                <DatoCampo label="Teléfono" valor={perfilEntrenadorSeleccionado.telefono} />
+                <DatoCampo label="Correo" valor={perfilEntrenadorSeleccionado.gmail} />
+                <DatoCampo
+                  label="Años de experiencia"
+                  valor={perfilEntrenadorSeleccionado.añosExperiencia !== 'N/A' ? `${perfilEntrenadorSeleccionado.añosExperiencia} años` : 'N/A'}
+                />
+              </Box>
+              {Array.isArray(perfilEntrenadorSeleccionado.especialidades) && perfilEntrenadorSeleccionado.especialidades.length > 0 && (
+                <Box sx={{ mb: 1 }}>
+                  <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: 0.5 }}>
+                    Especialidades
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {perfilEntrenadorSeleccionado.especialidades.map((esp, idx) => (
+                      <Chip
+                        key={idx}
+                        label={esp.nombre || esp}
+                        size="small"
+                        sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              {Array.isArray(perfilEntrenadorSeleccionado.certificaciones) && perfilEntrenadorSeleccionado.certificaciones.length > 0 && (
+                <Box>
+                  <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: 0.5 }}>
+                    Certificaciones
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {perfilEntrenadorSeleccionado.certificaciones.map((cert, idx) => (
+                      <Chip
+                        key={idx}
+                        label={cert.nombre || cert}
+                        size="small"
+                        sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.burgundy}`, color: COLORS.burgundy }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={cerrarPerfilEntrenadorDialog} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+            Cerrar
+          </Button>
+          {perfilEntrenadorSeleccionado && (
+            <Button
+              variant="contained"
+              startIcon={<SendIcon fontSize="small" />}
+              disabled={invitacionesEnviadasEntrenador.includes(perfilEntrenadorSeleccionado.id) || invitandoEntrenador === perfilEntrenadorSeleccionado.id}
+              onClick={() => handleInvitarEntrenador(perfilEntrenadorSeleccionado.id)}
+              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+            >
+              {invitacionesEnviadasEntrenador.includes(perfilEntrenadorSeleccionado.id) ? 'Invitación enviada' : 'Invitar al club'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
       {/* Diálogo de perfil de atleta */}
       <Dialog open={perfilDialogOpen} onClose={cerrarPerfilDialog} maxWidth="sm" fullWidth>
@@ -1096,9 +1430,12 @@ const GestionAtletas = () => {
                 <DatoCampo label="CURP" valor={perfilSeleccionado.curp} />
                 <DatoCampo label="Género" valor={perfilSeleccionado.sexo} />
                 <DatoCampo label="Edad" valor={perfilSeleccionado.edad !== null ? `${perfilSeleccionado.edad} años` : 'N/A'} />
+                <DatoCampo label="Fecha de nacimiento" valor={formatearFecha(perfilSeleccionado.fechaNacimiento)} />
+                <DatoCampo label="Estado de nacimiento" valor={perfilSeleccionado.estadoNacimiento} />
                 <DatoCampo label="Municipio" valor={perfilSeleccionado.municipio} />
                 <DatoCampo label="Teléfono" valor={perfilSeleccionado.telefono} />
                 <DatoCampo label="Correo" valor={perfilSeleccionado.gmail} />
+                <DatoCampo label="Lugar de entrenamiento" valor={perfilSeleccionado.lugarEntrenamiento} />
               </Box>
             </Box>
           )}

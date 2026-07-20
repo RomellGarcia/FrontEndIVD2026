@@ -77,6 +77,8 @@ export const atletasAPI = {
   crearSolicitud: (data) => api.post('/atletas/solicitudes-club', data),
   getSolicitudes: (params) => api.get('/atletas/solicitudes-club', { params }),
   procesarSolicitud: (id, data) => api.put(`/atletas/solicitudes-club/${id}`, data),
+  // NUEVO: el club invita a un atleta independiente (POST /atletas/:id/invitar-club).
+  invitarClub: (id, data) => api.post(`/atletas/${id}/invitar-club`, data),
 }
 
 export const entrenadorAPI = {
@@ -90,12 +92,15 @@ export const entrenadorAPI = {
 }
 
 export const entrenadoresAPI = {
-  getAll: () => api.get('/entrenadores'),
+  getAll: (params) => api.get('/entrenadores', { params }),
+  getById: (id) => api.get(`/entrenadores/${id}`),
   getByClub: (clubId) => api.get(`/entrenadores/club/${clubId}`),
-  getSolicitudesByClub: (clubId) => api.get(`/entrenadores/solicitudes-club/${clubId}`),
+  getSolicitudesByClub: (clubId, params) => api.get(`/entrenadores/solicitudes-club/${clubId}`, { params }),
   updateSolicitud: (id, data) => api.put(`/entrenadores/solicitudes/${id}`, data),
   updateAdmin: (id, data) => api.put(`/entrenadores/${id}`, data),
   updateClub: (id, data) => api.put(`/entrenadores/${id}/club`, data),
+  // NUEVO: el club invita a un entrenador independiente.
+  invitarClub: (id, data) => api.post(`/entrenadores/${id}/invitar-club`, data),
 }
 
 export const eventosAPI = {
@@ -104,10 +109,34 @@ export const eventosAPI = {
   create: (data) => api.post('/eventos', data),
   addConvocatoria: (id, data) => api.post(`/eventos/${id}/convocatorias`, data),
   updateFechaCierre: (id, data) => api.put(`/eventos/${id}/fecha-cierre`, data),
-  getParticipantes: (id) => api.get(`/eventos/${id}/participantes`),
+  getParticipantes: (id, params) => api.get(`/eventos/${id}/participantes`, { params }),
+  getParticipantesPorConvocatoria: (convocatoriaId, params) => api.get(`/eventos/convocatorias/${convocatoriaId}/participantes`, { params }),
   getMisConvocatorias: () => api.get('/eventos/mis-convocatorias'),
   getMisInscripciones: () => api.get('/eventos/mis-inscripciones'),
   inscribir: (data) => api.post('/eventos/inscripciones', data),
+  cancelarInscripcion: (id) => api.delete(`/eventos/inscripciones/${id}`),
+  // Flujo de convocatorias del lado del club (inscribir a uno de sus atletas)
+  getConvocatoriasAbiertas: () => api.get('/eventos/convocatorias-abiertas'),
+  getMisInscripcionesClub: () => api.get('/eventos/mis-inscripciones-club'),
+  inscribirClub: (data) => api.post('/eventos/inscripciones/club', data),
+  // Edición, borrado y estado del evento (admin)
+  update: (id, data) => api.put(`/eventos/${id}`, data),
+  toggleEstado: (id, estado) => api.put(`/eventos/${id}/estado`, { estado }),
+  deleteEvento: (id) => api.delete(`/eventos/${id}`),
+  deleteConvocatoria: (convocatoriaId) => api.delete(`/eventos/convocatorias/${convocatoriaId}`),
+  removerAtletaDeConvocatoria: (inscripcionId) => api.delete(`/eventos/participantes/${inscripcionId}`),
+  getConvocatoriasByEvento: (eventoId) => api.get(`/eventos/${eventoId}/convocatorias`),
+  subirResultadoConvocatoria: (convocatoriaId, formData) =>
+    api.post(`/eventos/convocatorias/${convocatoriaId}/resultado`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  eliminarResultadoConvocatoria: (convocatoriaId) => api.delete(`/eventos/convocatorias/${convocatoriaId}/resultado`),
+  updateConvocatoria: (convocatoriaId, data) => api.put(`/eventos/convocatorias/${convocatoriaId}`, data),
+}
+
+export const notificacionesAPI = {
+  getMias: () => api.get('/notificaciones/mias'),
+  marcarLeidas: (ids) => api.put('/notificaciones/marcar-leidas', { ids }),
+  getMiasClub: () => api.get('/notificaciones/club/mias'),
+  marcarLeidasClub: (ids) => api.put('/notificaciones/club/marcar-leidas', { ids }),
 }
 
 export const resultadosAPI = {
@@ -122,4 +151,10 @@ export const resultadosAPI = {
   create: (data) => api.post('/resultados', data),
   update: (id, data) => api.put(`/resultados/${id}`, data),
   remove: (id) => api.delete(`/resultados/${id}`),
+}
+
+export const catalogosAPI = {
+  getDisciplinas: () => api.get('/catalogos/disciplinas'),
+  getCategorias: () => api.get('/catalogos/categorias'),
+  getGeneros: () => api.get('/catalogos/generos'),
 }

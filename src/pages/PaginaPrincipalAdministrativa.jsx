@@ -3,9 +3,6 @@ import {
   Box,
   Container,
   Typography,
-  Grid,
-  Card,
-  CardContent,
   Button,
   List,
   ListItem,
@@ -29,51 +26,70 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { atletasAPI, clubesAPI, eventosAPI, resultadosAPI } from '../api/index.js';
 
-const BURGUNDY = '#800020';
-const PURPLE  = '#7A4069';
-const CREAM   = '#e4e4e5';
+// --- Paleta institucional IVD (misma que ClubAtleta.jsx / PaginaPrincipalAtleta.jsx) ---
+const COLORS = {
+  burgundy: '#800020',
+  burgundyDark: '#5C0017',
+  purple: '#7A4069',
+  cream: '#e4e4e5',
+  paper: '#FFFFFF',
+  ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)',
+  lineSoft: 'rgba(128,0,32,0.08)',
+};
 
-const StatCard = ({ icon, value, label, sub, gradient }) => (
-  <Card sx={{
-    background: gradient,
-    color: '#fff',
-    borderRadius: 3,
-    transition: 'transform .2s, box-shadow .2s',
-    '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 24px rgba(0,0,0,.15)' },
-  }}>
-    <CardContent sx={{ py: 3, px: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+const SectionCard = ({ icon, eyebrow, title, action, children }) => (
+  <Box
+    sx={{
+      bgcolor: COLORS.paper,
+      borderRadius: '10px',
+      border: `1px solid ${COLORS.line}`,
+      boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      overflow: 'hidden',
+    }}
+  >
+    <Box sx={{ p: 3, pb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
-          <Typography variant="h3" sx={{ fontWeight: 800, lineHeight: 1 }}>{value}</Typography>
-          <Typography variant="body1" sx={{ opacity: .95, mt: .5, fontWeight: 600 }}>{label}</Typography>
-          {sub && <Typography variant="caption" sx={{ opacity: .75 }}>{sub}</Typography>}
+          <Typography
+            sx={{
+              color: COLORS.purple, fontSize: '0.7rem', fontWeight: 700,
+              letterSpacing: '0.12em', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5,
+            }}
+          >
+            {icon}
+            {eyebrow}
+          </Typography>
+          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
+            {title}
+          </Typography>
         </Box>
-        <Avatar sx={{ bgcolor: 'rgba(255,255,255,.18)', width: 56, height: 56 }}>
-          {icon}
-        </Avatar>
+        {action}
       </Box>
-    </CardContent>
-  </Card>
+    </Box>
+    <Divider sx={{ borderColor: COLORS.line }} />
+    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+  </Box>
 );
 
-const SectionCard = ({ icon, title, color, children, minHeight = 360 }) => (
-  <Card sx={{
-    borderRadius: 3,
-    height: '100%',
-    minHeight,
-    boxShadow: '0 2px 12px rgba(0,0,0,.06)',
-    display: 'flex',
-    flexDirection: 'column',
-  }}>
-    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Avatar sx={{ bgcolor: color, width: 36, height: 36 }}>{icon}</Avatar>
-        <Typography variant="h6" sx={{ color, fontWeight: 'bold' }}>{title}</Typography>
-      </Box>
-      <Divider sx={{ mb: 2 }} />
-      <Box sx={{ flex: 1 }}>{children}</Box>
-    </CardContent>
-  </Card>
+/** Chip de estado sin colores semánticos default de MUI: borde purple = positivo/activo, borde ink = neutral/negativo. */
+const EstadoChip = ({ label, positivo = true }) => (
+  <Chip
+    label={label}
+    size="small"
+    sx={{
+      height: 20,
+      fontSize: '0.68rem',
+      fontWeight: 700,
+      bgcolor: 'transparent',
+      border: `1px solid ${positivo ? COLORS.purple : COLORS.line}`,
+      color: positivo ? COLORS.purple : COLORS.ink,
+    }}
+  />
 );
 
 const PaginaPrincipalAdministrativa = () => {
@@ -99,7 +115,7 @@ const PaginaPrincipalAdministrativa = () => {
 
       const atletas    = atletasRes.data.atletas       || [];
       const clubes     = clubesRes.data.clubes         || [];
-      const eventos    = eventosRes.data.eventos       || [];
+      const eventos     = eventosRes.data.eventos       || [];
       const resultados = resultadosRes.data.resultados || [];
 
       const hace7 = new Date(); hace7.setDate(hace7.getDate() - 7);
@@ -137,110 +153,92 @@ const PaginaPrincipalAdministrativa = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
-        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: CREAM, py: { xs: 3, md: 5 } }}>
-      <Container maxWidth="lg">
+    <Box sx={{ minHeight: '100vh', bgcolor: COLORS.cream }}>
 
-        {/* ── Header ── */}
-        <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, mb: 1, textAlign: 'center' }}>
-          Panel Administrativo
-        </Typography>
-        <Typography variant="body1" sx={{ color: PURPLE, textAlign: 'center', mb: 4, opacity: .8 }}>
-          Instituto Veracruzano del Deporte — Resumen general
-        </Typography>
+      {/* ── Franja superior ── */}
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
+        <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            Instituto Veracruzano del Deporte
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            Panel Administrativo
+          </Typography>
+          <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
+            Resumen general del sistema
+          </Typography>
+        </Container>
+      </Box>
 
-        {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
+      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
 
-        {/* ── Estadísticas ── */}
-        <Box sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
-          gap: 3,
-          mb: 5,
-        }}>
-          <StatCard
-            icon={<PeopleIcon />}
-            value={stats.totalAtletas}
-            label="Atletas"
-            sub={`+${stats.atletasRecientes} esta semana`}
-            gradient={`linear-gradient(135deg, ${BURGUNDY} 0%, ${PURPLE} 100%)`}
-          />
-          <StatCard
-            icon={<GroupsIcon />}
-            value={stats.totalClubes}
-            label="Clubes"
-            sub={`+${stats.clubesRecientes} esta semana`}
-            gradient={`linear-gradient(135deg, ${PURPLE} 0%, ${BURGUNDY} 100%)`}
-          />
-          <StatCard
-            icon={<EventIcon />}
-            value={stats.totalEventos}
-            label="Eventos"
-            sub="Eventos en el sistema"
-            gradient="linear-gradient(135deg, #2E7D32 0%, #43A047 100%)"
-          />
-          <StatCard
-            icon={<TrophyIcon />}
-            value={stats.totalResultados}
-            label="Resultados"
-            sub="Marcas y tiempos"
-            gradient={`linear-gradient(135deg, ${PURPLE} 0%, #5c2d50 100%)`}
-          />
+        {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>{error}</Alert>}
+
+        {/* ── Stat-strip flotante ── */}
+        <Box
+          sx={{
+            mt: { xs: -5, md: -6 }, mb: 5,
+            bgcolor: COLORS.paper, borderRadius: '10px',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
+            overflow: 'hidden',
+          }}
+        >
+          {[
+            { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: stats.totalAtletas, label: 'Atletas', sub: `+${stats.atletasRecientes} esta semana` },
+            { icon: <GroupsIcon sx={{ fontSize: 24 }} />, value: stats.totalClubes, label: 'Clubes', sub: `+${stats.clubesRecientes} esta semana` },
+            { icon: <EventIcon sx={{ fontSize: 24 }} />, value: stats.totalEventos, label: 'Eventos', sub: 'En el sistema' },
+            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: stats.totalResultados, label: 'Resultados', sub: 'Marcas y tiempos' },
+          ].map((s, i) => (
+            <Box
+              key={i}
+              sx={{
+                p: { xs: 2, md: 2.75 }, textAlign: 'center',
+                borderRight: { md: i < 3 ? `1px solid ${COLORS.line}` : 'none' },
+                borderBottom: { xs: i < 2 ? `1px solid ${COLORS.line}` : 'none', md: 'none' },
+              }}
+            >
+              <Box sx={{ color: i % 2 === 0 ? COLORS.burgundy : COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+              <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.3rem', md: '1.6rem' } }}>
+                {s.value}
+              </Typography>
+              <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+              <Typography sx={{ fontSize: '0.66rem', color: COLORS.purple }}>{s.sub}</Typography>
+            </Box>
+          ))}
         </Box>
 
         {/* ── Actividad reciente — fila 1 ── */}
-        <Box sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 3,
-          mb: 3,
-        }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
+
           {/* Atletas */}
-          <SectionCard icon={<PeopleIcon sx={{ fontSize: 20 }} />} title="Atletas Recientes" color={BURGUNDY}>
+          <SectionCard icon={<PeopleIcon sx={{ fontSize: 16 }} />} eyebrow="Recién ingresados" title="Atletas Recientes">
             {recentActivity.atletas.length === 0 ? (
-              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
-                No hay atletas registrados
-              </Typography>
+              <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>No hay atletas registrados.</Typography>
             ) : (
               <List disablePadding>
                 {recentActivity.atletas.map((a, i) => (
                   <React.Fragment key={a.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2 }}>
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: BURGUNDY, width: 40, height: 40, fontSize: '0.9rem' }}>
+                        <Avatar sx={{ bgcolor: COLORS.burgundy, width: 38, height: 38, fontSize: '0.85rem' }}>
                           {a.nombre?.[0]}{a.apellido_paterno?.[0]}
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
-                        primary={
-                          <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                            {a.nombre} {a.apellido_paterno} {a.apellido_materno || ''}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="caption" sx={{ color: '#888' }}>
-                            {a.municipio || 'Sin municipio'} · {a.club_nombre || 'Independiente'}
-                          </Typography>
-                        }
+                        primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{a.nombre} {a.apellido_paterno} {a.apellido_materno || ''}</Typography>}
+                        secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{a.municipio || 'Sin municipio'} · {a.club_nombre || 'Independiente'}</Typography>}
                       />
-                      <Chip
-                        label={a.genero === 'femenino' ? 'F' : 'M'}
-                        size="small"
-                        sx={{
-                          fontWeight: 700,
-                          bgcolor: a.genero === 'femenino' ? 'rgba(122,64,105,.12)' : 'rgba(128,0,32,.1)',
-                          color: a.genero === 'femenino' ? PURPLE : BURGUNDY,
-                          minWidth: 32,
-                        }}
-                      />
+                      <EstadoChip label={a.genero === 'femenino' ? 'F' : 'M'} positivo={a.genero === 'femenino'} />
                     </ListItem>
-                    {i < recentActivity.atletas.length - 1 && <Divider />}
+                    {i < recentActivity.atletas.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
@@ -248,40 +246,24 @@ const PaginaPrincipalAdministrativa = () => {
           </SectionCard>
 
           {/* Clubes */}
-          <SectionCard icon={<GroupsIcon sx={{ fontSize: 20 }} />} title="Clubes Registrados" color={PURPLE}>
+          <SectionCard icon={<GroupsIcon sx={{ fontSize: 16 }} />} eyebrow="Registro" title="Clubes Registrados">
             {recentActivity.clubes.length === 0 ? (
-              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
-                No hay clubes registrados
-              </Typography>
+              <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>No hay clubes registrados.</Typography>
             ) : (
               <List disablePadding>
                 {recentActivity.clubes.map((c, i) => (
                   <React.Fragment key={c.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2 }}>
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: PURPLE, width: 40, height: 40, fontSize: '0.9rem' }}>
-                          {c.nombre?.[0]}
-                        </Avatar>
+                        <Avatar sx={{ bgcolor: COLORS.purple, width: 38, height: 38, fontSize: '0.85rem' }}>{c.nombre?.[0]}</Avatar>
                       </ListItemAvatar>
                       <ListItemText
-                        primary={
-                          <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                            {c.nombre}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="caption" sx={{ color: '#888' }}>
-                            {c.direccion || 'Sin dirección'} · {c.email || ''}
-                          </Typography>
-                        }
+                        primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{c.nombre}</Typography>}
+                        secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{c.direccion || 'Sin dirección'} · {c.email || ''}</Typography>}
                       />
-                      <Chip
-                        label={c.estado || 'activo'}
-                        size="small"
-                        color={c.estado === 'activo' ? 'success' : 'error'}
-                      />
+                      <EstadoChip label={c.estado === 'activo' ? 'Activo' : 'Inactivo'} positivo={c.estado === 'activo'} />
                     </ListItem>
-                    {i < recentActivity.clubes.length - 1 && <Divider />}
+                    {i < recentActivity.clubes.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
@@ -290,80 +272,57 @@ const PaginaPrincipalAdministrativa = () => {
         </Box>
 
         {/* ── Actividad reciente — fila 2 ── */}
-        <Box sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 3,
-        }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+
           {/* Próximos Eventos */}
-          <SectionCard icon={<CalendarIcon sx={{ fontSize: 20 }} />} title="Próximos Eventos" color="#2E7D32">
+          <SectionCard icon={<CalendarIcon sx={{ fontSize: 16 }} />} eyebrow="Agenda" title="Próximos Eventos">
             {recentActivity.eventos.length === 0 ? (
-              <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
-                No hay eventos próximos
-              </Typography>
+              <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>No hay eventos próximos.</Typography>
             ) : (
               <List disablePadding>
                 {recentActivity.eventos.map((e, i) => (
                   <React.Fragment key={e.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2, alignItems: 'flex-start' }}>
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: '#2E7D32', width: 40, height: 40 }}>
-                          <EventIcon sx={{ fontSize: 20 }} />
+                        <Avatar sx={{ bgcolor: COLORS.burgundy, width: 38, height: 38 }}>
+                          <EventIcon sx={{ fontSize: 18 }} />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
-                        primary={
-                          <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                            {e.titulo}
-                          </Typography>
-                        }
+                        primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{e.titulo}</Typography>}
                         secondary={
                           <Box>
-                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
-                              <CalendarIcon sx={{ fontSize: 13 }} /> {fmt(e.fecha)}
-                              {e.hora && ` · ${e.hora.slice(0, 5)}`}
+                            <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
+                              <CalendarIcon sx={{ fontSize: 13 }} /> {fmt(e.fecha)}{e.hora && ` · ${e.hora.slice(0, 5)}`}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
+                            <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5 }}>
                               <LocationIcon sx={{ fontSize: 13 }} /> {e.lugar}
                             </Typography>
                           </Box>
                         }
                       />
-                      <Chip
-                        label="Activo"
-                        size="small"
-                        color="success"
-                        sx={{ mt: .5 }}
-                      />
+                      <EstadoChip label="Activo" positivo />
                     </ListItem>
-                    {i < recentActivity.eventos.length - 1 && <Divider />}
+                    {i < recentActivity.eventos.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
             )}
           </SectionCard>
 
-          {/* Resultados + Acceso rápido a reportes */}
-          <SectionCard icon={<TrophyIcon sx={{ fontSize: 20 }} />} title="Resultados Recientes" color={PURPLE}>
+          {/* Resultados */}
+          <SectionCard icon={<TrophyIcon sx={{ fontSize: 16 }} />} eyebrow="Marcas y tiempos" title="Resultados Recientes">
             {recentActivity.resultados.length === 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4, gap: 2 }}>
-                <Avatar sx={{ bgcolor: PURPLE, width: 64, height: 64 }}>
-                  <AssessmentIcon sx={{ fontSize: 32 }} />
-                </Avatar>
-                <Typography variant="body2" sx={{ color: '#888', textAlign: 'center' }}>
-                  Los resultados de eventos pasados aparecerán aquí
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 3, gap: 2 }}>
+                <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center' }}>
+                  Los resultados de eventos pasados aparecerán aquí.
                 </Typography>
                 <Button
                   variant="contained"
                   size="small"
                   startIcon={<AssessmentIcon />}
                   onClick={() => navigate('/administrativo/reportes')}
-                  sx={{
-                    bgcolor: BURGUNDY,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    '&:hover': { bgcolor: '#600018' },
-                  }}
+                  sx={{ bgcolor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: COLORS.burgundyDark } }}
                 >
                   Ver Reportes
                 </Button>
@@ -374,31 +333,22 @@ const PaginaPrincipalAdministrativa = () => {
                   <React.Fragment key={r.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2 }}>
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: PURPLE, width: 40, height: 40 }}>
-                          <TrophyIcon sx={{ fontSize: 20 }} />
+                        <Avatar sx={{ bgcolor: COLORS.purple, width: 38, height: 38 }}>
+                          <TrophyIcon sx={{ fontSize: 18 }} />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
-                        primary={
-                          <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                            {r.nombre_atleta || r.nombreAtleta || 'Atleta'}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="caption" sx={{ color: '#888' }}>
-                            {r.nombre_evento || r.nombreEvento || 'Evento'} · {fmt(r.fecha_registro)}
-                          </Typography>
-                        }
+                        primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{r.nombre_atleta || r.nombreAtleta || 'Atleta'}</Typography>}
+                        secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{r.nombre_evento || r.nombreEvento || 'Evento'} · {fmt(r.fecha_registro)}</Typography>}
                       />
                     </ListItem>
-                    {i < recentActivity.resultados.length - 1 && <Divider />}
+                    {i < recentActivity.resultados.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
             )}
           </SectionCard>
         </Box>
-
       </Container>
     </Box>
   );

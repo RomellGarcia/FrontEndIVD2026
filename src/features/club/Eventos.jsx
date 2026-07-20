@@ -1,77 +1,80 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Container,
-  Typography,
-  Card,
-  CardContent,
-  Button,
-  IconButton,
-  Alert,
-  Chip,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TableContainer,
-  Divider,
-  useMediaQuery,
-  useTheme,
+  Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
+  Container, Button, CircularProgress, Avatar, Pagination, Chip,
+  Tabs, Tab, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
+  List, ListItem, ListItemAvatar, ListItemText,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
-  Event as EventIcon,
-  Visibility as VisibilityIcon,
-  CalendarToday as CalendarIcon,
-  LocationOn as LocationIcon,
-  Group as GroupIcon,
-  CheckCircle as CheckCircleIcon,
-  People as PeopleIcon,
+  CalendarToday as CalendarIcon, LocationOn as LocationIcon,
+  AccessTime as TimeIcon,
+  Event as EventIcon, Info as InfoIcon,
+  ArrowBack as ArrowBackIcon, EmojiEvents as TrophyIcon,
+  DoneAll as DoneAllIcon, Visibility as VisibilityIcon,
+  HourglassEmpty as PendingIcon, Clear as ClearIcon,
+  People as PeopleIcon, PersonAdd as PersonAddIcon,
   Close as CloseIcon,
-  SportsScore as SportsIcon,
 } from '@mui/icons-material';
-import axios from 'axios';
+import { eventosAPI, clubesAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-const BURGUNDY = '#800020';
-const PURPLE = '#7A4069';
-const CREAM = '#e4e4e5';
-const GREEN = '#2E7D32';
+// --- Paleta institucional IVD (misma que EventosAtleta.jsx / páginas principales) ---
+const COLORS = {
+  burgundy: '#800020',
+  burgundyDark: '#5C0017',
+  purple: '#7A4069',
+  cream: '#e4e4e5',
+  paper: '#FFFFFF',
+  ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)',
+  lineSoft: 'rgba(128,0,32,0.08)',
+};
 
-// ── Componente reutilizable de sección ──
-const SectionCard = ({ icon, title, color, action, children }) => (
-  <Card sx={{
-    borderRadius: 3,
-    height: '100%',
-    boxShadow: '0 2px 12px rgba(0,0,0,.06)',
-    display: 'flex',
-    flexDirection: 'column',
-    bgcolor: '#fff',
-  }}>
-    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar sx={{ bgcolor: color, width: 36, height: 36 }}>{icon}</Avatar>
-          <Typography variant="h6" sx={{ color, fontWeight: 'bold' }}>{title}</Typography>
-        </Box>
-        {action}
-      </Box>
-      <Divider sx={{ mb: 2 }} />
-      <Box sx={{ flex: 1 }}>{children}</Box>
-    </CardContent>
-  </Card>
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+
+const tableHeadSx = {
+  fontWeight: 700,
+  color: '#fff',
+  fontSize: '0.72rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  py: 2,
+};
+
+const EstadoChip = ({ label, positivo = true }) => (
+  <Chip
+    label={label}
+    size="small"
+    sx={{
+      fontWeight: 700, fontSize: '.72rem',
+      bgcolor: 'transparent',
+      border: `1px solid ${positivo ? COLORS.purple : COLORS.line}`,
+      color: positivo ? COLORS.purple : COLORS.ink,
+    }}
+  />
 );
+
+// Nombre puede venir como string plano o como objeto { nombre } según el
+// endpoint — se maneja aquí una sola vez en vez de repetir el chequeo.
+const obtenerNombre = (valor) => {
+  if (!valor) return 'N/A';
+  if (typeof valor === 'string') return valor;
+  if (typeof valor === 'object' && valor.nombre) return valor.nombre;
+  return 'N/A';
+};
+
+// Comparación normalizada (mayúsculas/espacios) en vez de === exacto, para
+// no repetir el bug de "género equivocado" que ya salió en el panel admin.
+const textoGenero = (g) => {
+  const v = (g || '').toLowerCase().trim();
+  if (v === 'masculino') return 'Masculino';
+  if (v === 'femenino') return 'Femenino';
+  if (v === 'mixto') return 'Mixto';
+  return obtenerNombre(g);
+};
 
 const Eventos = () => {
   const { user } = useAuth();
@@ -82,47 +85,50 @@ const Eventos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [eventos, setEventos] = useState([]);
-  const [modalEventoOpen, setModalEventoOpen] = useState(false);
-  const [modalConvocatoriasOpen, setModalConvocatoriasOpen] = useState(false);
-  const [modalParticipantesOpen, setModalParticipantesOpen] = useState(false);
+  const [clubId, setClubId] = useState(null);
+
+  const [vista, setVista] = useState('lista');
+  const [tabLista, setTabLista] = useState('disponibles');
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
-  const [eventoConvocatorias, setEventoConvocatorias] = useState(null);
+  const [convocatoriasDelEvento, setConvocatoriasDelEvento] = useState([]);
+  const [filtroDisciplina, setFiltroDisciplina] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [cargandoConvocatorias, setCargandoConvocatorias] = useState(false);
+
+  const [pageDisponibles, setPageDisponibles] = useState(1);
+  const [pageTerminados, setPageTerminados] = useState(1);
+  const porPagina = 6;
+
+  const [modalParticipantesOpen, setModalParticipantesOpen] = useState(false);
+  const [convocatoriaParticipantes, setConvocatoriaParticipantes] = useState(null);
   const [participantesClub, setParticipantesClub] = useState([]);
   const [loadingParticipantes, setLoadingParticipantes] = useState(false);
 
-  // Obtener headers con token
-  const getAuthHeaders = () => {
-    const token = user?.token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
-
   useEffect(() => {
-    if (!user?.id) {
-      navigate('/login');
-      return;
-    }
+    if (!user?.id) { navigate('/login'); return; }
     cargarEventos();
+    cargarClubId();
   }, [user, navigate]);
+
+  const cargarClubId = async () => {
+    try {
+      const clubRes = await clubesAPI.getAll();
+      let clubes = clubRes.data.clubes || clubRes.data || [];
+      if (!Array.isArray(clubes)) clubes = [clubes];
+      const club = clubes.find((c) => c.email === user.email);
+      setClubId(club?.id || club?._id || null);
+    } catch {
+      setClubId(null);
+    }
+  };
 
   const cargarEventos = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/eventos', {
-        headers: getAuthHeaders(),
-      });
-      // Normalizar: puede ser array o objeto con propiedad eventos
+      const response = await eventosAPI.getAll();
       let eventosData = response.data.eventos || response.data || [];
       if (!Array.isArray(eventosData)) eventosData = [eventosData];
-      // Filtrar solo eventos futuros o del día
-      const fechaActual = new Date();
-      fechaActual.setHours(0, 0, 0, 0);
-      const eventosFuturos = eventosData.filter((evento) => {
-        if (!evento.fecha) return false;
-        const fechaEvento = new Date(evento.fecha);
-        fechaEvento.setHours(0, 0, 0, 0);
-        return fechaEvento >= fechaActual;
-      });
-      setEventos(eventosFuturos);
+      setEventos(eventosData);
       setError('');
     } catch (error) {
       console.error('Error al cargar eventos:', error);
@@ -132,46 +138,74 @@ const Eventos = () => {
     }
   };
 
-  const handleVerConvocatorias = (evento) => {
-    setEventoConvocatorias(evento);
-    setModalConvocatoriasOpen(true);
+  const fmt = (fecha) => {
+    if (!fecha) return '—';
+    try {
+      return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch { return '—'; }
   };
 
-  const handleVerEventoConvocatoria = (evento, convocatoria, index) => {
-    setEventoSeleccionado({ ...evento, convocatoriaSeleccionada: convocatoria, convocatoriaIndex: index });
-    setModalEventoOpen(true);
+  const fmtCorta = (fecha) => {
+    if (!fecha) return '—';
+    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const handleVerParticipantesConvocatoria = async (evento, convocatoria, index) => {
-    setEventoSeleccionado({ ...evento, convocatoriaSeleccionada: convocatoria, convocatoriaIndex: index });
+  const fmtHora = (hora) => (hora ? String(hora).slice(0, 5) : '');
+
+  const inscripcionAbierta = (evento) => {
+    if (!evento.fecha_cierre) return true;
+    return new Date(evento.fecha_cierre) > new Date();
+  };
+
+  const yaTermino = (evento) => new Date(evento.fecha) < new Date();
+
+  const eventosDisponibles = eventos.filter((e) => !yaTermino(e));
+  const eventosTerminados = eventos.filter((e) => yaTermino(e));
+
+  const disponiblesPaginados = eventosDisponibles.slice((pageDisponibles - 1) * porPagina, pageDisponibles * porPagina);
+  const terminadosPaginados = eventosTerminados.slice((pageTerminados - 1) * porPagina, pageTerminados * porPagina);
+  const totalAbiertos = eventosDisponibles.filter(inscripcionAbierta).length;
+
+  const handleVerDetalle = async (evento) => {
+    setEventoSeleccionado(evento);
+    setVista('detalle');
+    setConvocatoriasDelEvento([]);
+    setFiltroDisciplina('');
+    setFiltroCategoria('');
+
+    setCargandoConvocatorias(true);
+    try {
+      const res = await eventosAPI.getConvocatoriasByEvento(evento.id || evento._id);
+      setConvocatoriasDelEvento(res.data.convocatorias || []);
+    } catch (error) {
+      console.error('Error al cargar convocatorias del evento:', error);
+    } finally {
+      setCargandoConvocatorias(false);
+    }
+  };
+
+  const handleVolver = () => {
+    setVista('lista');
+    setEventoSeleccionado(null);
+    setConvocatoriasDelEvento([]);
+    setFiltroDisciplina('');
+    setFiltroCategoria('');
+  };
+
+  const handleInscribirAtletas = (conv) => {
+    navigate(`/club/convocatoria?eventoId=${eventoSeleccionado.id || eventoSeleccionado._id}&convocatoriaId=${conv.id}`);
+  };
+
+  const handleVerParticipantesClub = async (conv) => {
+    setConvocatoriaParticipantes(conv);
     setModalParticipantesOpen(true);
     setLoadingParticipantes(true);
     try {
-      // Obtener ID del club (numérico)
-      const clubRes = await axios.get('http://localhost:5000/api/clubes', { headers: getAuthHeaders() });
-      let clubes = clubRes.data.clubes || clubRes.data || [];
-      if (!Array.isArray(clubes)) clubes = [clubes];
-      const club = clubes.find(c => c.email === user.email);
-      const clubId = club?.id || club?._id;
-      if (!clubId) {
-        setParticipantesClub([]);
-        setLoadingParticipantes(false);
-        return;
-      }
-      // Llamar al endpoint con los parámetros correctos
-      const response = await axios.get(
-        `http://localhost:5000/api/eventos/${evento.id || evento._id}/participantes`,
-        {
-          params: {
-            convocatoriaIndex: index,
-            clubId: clubId,
-          },
-          headers: getAuthHeaders(),
-        }
-      );
+      if (!clubId) { setParticipantesClub([]); return; }
+      const response = await eventosAPI.getParticipantesPorConvocatoria(conv.id, { clubId });
       let participantes = response.data.participantes || response.data || [];
       if (!Array.isArray(participantes)) participantes = [];
-      setParticipantesClub(participantes);
+      setParticipantesClub(participantes.filter((p) => !clubId || p.club_id === clubId || p.atleta?.club_id === clubId));
     } catch (error) {
       console.error('Error al cargar participantes:', error);
       setParticipantesClub([]);
@@ -182,155 +216,379 @@ const Eventos = () => {
 
   const handleCerrarParticipantes = () => {
     setModalParticipantesOpen(false);
-    setEventoSeleccionado(null);
+    setConvocatoriaParticipantes(null);
+    setParticipantesClub([]);
   };
 
-  const handleCerrarEvento = () => {
-    setModalEventoOpen(false);
-    setEventoSeleccionado(null);
-  };
-
-  const handleCerrarConvocatorias = () => {
-    setModalConvocatoriasOpen(false);
-    setEventoConvocatorias(null);
-  };
-
-  const formatearFecha = (fecha) => {
-    if (!fecha) return 'N/A';
-    try {
-      const fechaObj = new Date(fecha);
-      if (isNaN(fechaObj.getTime())) return 'N/A';
-      return fechaObj.toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return 'N/A';
-    }
-  };
-
-  const obtenerTextoEstado = (estado) => {
-    if (estado === true || estado === 'activo') return 'Activo';
-    if (estado === false || estado === 'inactivo') return 'Inactivo';
-    if (estado === 'cancelado') return 'Cancelado';
-    if (estado === 'finalizado') return 'Finalizado';
-    if (estado === 'pendiente') return 'Pendiente';
-    return 'Desconocido';
-  };
-
-  const obtenerColorEstado = (estado) => {
-    if (estado === true || estado === 'activo') return 'success';
-    if (estado === false || estado === 'inactivo') return 'error';
-    if (estado === 'cancelado') return 'error';
-    if (estado === 'finalizado') return 'default';
-    if (estado === 'pendiente') return 'warning';
-    return 'default';
-  };
-
-  // Función para obtener nombre de disciplina (puede ser objeto o string)
-  const obtenerNombreDisciplina = (disciplina) => {
-    if (!disciplina) return 'N/A';
-    if (typeof disciplina === 'string') return disciplina;
-    if (typeof disciplina === 'object' && disciplina.nombre) return disciplina.nombre;
-    return 'N/A';
-  };
-
-  const obtenerNombreCategoria = (categoria) => {
-    if (!categoria) return 'N/A';
-    if (typeof categoria === 'string') return categoria;
-    if (typeof categoria === 'object' && categoria.nombre) return categoria.nombre;
-    return 'N/A';
+  const abrirDocumentoParaVer = (url) => {
+    if (!url) return;
+    const esPdf = /\.pdf(\?|$)/i.test(url);
+    const urlFinal = esPdf ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    window.open(urlFinal, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
-        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
+      </Box>
+    );
+  }
+
+  if (vista === 'detalle' && eventoSeleccionado) {
+    const terminado = yaTermino(eventoSeleccionado);
+    const abierta = inscripcionAbierta(eventoSeleccionado);
+
+    const disciplinasUnicas = [...new Set(convocatoriasDelEvento.map((c) => obtenerNombre(c.disciplina)).filter(Boolean))].sort();
+    const categoriasUnicas = [...new Set(convocatoriasDelEvento.map((c) => obtenerNombre(c.categoria)).filter(Boolean))].sort();
+    const convocatoriasFiltradas = convocatoriasDelEvento.filter((c) =>
+      (!filtroDisciplina || obtenerNombre(c.disciplina) === filtroDisciplina) &&
+      (!filtroCategoria || obtenerNombre(c.categoria) === filtroCategoria)
+    );
+    const hayFiltrosActivos = !!(filtroDisciplina || filtroCategoria);
+
+    return (
+      <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
+        <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
+          <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={handleVolver}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              Volver a Eventos
+            </Button>
+            <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+              IVD · Panel de Club
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+              {eventoSeleccionado.titulo}
+            </Typography>
+          </Container>
+        </Box>
+
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
+          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
+
+            <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
+              {eventoSeleccionado.imagen_url && (
+                <Box component="img" src={eventoSeleccionado.imagen_url} alt={eventoSeleccionado.titulo}
+                  sx={{ width: '100%', height: { xs: 380, md: 460 }, objectFit: 'cover', borderRadius: '8px', mb: 2.5 }} />
+              )}
+
+              <EstadoChip
+                label={terminado ? 'Finalizado' : (abierta ? 'Inscripción abierta' : 'Inscripción cerrada')}
+                positivo={!terminado}
+              />
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2.5 }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <CalendarIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmt(eventoSeleccionado.fecha)}</Typography>
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <TimeIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Hora</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmtHora(eventoSeleccionado.hora) || '—'}</Typography>
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <LocationIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{eventoSeleccionado.lugar}</Typography>
+                </Box>
+                {eventoSeleccionado.descripcion && (
+                  <Box>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Descripción</Typography>
+                    <Typography variant="body2" sx={{ mt: .3, lineHeight: 1.6, color: COLORS.ink, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                      {eventoSeleccionado.descripcion}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+
+            <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3.5 } }}>
+              <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
+                {terminado ? 'Convocatorias y Resultados' : 'Convocatorias de este Evento'}
+              </Typography>
+
+              {cargandoConvocatorias ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress size={32} sx={{ color: COLORS.burgundy }} />
+                </Box>
+              ) : convocatoriasDelEvento.length === 0 ? (
+                <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 3 }}>
+                  Este evento no tiene convocatorias registradas.
+                </Typography>
+              ) : (
+                <>
+                  {(disciplinasUnicas.length > 1 || categoriasUnicas.length > 1) && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                      <Button
+                        onClick={() => { setFiltroDisciplina(''); setFiltroCategoria(''); }}
+                        disabled={!hayFiltrosActivos}
+                        startIcon={<ClearIcon fontSize="small" />}
+                        sx={{ color: COLORS.purple, textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Limpiar filtros
+                      </Button>
+                    </Box>
+                  )}
+
+                  {convocatoriasFiltradas.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 3 }}>
+                      Ninguna convocatoria coincide con el filtro.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {convocatoriasFiltradas.map((conv) => (
+                        <Box
+                          key={conv.id}
+                          sx={{
+                            p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}`,
+                            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 700, color: COLORS.ink }}>{obtenerNombre(conv.disciplina)}</Typography>
+                            <Box sx={{ display: 'flex', gap: .75, mt: .5, flexWrap: 'wrap' }}>
+                              <Chip label={obtenerNombre(conv.categoria)} size="small" sx={{ border: `1px solid ${COLORS.purple}`, bgcolor: 'transparent', color: COLORS.purple }} />
+                              <Chip label={textoGenero(conv.genero)} size="small" sx={{ border: `1px solid ${COLORS.line}`, bgcolor: 'transparent', color: COLORS.ink }} />
+                              {(conv.edad_min ?? conv.edadMin) != null && (
+                                <Chip label={`${conv.edad_min ?? conv.edadMin}-${conv.edad_max ?? conv.edadMax} años`} size="small" sx={{ border: `1px solid ${COLORS.line}`, bgcolor: 'transparent', color: COLORS.ink }} />
+                              )}
+                            </Box>
+                          </Box>
+
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            {terminado ? (
+                              conv.documentoResultado ? (
+                                <Button
+                                  size="small" variant="contained" startIcon={<TrophyIcon />}
+                                  onClick={() => abrirDocumentoParaVer(conv.documentoResultado)}
+                                  sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
+                                >
+                                  Ver resultados
+                                </Button>
+                              ) : (
+                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Resultados aún no publicados" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                              )
+                            ) : (
+                              <Button
+                                size="small" variant="contained" startIcon={<PersonAddIcon />}
+                                onClick={() => handleInscribirAtletas(conv)}
+                                sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
+                              >
+                                Inscribir atletas
+                              </Button>
+                            )}
+                            <Button
+                              size="small" variant="outlined" startIcon={<PeopleIcon />}
+                              onClick={() => handleVerParticipantesClub(conv)}
+                              sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
+                            >
+                              Mis atletas
+                            </Button>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </>
+              )}
+            </Box>
+          </Box>
+        </Container>
+
+        {/* ── Modal de Participantes del Club (de una convocatoria específica) ── */}
+        <Dialog open={modalParticipantesOpen} onClose={handleCerrarParticipantes} maxWidth="sm" fullWidth fullScreen={isMobile}>
+          <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Atletas de mi Club Inscritos</Typography>
+              <IconButton onClick={handleCerrarParticipantes} sx={{ color: '#fff' }}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+            {convocatoriaParticipantes && (
+              <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 1 }}>
+                {obtenerNombre(convocatoriaParticipantes.disciplina)} - {obtenerNombre(convocatoriaParticipantes.categoria)}
+              </Typography>
+            )}
+          </DialogTitle>
+          <DialogContent dividers>
+            {loadingParticipantes ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress size={40} sx={{ color: COLORS.burgundy }} />
+              </Box>
+            ) : participantesClub.length === 0 ? (
+              <Typography variant="body2" sx={{ textAlign: 'center', py: 4, color: COLORS.purple }}>
+                No hay atletas de tu club inscritos en esta convocatoria.
+              </Typography>
+            ) : (
+              <List disablePadding>
+                {participantesClub.map((p, idx) => (
+                  <ListItem key={idx} divider sx={{ py: 1.5, borderColor: COLORS.line }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: COLORS.purple }}>
+                        {(p.atleta?.nombre || p.nombre || 'A').charAt(0)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.burgundy }}>
+                          {p.atleta?.nombreCompleto || p.atleta?.nombre || p.nombre || 'Atleta'}
+                        </Typography>
+                      }
+                      secondary={
+                        <Box component="span">
+                          <Typography variant="caption" component="span" display="block" sx={{ color: COLORS.ink }}>
+                            <strong>Edad:</strong> {p.atleta?.edad || p.edad || 'N/A'} años
+                          </Typography>
+                          <Typography variant="caption" component="span" display="block" sx={{ color: COLORS.ink }}>
+                            <strong>Género:</strong> {textoGenero(p.atleta?.genero || p.genero)}
+                          </Typography>
+                          <Typography variant="caption" component="span" display="block" sx={{ color: COLORS.ink }}>
+                            <strong>Inscripción:</strong> {fmtCorta(p.fechaInscripcion || p.fecha_inscripcion)}
+                          </Typography>
+                          <Box sx={{ mt: 0.5 }}>
+                            <EstadoChip label={p.validado ? 'Validado' : 'Pendiente'} positivo={p.validado} />
+                          </Box>
+                        </Box>
+                      }
+                      secondaryTypographyProps={{ component: 'div' }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCerrarParticipantes} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+              Cerrar
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', width: '100%', py: 4 }}>
-      <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 6 }, pb: { xs: 7, md: 9 } }}>
+        <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel de Club
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            Eventos
+          </Typography>
+          <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
+            Consulta eventos, convocatorias y participantes de tu club
+          </Typography>
+        </Container>
+      </Box>
 
-        <Typography
-          variant="h4"
-          align="center"
-          gutterBottom
-          sx={{ color: BURGUNDY, fontWeight: 800, mb: 4 }}
-        >
-          Eventos Próximos
-        </Typography>
+      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          <Alert severity="error" sx={{ mb: 3, mt: { xs: -5, md: -6 }, borderRadius: '8px' }}>
             {error}
           </Alert>
         )}
 
-        {/* Lista de eventos */}
-        <SectionCard
-          icon={<EventIcon sx={{ fontSize: 20 }} />}
-          title="Todos los Eventos"
-          color={BURGUNDY}
-          action={
-            eventos.length > 0 && (
-              <Chip
-                label={`${eventos.length} eventos`}
-                color="primary"
-                size="small"
-                sx={{ fontWeight: 600 }}
-              />
-            )
-          }
+        {/* ── Stat-strip flotante ── */}
+        <Box
+          sx={{
+            mt: { xs: -5, md: -6 }, mb: 5,
+            bgcolor: COLORS.paper, borderRadius: '10px',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            overflow: 'hidden',
+          }}
         >
-          {eventos.length === 0 ? (
-            <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
-              No hay eventos próximos disponibles.
-            </Typography>
+          <Box sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+            <Box sx={{ color: COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}><EventIcon sx={{ fontSize: 24 }} /></Box>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{totalAbiertos}</Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>Con Inscripción Abierta</Typography>
+          </Box>
+          <Box sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center' }}>
+            <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}><DoneAllIcon sx={{ fontSize: 24 }} /></Box>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{eventosTerminados.length}</Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>Finalizados</Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ mb: 3, borderBottom: `1px solid ${COLORS.line}` }}>
+          <Tabs
+            value={tabLista}
+            onChange={(e, v) => setTabLista(v)}
+            sx={{ '& .MuiTabs-indicator': { backgroundColor: COLORS.burgundy, height: 3 } }}
+          >
+            <Tab icon={<EventIcon />} iconPosition="start" label="Eventos Disponibles" value="disponibles"
+              sx={{ fontWeight: 700, color: COLORS.purple, textTransform: 'none', '&.Mui-selected': { color: COLORS.burgundy } }} />
+            <Tab icon={<DoneAllIcon />} iconPosition="start" label="Eventos Finalizados" value="terminados"
+              sx={{ fontWeight: 700, color: COLORS.purple, textTransform: 'none', '&.Mui-selected': { color: COLORS.burgundy } }} />
+          </Tabs>
+        </Box>
+
+        {tabLista === 'disponibles' && (
+          eventosDisponibles.length === 0 ? (
+            <Box sx={{ ...cardSx, textAlign: 'center', py: 5 }}>
+              <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
+                <EventIcon sx={{ fontSize: 28, color: COLORS.purple }} />
+              </Avatar>
+              <Typography sx={{ color: COLORS.purple, fontWeight: 700 }}>No hay eventos próximos por ahora</Typography>
+            </Box>
           ) : (
-            <TableContainer>
-              <Table size="small">
+            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
+              <Table>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Evento</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Fecha</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Lugar</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }} align="center">Convocatorias</TableCell>
+                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                    {['Imagen', 'Fecha', 'Título', 'Lugar', 'Estado', 'Detalles'].map((h) => (
+                      <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
+                    ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {eventos.map((evento) => {
-                    const convocatorias = evento.convocatorias || [];
+                  {disponiblesPaginados.map((evento) => {
+                    const abierta = inscripcionAbierta(evento);
                     return (
-                      <TableRow key={evento._id || evento.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: BURGUNDY }}>
-                            {evento.titulo || 'Evento'}
+                      <TableRow key={evento.id || evento._id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                        <TableCell sx={{ py: 1.5, borderColor: COLORS.line }}>
+                          <Avatar src={evento.imagen_url} variant="rounded" sx={{ width: 100, height: 100, bgcolor: COLORS.lineSoft, border: `1px solid ${COLORS.line}` }}>
+                            <EventIcon sx={{ color: COLORS.purple, fontSize: 36 }} />
+                          </Avatar>
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{fmtCorta(evento.fecha)}</Typography>
+                          {evento.hora && <Typography variant="caption" sx={{ color: COLORS.purple }}>{fmtHora(evento.hora)} hrs</Typography>}
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{evento.titulo}</Typography>
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Typography variant="body2" sx={{ color: COLORS.ink, display: 'flex', alignItems: 'center', gap: .5 }}>
+                            <LocationIcon sx={{ fontSize: 14, color: COLORS.burgundy }} />
+                            {evento.lugar}
                           </Typography>
                         </TableCell>
-                        <TableCell>{formatearFecha(evento.fecha)}</TableCell>
-                        <TableCell>{evento.lugar || 'N/A'}</TableCell>
-                        <TableCell align="center">
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <EstadoChip label={abierta ? 'Abierto' : 'Cerrado'} positivo={abierta} />
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
                           <Button
-                            variant="outlined"
-                            onClick={() => handleVerConvocatorias(evento)}
-                            startIcon={<PeopleIcon />}
-                            size="small"
-                            sx={{
-                              color: BURGUNDY,
-                              borderColor: BURGUNDY,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                              '&:hover': {
-                                borderColor: BURGUNDY,
-                                backgroundColor: 'rgba(128,0,32,0.04)',
-                              },
-                            }}
+                            variant="outlined" size="small" startIcon={<InfoIcon />}
+                            onClick={() => handleVerDetalle(evento)}
+                            sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
                           >
-                            Ver ({convocatorias.length})
+                            Ver detalles
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -338,275 +596,77 @@ const Eventos = () => {
                   })}
                 </TableBody>
               </Table>
-            </TableContainer>
-          )}
-        </SectionCard>
-      </Container>
+              {eventosDisponibles.length > porPagina && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
+                  <Pagination count={Math.ceil(eventosDisponibles.length / porPagina)} page={pageDisponibles} onChange={(e, v) => setPageDisponibles(v)}
+                    sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }} />
+                </Box>
+              )}
+            </Box>
+          )
+        )}
 
-      {/* ── Modal de Convocatorias ── */}
-      <Dialog open={modalConvocatoriasOpen} onClose={handleCerrarConvocatorias} maxWidth="lg" fullWidth fullScreen={isMobile}>
-        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              🎯 Convocatorias del Evento: {eventoConvocatorias?.titulo}
-            </Typography>
-            <IconButton onClick={handleCerrarConvocatorias} sx={{ color: '#fff' }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers>
-          {eventoConvocatorias && eventoConvocatorias.convocatorias?.length > 0 ? (
-            <TableContainer>
-              <Table size="small">
+        {tabLista === 'terminados' && (
+          eventosTerminados.length === 0 ? (
+            <Box sx={{ ...cardSx, textAlign: 'center', py: 5 }}>
+              <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
+                <DoneAllIcon sx={{ fontSize: 28, color: COLORS.purple }} />
+              </Avatar>
+              <Typography sx={{ color: COLORS.purple, fontWeight: 700 }}>Todavía no hay eventos finalizados</Typography>
+            </Box>
+          ) : (
+            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
+              <Table>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Disciplina</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Categoría</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Edad</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Género</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }}>Estado</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: BURGUNDY }} align="center">Acciones</TableCell>
+                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                    {['Imagen', 'Fecha', 'Título', 'Lugar', 'Convocatorias y Resultados'].map((h) => (
+                      <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
+                    ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {eventoConvocatorias.convocatorias.map((convocatoria, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {obtenerNombreDisciplina(convocatoria.disciplina)}
+                  {terminadosPaginados.map((evento) => (
+                    <TableRow key={evento.id || evento._id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                      <TableCell sx={{ py: 1.5, borderColor: COLORS.line }}>
+                        <Avatar src={evento.imagen_url} variant="rounded" sx={{ width: 100, height: 100, bgcolor: COLORS.lineSoft, border: `1px solid ${COLORS.line}`, filter: 'grayscale(60%)', opacity: 0.85 }}>
+                          <EventIcon sx={{ color: COLORS.purple, fontSize: 36 }} />
+                        </Avatar>
+                      </TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#8a8a8a' }}>{fmtCorta(evento.fecha)}</Typography>
+                      </TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#8a8a8a' }}>{evento.titulo}</Typography>
+                      </TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <Typography variant="body2" sx={{ color: '#8a8a8a', display: 'flex', alignItems: 'center', gap: .5 }}>
+                          <LocationIcon sx={{ fontSize: 14 }} />
+                          {evento.lugar}
                         </Typography>
                       </TableCell>
-                      <TableCell>{obtenerNombreCategoria(convocatoria.categoria)}</TableCell>
-                      <TableCell>
-                        {convocatoria.edadMin || '?'} - {convocatoria.edadMax || '?'} años
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={convocatoria.genero === 'mixto' ? 'Mixto' :
-                                 convocatoria.genero === 'masculino' ? 'Masculino' :
-                                 convocatoria.genero === 'femenino' ? 'Femenino' : 'N/A'}
-                          size="small"
-                          color={convocatoria.genero === 'masculino' ? 'primary' :
-                                 convocatoria.genero === 'femenino' ? 'secondary' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={obtenerTextoEstado(eventoConvocatorias.estado)}
-                          color={obtenerColorEstado(eventoConvocatorias.estado)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleVerEventoConvocatoria(eventoConvocatorias, convocatoria, index)}
-                            color="primary"
-                            title="Ver detalles"
-                            sx={{ color: BURGUNDY }}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleVerParticipantesConvocatoria(eventoConvocatorias, convocatoria, index)}
-                            color="secondary"
-                            title="Ver participantes del club"
-                            sx={{ color: PURPLE }}
-                          >
-                            <PeopleIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <Button
+                          variant="outlined" size="small" startIcon={<VisibilityIcon />}
+                          onClick={() => handleVerDetalle(evento)}
+                          sx={{ color: COLORS.purple, borderColor: COLORS.purple, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                        >
+                          Ver convocatorias y resultados
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </TableContainer>
-          ) : (
-            <Typography variant="body2" sx={{ textAlign: 'center', py: 4, color: '#999' }}>
-              No hay convocatorias para este evento.
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCerrarConvocatorias} sx={{ color: PURPLE, fontWeight: 600 }}>
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Modal de Participantes del Club ── */}
-      <Dialog open={modalParticipantesOpen} onClose={handleCerrarParticipantes} maxWidth="md" fullWidth fullScreen={isMobile}>
-        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              👥 Participantes del Club
-            </Typography>
-            <IconButton onClick={handleCerrarParticipantes} sx={{ color: '#fff' }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-          {eventoSeleccionado?.convocatoriaSeleccionada && (
-            <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 1 }}>
-              {obtenerNombreDisciplina(eventoSeleccionado.convocatoriaSeleccionada.disciplina)} - {obtenerNombreCategoria(eventoSeleccionado.convocatoriaSeleccionada.categoria)}
-            </Typography>
-          )}
-        </DialogTitle>
-        <DialogContent dividers>
-          {loadingParticipantes ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress size={40} sx={{ color: BURGUNDY }} />
-            </Box>
-          ) : participantesClub.length === 0 ? (
-            <Typography variant="body2" sx={{ textAlign: 'center', py: 4, color: '#999' }}>
-              No hay atletas de tu club inscritos en esta convocatoria.
-            </Typography>
-          ) : (
-            <List disablePadding>
-              {participantesClub.map((p, idx) => (
-                <ListItem key={idx} divider sx={{ py: 1.5 }}>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: PURPLE }}>
-                      {p.atleta?.nombre?.charAt(0) || 'A'}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: BURGUNDY }}>
-                        {p.atleta?.nombreCompleto || p.atleta?.nombre || 'Atleta'}
-                      </Typography>
-                    }
-                    secondary={
-                      <Box component="span">
-                        <Typography variant="caption" component="span" display="block" sx={{ color: '#555' }}>
-                          <strong>Edad:</strong> {p.atleta?.edad || 'N/A'} años
-                        </Typography>
-                        <Typography variant="caption" component="span" display="block" sx={{ color: '#555' }}>
-                          <strong>Género:</strong> {p.atleta?.genero || 'N/A'}
-                        </Typography>
-                        <Typography variant="caption" component="span" display="block" sx={{ color: '#555' }}>
-                          <strong>Inscripción:</strong> {formatearFecha(p.fechaInscripcion)}
-                        </Typography>
-                        <Chip
-                          label={p.validado ? 'Validado' : 'Pendiente'}
-                          color={p.validado ? 'success' : 'warning'}
-                          size="small"
-                          sx={{ mt: 0.5 }}
-                        />
-                      </Box>
-                    }
-                    secondaryTypographyProps={{ component: 'div' }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCerrarParticipantes} sx={{ color: PURPLE, fontWeight: 600 }}>
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Modal de Detalles del Evento ── */}
-      <Dialog open={modalEventoOpen} onClose={handleCerrarEvento} maxWidth="md" fullWidth fullScreen={isMobile}>
-        <DialogTitle sx={{ bgcolor: BURGUNDY, color: '#fff' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              📋 Detalles del Evento
-            </Typography>
-            <IconButton onClick={handleCerrarEvento} sx={{ color: '#fff' }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-          {eventoSeleccionado?.convocatoriaSeleccionada && (
-            <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 1 }}>
-              {obtenerNombreDisciplina(eventoSeleccionado.convocatoriaSeleccionada.disciplina)} - {obtenerNombreCategoria(eventoSeleccionado.convocatoriaSeleccionada.categoria)}
-            </Typography>
-          )}
-        </DialogTitle>
-        <DialogContent dividers>
-          {eventoSeleccionado && (
-            <Box>
-              <Typography variant="h5" sx={{ color: BURGUNDY, fontWeight: 700, mb: 2 }}>
-                {eventoSeleccionado.titulo}
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>📅 Información General</Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}><strong>Fecha:</strong> {formatearFecha(eventoSeleccionado.fecha)}</Typography>
-                  <Typography variant="body2"><strong>Hora:</strong> {eventoSeleccionado.hora || 'No especificada'}</Typography>
-                  <Typography variant="body2"><strong>Lugar:</strong> {eventoSeleccionado.lugar}</Typography>
-                  <Typography variant="body2">
-                    <strong>Estado:</strong>{' '}
-                    <Chip
-                      label={obtenerTextoEstado(eventoSeleccionado.estado)}
-                      color={obtenerColorEstado(eventoSeleccionado.estado)}
-                      size="small"
-                      sx={{ ml: 1 }}
-                    />
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>🏃 Información Deportiva</Typography>
-                  {eventoSeleccionado.convocatoriaSeleccionada ? (
-                    <>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        <strong>Disciplina:</strong> {obtenerNombreDisciplina(eventoSeleccionado.convocatoriaSeleccionada.disciplina)}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Categoría:</strong> {obtenerNombreCategoria(eventoSeleccionado.convocatoriaSeleccionada.categoria)}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Edad:</strong> {eventoSeleccionado.convocatoriaSeleccionada.edadMin || '?'} - {eventoSeleccionado.convocatoriaSeleccionada.edadMax || '?'} años
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Género:</strong> {eventoSeleccionado.convocatoriaSeleccionada.genero === 'mixto' ? 'Mixto' :
-                                                     eventoSeleccionado.convocatoriaSeleccionada.genero === 'masculino' ? 'Masculino' :
-                                                     eventoSeleccionado.convocatoriaSeleccionada.genero === 'femenino' ? 'Femenino' : 'N/A'}
-                      </Typography>
-                    </>
-                  ) : (
-                    <>
-                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Disciplina:</strong> {obtenerNombreDisciplina(eventoSeleccionado.disciplina)}</Typography>
-                      <Typography variant="body2"><strong>Categoría:</strong> {obtenerNombreCategoria(eventoSeleccionado.categoria)}</Typography>
-                      <Typography variant="body2"><strong>Edad:</strong> {eventoSeleccionado.edadMin || 'N/A'} - {eventoSeleccionado.edadMax || 'N/A'} años</Typography>
-                      <Typography variant="body2"><strong>Género:</strong> {eventoSeleccionado.genero || 'N/A'}</Typography>
-                    </>
-                  )}
-                </Box>
-              </Box>
-
-              {eventoSeleccionado.descripcion && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>📝 Descripción</Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>{eventoSeleccionado.descripcion}</Typography>
+              {eventosTerminados.length > porPagina && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
+                  <Pagination count={Math.ceil(eventosTerminados.length / porPagina)} page={pageTerminados} onChange={(e, v) => setPageTerminados(v)}
+                    sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }} />
                 </Box>
               )}
-
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: BURGUNDY }}>📊 Información Técnica</Typography>
-                <Typography variant="body2" sx={{ mt: 1 }}><strong>ID:</strong> {eventoSeleccionado._id || eventoSeleccionado.id}</Typography>
-                <Typography variant="body2"><strong>Creación:</strong> {formatearFecha(eventoSeleccionado.createdAt)}</Typography>
-                {eventoSeleccionado.fechaCierre && (
-                  <Typography variant="body2"><strong>Cierre:</strong> {formatearFecha(eventoSeleccionado.fechaCierre)}</Typography>
-                )}
-              </Box>
             </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCerrarEvento} sx={{ color: PURPLE, fontWeight: 600 }}>
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
+          )
+        )}
+      </Container>
     </Box>
   );
 };

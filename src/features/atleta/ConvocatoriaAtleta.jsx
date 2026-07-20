@@ -1,57 +1,99 @@
 import React, { useState, useEffect } from 'react';
-import { eventosAPI, perfilEmpresaAPI } from '../../api/index.js';
+import { eventosAPI, perfilEmpresaAPI, notificacionesAPI } from '../../api/index.js';
 import {
   Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
-  Paper, Container, Button, IconButton, Alert, CircularProgress, Chip,
+  Container, Button, IconButton, Alert, CircularProgress, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Divider, Pagination,
+  Checkbox, FormControlLabel, FormControl, InputLabel, Select, MenuItem, TextField
 } from '@mui/material';
 import {
   Download as DownloadIcon, Close as CloseIcon, Event as EventIcon,
-  CalendarToday as CalendarIcon, LocationOn as LocationIcon,
-  SportsScore as SportsIcon, Person as PersonIcon,
-  CheckCircle as CheckIcon, HowToReg as RegisterIcon,
+  LocationOn as LocationIcon, SportsScore as SportsIcon, Person as PersonIcon,
+  CheckCircle as CheckIcon, HowToReg as RegisterIcon, ListAlt as ListAltIcon,
+  Visibility as VisibilityIcon, ArrowBack as ArrowBackIcon, Warning as WarningIcon,
+  FilterList as FilterIcon, Clear as ClearIcon, NotificationsActive as NotificationsActiveIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../components/common/AuthContext.jsx';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
-import jsPDF from 'jspdf';
 
-const BURGUNDY = '#800020';
-const PURPLE = '#7A4069';
-const CREAM = '#e3e4e5';
-const GREEN = '#2E7D32';
+const COLORS = {
+  burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
+  cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+};
+
+const tableHeadSx = { fontWeight: 700, color: '#fff', fontSize: '0.72rem', textTransform: 'uppercase', py: 2 };
+
+// Los PDF los abre el navegador solo; Word/Excel pasan por el visor
+// público de Google Docs (mismo patrón que en Eventos y Mis Convocatorias).
+const abrirDocumentoParaVer = (url) => {
+  if (!url) return;
+  const esPdf = /\.pdf(\?|$)/i.test(url);
+  const urlFinal = esPdf ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  window.open(urlFinal, '_blank', 'noopener,noreferrer');
+};
 
 const ConvocatoriasAtleta = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [convocatorias, setConvocatorias] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState('');
+
+  const [filtroEvento, setFiltroEvento] = useState(searchParams.get('eventoId') || '');
+  const [filtroDisciplina, setFiltroDisciplina] = useState('');
+  const [filtroEdad, setFiltroEdad] = useState('');
+  const [filtroGenero, setFiltroGenero] = useState('');
+
   const [inscribiendo, setInscribiendo] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [aceptaRiesgos, setAceptaRiesgos] = useState(false);
+
   const [convocatoriaSeleccionada, setConvocatoriaSeleccionada] = useState(null);
+  const [vista, setVista] = useState('lista');
+
   const [yaInscritos, setYaInscritos] = useState([]);
   const [page, setPage] = useState(1);
   const porPagina = 8;
+  const [notificaciones, setNotificaciones] = useState([]);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
     cargarDatos();
+    cargarNotificaciones();
   }, [user]);
+
+  const cargarNotificaciones = async () => {
+    try {
+      const response = await notificacionesAPI.getMias();
+      setNotificaciones(response.data.notificaciones || []);
+    } catch {
+      // No es crítico si falla; simplemente no se muestra el banner.
+    }
+  };
+
+  const handleCerrarNotificacion = async (id) => {
+    setNotificaciones((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await notificacionesAPI.marcarLeidas([id]);
+    } catch {
+      // Si falla marcar como leída, no pasa nada grave: se volverá a
+      // mostrar la próxima vez, que es un fallo tolerable.
+    }
+  };
 
   const cargarDatos = async () => {
     try {
-      setLoading(true);
-      setErrorMessage('');
-
+      setLoading(true); setErrorMessage('');
       const edad = calcularEdad(user.fecha_nacimiento);
       const genero = (user.genero || '').toLowerCase();
 
       if (!edad || !genero) {
         setErrorMessage('Verifica que tu fecha de nacimiento y género estén registrados en tu perfil.');
-        setConvocatorias([]);
-        return;
+        setConvocatorias([]); return;
       }
 
       const [convRes, logoRes, inscRes] = await Promise.allSettled([
@@ -60,404 +102,502 @@ const ConvocatoriasAtleta = () => {
         eventosAPI.getMisInscripciones(),
       ]);
 
+      if (inscRes.status === 'fulfilled') {
+        const inscripciones = inscRes.value.data.inscripciones || inscRes.value.data || [];
+        const ids = inscripciones
+          .map(i => i.convocatoria_id ?? i.convocatoriaId ?? i.eventoId ?? i.id ?? i._id)
+          .filter((v) => v !== undefined && v !== null)
+          .map(String);
+        setYaInscritos(ids);
+      }
+
       if (convRes.status === 'fulfilled') {
         const data = convRes.value.data.convocatorias || [];
         setConvocatorias(data);
         if (data.length === 0) {
-          setErrorMessage(`No hay convocatorias disponibles para tu edad (${edad} años) y género (${genero}).`);
+          setErrorMessage(`No hay convocatorias disponibles para tu edad (${edad} años).`);
         }
-      } else {
-        setErrorMessage('Error al cargar las convocatorias.');
-        setConvocatorias([]);
       }
 
-      if (logoRes.status === 'fulfilled') {
-        setLogoUrl(logoRes.value.data.perfil?.logo || '');
-      }
+      if (logoRes.status === 'fulfilled') setLogoUrl(logoRes.value.data.perfil?.logo || '');
 
-      if (inscRes.status === 'fulfilled') {
-        const inscripciones = inscRes.value.data.inscripciones || inscRes.value.data || [];
-        setYaInscritos(inscripciones.map(i => i.convocatoria_id || i.eventoId));
-      }
     } catch {
       setErrorMessage('Error al cargar los datos.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const calcularEdad = (fechaNacimiento) => {
     if (!fechaNacimiento) return null;
-    try {
-      const hoy = new Date();
-      const nac = new Date(fechaNacimiento);
-      if (isNaN(nac.getTime()) || nac > hoy) return null;
-      let edad = hoy.getFullYear() - nac.getFullYear();
-      const m = hoy.getMonth() - nac.getMonth();
-      if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
-      return edad >= 0 && edad <= 100 ? edad : null;
-    } catch { return null; }
+    const hoy = new Date(), nac = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const m = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+    return edad;
   };
 
-  const fmt = (fecha) => {
-    if (!fecha) return '—';
-    try {
-      return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
-    } catch { return '—'; }
-  };
-
-  const fmtCorta = (fecha) => {
-    if (!fecha) return '—';
-    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
+  const fmt = (fecha) => fecha ? new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+  const fmtCorta = (fecha) => fecha ? new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   const inscripcionAbierta = (conv) => {
     if (!conv.fecha_cierre && !conv.fechaCierre) return true;
     return new Date(conv.fecha_cierre || conv.fechaCierre) > new Date();
   };
 
-  const estaInscrito = (conv) => {
-    return yaInscritos.includes(conv.convocatoria_id || conv._id || conv.id);
+  const getConvId = (conv) => String(conv?.convocatoria_id ?? conv?._id ?? conv?.id ?? '');
+
+  const puedeInscribirse = (conv) => {
+    if (!conv) return false;
+    const generoConv = (conv.genero || '').toLowerCase();
+    const generoAtleta = (user?.genero || '').toLowerCase();
+    if (!generoConv || generoConv === 'mixto') return true;
+    return generoConv === generoAtleta;
   };
 
-  const handleInscribirse = (conv) => {
-    if (!user.nombre || !user.curp || !user.fecha_nacimiento || !user.genero) {
-      Swal.fire({ icon: 'warning', title: 'Perfil incompleto', text: 'Completa tu perfil antes de inscribirte.', confirmButtonColor: BURGUNDY });
+  const textoGenero = (genero) => {
+    const g = (genero || '').toLowerCase();
+    if (g === 'masculino') return 'Masculino';
+    if (g === 'femenino') return 'Femenino';
+    if (g === 'mixto') return 'Mixto';
+    return genero || 'N/A';
+  };
+
+  const estaInscrito = (conv) => {
+    const id = getConvId(conv);
+    return !!id && yaInscritos.includes(id);
+  };
+
+  const convocatoriasDisponibles = convocatorias.filter(conv => !estaInscrito(conv));
+
+  const eventosUnicos = Array.from(
+    new Map(
+      convocatoriasDisponibles
+        .filter((c) => c.evento_id || c.eventoId)
+        .map((c) => [String(c.evento_id ?? c.eventoId), c.titulo])
+    ).entries()
+  );
+  const disciplinasUnicas = Array.from(new Set(convocatoriasDisponibles.map((c) => c.disciplina).filter(Boolean))).sort();
+
+  const convocatoriasFiltradas = convocatoriasDisponibles.filter((conv) => {
+    if (filtroEvento && String(conv.evento_id ?? conv.eventoId ?? '') !== String(filtroEvento)) return false;
+    if (filtroDisciplina && conv.disciplina !== filtroDisciplina) return false;
+    if (filtroGenero && (conv.genero || '').toLowerCase() !== filtroGenero) return false;
+    if (filtroEdad) {
+      const edadNum = parseInt(filtroEdad, 10);
+      const min = conv.edadMin ?? conv.edad_min;
+      const max = conv.edadMax ?? conv.edad_max;
+      if (!isNaN(edadNum) && min != null && max != null && (edadNum < min || edadNum > max)) return false;
+    }
+    return true;
+  });
+
+  const hayFiltrosActivos = !!(filtroEvento || filtroDisciplina || filtroGenero || filtroEdad);
+  const limpiarFiltros = () => {
+    setFiltroEvento(''); setFiltroDisciplina(''); setFiltroGenero(''); setFiltroEdad('');
+    setSearchParams({});
+  };
+
+  const totalAbiertas = convocatoriasDisponibles.filter(inscripcionAbierta).length;
+
+  const handleVerDetalles = (conv) => {
+    setConvocatoriaSeleccionada(conv);
+    setVista('detalle');
+  };
+
+  const handleAbrirInscripcion = (conv) => {
+    if (!user.nombre || !user.curp) {
+      Swal.fire({ icon: 'warning', title: 'Perfil incompleto', text: 'Completa tu perfil antes de inscribirte.', confirmButtonColor: COLORS.burgundy });
       return;
     }
-    if (!inscripcionAbierta(conv)) {
-      Swal.fire({ icon: 'error', title: 'Inscripción cerrada', text: 'Esta convocatoria ya cerró inscripciones.', confirmButtonColor: BURGUNDY });
+    if (!puedeInscribirse(conv)) {
+      Swal.fire({ icon: 'warning', title: 'No disponible', text: `Esta convocatoria es solo para ${textoGenero(conv.genero).toLowerCase()}.`, confirmButtonColor: COLORS.burgundy });
       return;
     }
     setConvocatoriaSeleccionada(conv);
+    setAceptaRiesgos(false);
     setModalOpen(true);
   };
 
   const handleConfirmarInscripcion = async () => {
-    if (!convocatoriaSeleccionada) return;
+    if (!aceptaRiesgos || !convocatoriaSeleccionada) return;
     setInscribiendo(true);
+    const idConv = getConvId(convocatoriaSeleccionada);
     try {
-      await eventosAPI.inscribir({
-        convocatoria_id: convocatoriaSeleccionada.convocatoria_id || convocatoriaSeleccionada.id,
-      });
+      await eventosAPI.inscribir({ convocatoria_id: Number(idConv) });
+
+      setYaInscritos((prev) => (prev.includes(idConv) ? prev : [...prev, idConv]));
       setModalOpen(false);
-      Swal.fire({ icon: 'success', title: 'Inscripción exitosa', confirmButtonColor: BURGUNDY, timer: 2000, showConfirmButton: false });
-      await cargarDatos();
+      setVista('lista');
+      Swal.fire({
+        icon: 'success',
+        title: 'Inscripción exitosa',
+        text: 'Puedes consultarla en "Mis Convocatorias".',
+        confirmButtonColor: COLORS.burgundy,
+        timer: 2200,
+        showConfirmButton: false,
+      });
+      cargarDatos();
     } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Error', text: error.response?.data?.error || 'Error al inscribirse.', confirmButtonColor: BURGUNDY });
+      const mensaje = error.response?.data?.error || error.response?.data?.mensaje || '';
+      const yaEstabaInscrito = error.response?.status === 409 || /ya\s+(te\s+encuentras|est[aá]s|te\s+has)\s+inscrit/i.test(mensaje);
+
+      if (yaEstabaInscrito) {
+        setYaInscritos((prev) => (prev.includes(idConv) ? prev : [...prev, idConv]));
+        setModalOpen(false);
+        setVista('lista');
+        Swal.fire({
+          icon: 'info',
+          title: 'Ya estabas inscrito',
+          text: 'Este evento ya aparece en "Mis Convocatorias".',
+          confirmButtonColor: COLORS.burgundy,
+        });
+        cargarDatos();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: mensaje || 'Error al inscribirse.', confirmButtonColor: COLORS.burgundy });
+      }
     } finally { setInscribiendo(false); }
   };
 
-  /* ── Generar PDF ── */
-  const handleDescargarPDF = (conv) => {
-    try {
-      const doc = new jsPDF();
-      let y = 15;
-      const margin = 20;
-      const pw = doc.internal.pageSize.width;
-      const cw = pw - 2 * margin;
-
-      const wrap = (text, x, yy, mw) => {
-        const lines = doc.splitTextToSize(text, mw);
-        doc.text(lines, x, yy);
-        return yy + lines.length * 5;
-      };
-      const center = (text, yy, fs = 16) => {
-        doc.setFontSize(fs); doc.setFont('helvetica', 'bold');
-        doc.text(text, pw / 2, yy, { align: 'center' });
-        doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-        return yy + 8;
-      };
-      const sub = (text, yy) => {
-        doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(128, 0, 32);
-        doc.text(text, margin, yy);
-        doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
-        return yy + 6;
-      };
-
-      if (logoUrl) { try { doc.addImage(logoUrl, 'JPEG', margin, y, 20, 20); y += 25; } catch { /* sin logo */ } }
-
-      y = center('INSTITUTO VERACRUZANO DEL DEPORTE', y, 16);
-      y = center('Gobierno del Estado de Veracruz', y, 10);
-      y = center('CONVOCATORIA OFICIAL', y, 14);
-      y += 10;
-      doc.setDrawColor(128, 0, 32); doc.line(margin, y, pw - margin, y); y += 12;
-
-      const fechaHoy = fmt(new Date());
-      doc.setFontSize(9); doc.text(`Veracruz, Ver. a ${fechaHoy}`, pw - margin, y, { align: 'right' }); doc.setFontSize(10); y += 10;
-
-      y = wrap('El Instituto Veracruzano del Deporte invita a todos los atletas interesados a participar en el siguiente evento deportivo:', margin, y, cw);
-      y += 8;
-
-      doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(128, 0, 32);
-      doc.text(conv.titulo || 'Evento Deportivo', pw / 2, y, { align: 'center' });
-      doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0); y += 10;
-
-      y = sub('INFORMACIÓN DEL EVENTO:', y);
-      const detalles = [
-        ['Disciplina:', conv.disciplina || '—'], ['Categoría:', conv.categoria || '—'],
-        ['Género:', conv.genero === 'masculino' ? 'Masculino' : conv.genero === 'femenino' ? 'Femenino' : 'Mixto'],
-        ['Lugar:', conv.lugar || '—'], ['Fecha:', fmt(conv.fecha)],
-        ['Hora:', conv.hora || '—'], ['Cierre inscripción:', fmt(conv.fecha_cierre || conv.fechaCierre)],
-      ];
-      detalles.forEach(([label, value]) => {
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-        const lbl = `• ${label}`; doc.text(lbl, margin, y); doc.setFont('helvetica', 'normal');
-        y = wrap(value, margin + doc.getTextWidth(lbl) + 3, y, cw - doc.getTextWidth(lbl) - 3); y += 3;
-      });
-
-      if (conv.descripcion) { y += 3; y = sub('INFORMACIÓN ADICIONAL:', y); y = wrap(conv.descripcion, margin, y, cw); }
-      y += 6; y = sub('INSTRUCCIONES:', y);
-      ['Registrarse a través de la plataforma oficial del IVD.', 'Presentar la convocatoria oficial el día del evento.',
-        'Llegar con 30 minutos de anticipación.'].forEach(t => { y = wrap(`• ${t}`, margin, y, cw); y += 2; });
-
-      y += 8; doc.setDrawColor(200, 200, 200); doc.line(margin, y, pw - margin, y); y += 6;
-      doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-      doc.text('Convocatoria oficial emitida por el Instituto Veracruzano del Deporte.', pw / 2, y, { align: 'center' });
-      doc.save(`Convocatoria_${conv.titulo || 'evento'}.pdf`);
-    } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Error', text: `Error al generar PDF: ${error.message}`, confirmButtonColor: BURGUNDY });
+  const descargarDocumentoOficial = (conv) => {
+    if (!conv.documentoConvocatoria) {
+      Swal.fire({ icon: 'info', title: 'Sin documento', text: 'Este evento no tiene un documento oficial subido todavía.', confirmButtonColor: COLORS.burgundy });
+      return;
     }
+    abrirDocumentoParaVer(conv.documentoConvocatoria);
   };
 
-  const convocatoriasPaginadas = convocatorias.slice((page - 1) * porPagina, page * porPagina);
+  const convocatoriasPaginadas = convocatoriasFiltradas.slice((page - 1) * porPagina, page * porPagina);
+
+  useEffect(() => { setPage(1); }, [filtroEvento, filtroDisciplina, filtroGenero, filtroEdad]);
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: CREAM }}>
-        <CircularProgress size={60} sx={{ color: BURGUNDY }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: CREAM, minHeight: '100vh', pb: 4 }}>
-      <Container maxWidth="lg" sx={{ pt: { xs: 3, md: 5 } }}>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
 
-        {/* ── Header ── */}
-        <Typography variant="h4" sx={{ color: BURGUNDY, fontWeight: 800, textAlign: 'center', mb: .5 }}>
-          Convocatorias Disponibles
-        </Typography>
-        <Typography variant="body1" sx={{ color: PURPLE, textAlign: 'center', mb: 4, opacity: .8 }}>
-          Convocatorias disponibles para tu categoría y género
-        </Typography>
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
+        <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+          {vista === 'detalle' && (
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => setVista('lista')}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              Volver a la lista
+            </Button>
+          )}
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel de Atleta
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            {vista === 'lista' ? 'Convocatorias Disponibles' : 'Detalles de Convocatoria'}
+          </Typography>
+          {vista === 'lista' && (
+            <Button
+              onClick={() => navigate('/atleta/mis-convocatorias')}
+              startIcon={<CheckIcon />}
+              sx={{ mt: 2, color: '#fff', borderColor: 'rgba(255,255,255,0.5)', textTransform: 'none', fontWeight: 700 }}
+              variant="outlined"
+              size="small"
+            >
+              Ver mis convocatorias inscritas
+            </Button>
+          )}
+        </Container>
+      </Box>
 
-        {errorMessage && (
-          <Alert severity={errorMessage.includes('exitosa') ? 'success' : 'error'}
-            onClose={() => setErrorMessage('')} sx={{ mb: 3, borderRadius: 2 }}>
-            {errorMessage}
-          </Alert>
-        )}
+      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
 
-        {/* ── Tabla ── */}
-        {convocatorias.length === 0 && !errorMessage ? (
-          <Paper sx={{ borderRadius: 3, textAlign: 'center', py: 6, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
-            <Avatar sx={{ bgcolor: `${PURPLE}14`, width: 64, height: 64, mx: 'auto', mb: 2 }}>
-              <EventIcon sx={{ fontSize: 32, color: PURPLE }} />
-            </Avatar>
-            <Typography variant="h6" sx={{ color: PURPLE }}>Sin convocatorias disponibles</Typography>
-            <Typography variant="body2" sx={{ color: '#999', mt: .5 }}>
-              Las convocatorias aparecerán aquí cuando haya eventos para tu categoría
-            </Typography>
-          </Paper>
-        ) : convocatorias.length > 0 && (
-          <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: `${BURGUNDY}08` }}>
-                  {['Evento', 'Disciplina', 'Categoría', 'Fecha', 'Estado', 'Acciones'].map((h) => (
-                    <TableCell key={h} sx={{ fontWeight: 700, color: BURGUNDY, py: 2 }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {convocatoriasPaginadas.map((conv, i) => {
-                  const abierta = inscripcionAbierta(conv);
-                  const inscrito = estaInscrito(conv);
+        {vista === 'lista' ? (
+          <>
+            <Box sx={{ mt: -6, mb: 4, bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 10px 28px rgba(0,0,0,0.14)', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', overflow: 'hidden' }}>
+              <Box sx={{ p: 2.5, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+                <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}><ListAltIcon sx={{ fontSize: 24 }} /></Box>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.7rem' }}>{convocatoriasDisponibles.length}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Disponibles</Typography>
+              </Box>
+              <Box sx={{ p: 2.5, textAlign: 'center' }}>
+                <Box sx={{ color: COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}><EventIcon sx={{ fontSize: 24 }} /></Box>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.7rem' }}>{totalAbiertas}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Abiertas</Typography>
+              </Box>
+            </Box>
 
-                  return (
-                    <TableRow key={conv.convocatoria_id || conv.id || i} hover sx={{ '&:hover': { bgcolor: `${CREAM}66` } }}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ bgcolor: BURGUNDY, width: 36, height: 36 }}>
-                            <EventIcon sx={{ fontSize: 18 }} />
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
-                              {conv.titulo}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: '#888', display: 'flex', alignItems: 'center', gap: .5 }}>
-                              <LocationIcon sx={{ fontSize: 12 }} /> {conv.lugar}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5 }}>
-                          <SportsIcon sx={{ fontSize: 14, color: BURGUNDY }} />
-                          {conv.disciplina}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={conv.categoria} size="small"
-                          sx={{ bgcolor: `${PURPLE}14`, color: PURPLE, fontWeight: 600 }} />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{fmtCorta(conv.fecha)}</Typography>
-                        {conv.hora && (
-                          <Typography variant="caption" sx={{ color: '#888' }}>
-                            {String(conv.hora).slice(0, 5)} hrs
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {inscrito ? (
-                          <Chip icon={<CheckIcon />} label="Inscrito" color="success" size="small" sx={{ fontWeight: 600 }} />
-                        ) : abierta ? (
-                          <Chip label="Abierta" color="primary" size="small" sx={{ fontWeight: 600 }} />
-                        ) : (
-                          <Chip label="Cerrada" color="error" size="small" sx={{ fontWeight: 600 }} />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: .5, alignItems: 'center' }}>
-                          <IconButton size="small" onClick={() => handleDescargarPDF(conv)}
-                            sx={{ color: BURGUNDY, '&:hover': { bgcolor: `${BURGUNDY}08` } }}
-                            title="Descargar PDF">
-                            <DownloadIcon fontSize="small" />
-                          </IconButton>
-                          {!inscrito && abierta && (
-                            <Button size="small" variant="contained" onClick={() => handleInscribirse(conv)}
-                              disabled={inscribiendo} startIcon={<RegisterIcon />}
-                              sx={{
-                                bgcolor: GREEN, textTransform: 'none', fontWeight: 600, fontSize: '.75rem',
-                                '&:hover': { bgcolor: '#1B5E20' },
-                              }}>
-                              Inscribirme
-                            </Button>
-                          )}
-                        </Box>
-                      </TableCell>
+            {errorMessage && <Alert severity="error" sx={{ mb: 3 }}>{errorMessage}</Alert>}
+
+            {notificaciones.map((n) => (
+              <Alert
+                key={n.id}
+                severity="warning"
+                icon={<NotificationsActiveIcon />}
+                onClose={() => handleCerrarNotificacion(n.id)}
+                sx={{ mb: 2, borderRadius: '8px' }}
+              >
+                {n.mensaje}
+              </Alert>
+            ))}
+
+            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: 2.5, mb: 3 }}>
+              <Typography sx={{ display: 'flex', alignItems: 'center', gap: .75, color: COLORS.burgundy, fontWeight: 800, mb: 1.5 }}>
+                <FilterIcon fontSize="small" /> Filtrar convocatorias
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr 1fr auto' }, gap: 1.5, alignItems: 'end' }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Evento</InputLabel>
+                  <Select
+                    label="Evento"
+                    value={filtroEvento}
+                    onChange={(e) => { setFiltroEvento(e.target.value); setSearchParams(e.target.value ? { eventoId: e.target.value } : {}); }}
+                  >
+                    <MenuItem value="">Todos los eventos</MenuItem>
+                    {eventosUnicos.map(([id, titulo]) => (
+                      <MenuItem key={id} value={id}>{titulo}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel>Disciplina</InputLabel>
+                  <Select label="Disciplina" value={filtroDisciplina} onChange={(e) => setFiltroDisciplina(e.target.value)}>
+                    <MenuItem value="">Todas las disciplinas</MenuItem>
+                    {disciplinasUnicas.map((d) => (
+                      <MenuItem key={d} value={d}>{d}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel>Género</InputLabel>
+                  <Select label="Género" value={filtroGenero} onChange={(e) => setFiltroGenero(e.target.value)}>
+                    <MenuItem value="">Todos</MenuItem>
+                    <MenuItem value="masculino">Masculino</MenuItem>
+                    <MenuItem value="femenino">Femenino</MenuItem>
+                    <MenuItem value="mixto">Mixto</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Edad dirigida"
+                  placeholder="Ej. 15"
+                  value={filtroEdad}
+                  onChange={(e) => setFiltroEdad(e.target.value)}
+                  inputProps={{ min: 0, max: 100 }}
+                />
+
+                <Button
+                  onClick={limpiarFiltros}
+                  disabled={!hayFiltrosActivos}
+                  startIcon={<ClearIcon fontSize="small" />}
+                  sx={{ color: COLORS.purple, textTransform: 'none', fontWeight: 700, height: 40 }}
+                >
+                  Limpiar
+                </Button>
+              </Box>
+            </Box>
+
+            {convocatoriasFiltradas.length === 0 ? (
+              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', textAlign: 'center', py: 6 }}>
+                <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}><EventIcon sx={{ fontSize: 32, color: COLORS.purple }} /></Avatar>
+                <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+                  {hayFiltrosActivos ? 'Ninguna convocatoria coincide con el filtro' : 'Sin convocatorias nuevas'}
+                </Typography>
+                <Typography variant="body2" sx={{ color: COLORS.purple, opacity: .8, mt: .5 }}>
+                  {hayFiltrosActivos
+                    ? 'Prueba con otro evento, disciplina o edad.'
+                    : 'Ya estás inscrito en todas las disponibles o no hay eventos actuales para ti.'}
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                      {['Evento', 'Disciplina', 'Categoría', 'Género', 'Fecha', 'Estado', 'Acciones'].map((h) => (
+                        <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
+                      ))}
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-
-            {convocatorias.length > porPagina && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: '1px solid #eee' }}>
-                <Pagination count={Math.ceil(convocatorias.length / porPagina)}
-                  page={page} onChange={(e, v) => setPage(v)}
-                  sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: BURGUNDY, color: '#fff' } }} />
+                  </TableHead>
+                  <TableBody>
+                    {convocatoriasPaginadas.map((conv) => (
+                      <TableRow key={conv.id || conv.convocatoria_id} hover>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{conv.titulo}</Typography>
+                          <Typography variant="caption" sx={{ color: COLORS.purple }}>{conv.lugar}</Typography>
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{conv.disciplina}</TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Chip label={conv.categoria} size="small" sx={{ border: `1px solid ${COLORS.purple}`, color: COLORS.purple }} />
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Chip
+                            label={textoGenero(conv.genero)}
+                            size="small"
+                            sx={{
+                              border: `1px solid ${puedeInscribirse(conv) ? COLORS.purple : COLORS.line}`,
+                              bgcolor: 'transparent',
+                              color: puedeInscribirse(conv) ? COLORS.purple : COLORS.ink,
+                              opacity: puedeInscribirse(conv) ? 1 : 0.7,
+                            }}
+                          />
+                          {!puedeInscribirse(conv) && (
+                            <Typography variant="caption" sx={{ display: 'block', color: COLORS.ink, opacity: 0.6, mt: 0.3 }}>
+                              No disponible para ti
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{fmtCorta(conv.fecha)}</Typography>
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                           <Chip label={inscripcionAbierta(conv) ? 'Abierta' : 'Cerrada'} size="small"
+                                 sx={{ border: `1px solid ${inscripcionAbierta(conv) ? COLORS.purple : COLORS.line}`, bgcolor: 'transparent', color: inscripcionAbierta(conv) ? COLORS.purple : COLORS.ink }} />
+                        </TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line }}>
+                          <Button size="small" onClick={() => handleVerDetalles(conv)} endIcon={<VisibilityIcon />} sx={{ color: COLORS.burgundy, fontWeight: 700, textTransform: 'none' }}>
+                            Ver detalles
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {convocatoriasFiltradas.length > porPagina && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <Pagination count={Math.ceil(convocatoriasFiltradas.length / porPagina)} page={page} onChange={(e, v) => setPage(v)} />
+                  </Box>
+                )}
               </Box>
             )}
-          </Paper>
+          </>
+        ) : (
+          <Box>
+            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', mt: -6, p: { xs: 3, md: 5 }, boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.burgundy, mb: 1 }}>{convocatoriaSeleccionada?.titulo}</Typography>
+              <Typography variant="subtitle1" sx={{ color: COLORS.purple, mb: 4 }}>Información Oficial de la Convocatoria</Typography>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3, mb: 4 }}>
+                <Box>
+                  <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Disciplina</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{convocatoriaSeleccionada?.disciplina}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría y Género</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{convocatoriaSeleccionada?.categoria} ({convocatoriaSeleccionada?.genero})</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar y Fecha del Evento</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{convocatoriaSeleccionada?.lugar} - {fmt(convocatoriaSeleccionada?.fecha)}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Cierre de Inscripciones</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmt(convocatoriaSeleccionada?.fecha_cierre || convocatoriaSeleccionada?.fechaCierre)}</Typography>
+                </Box>
+              </Box>
+
+              <Divider sx={{ mb: 4 }} />
+
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => descargarDocumentoOficial(convocatoriaSeleccionada)}
+                  sx={{ borderColor: COLORS.burgundy, color: COLORS.burgundy, fontWeight: 700, textTransform: 'none' }}
+                >
+                  Descargar Documento Oficial
+                </Button>
+
+                {estaInscrito(convocatoriaSeleccionada) ? (
+                  <Chip
+                    icon={<CheckIcon />}
+                    label="Ya estás inscrito en este evento"
+                    sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 700, px: 1, py: 2.2 }}
+                  />
+                ) : !puedeInscribirse(convocatoriaSeleccionada) ? (
+                  <Chip
+                    icon={<WarningIcon />}
+                    label={`Convocatoria solo para ${textoGenero(convocatoriaSeleccionada?.genero)}`}
+                    sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink, fontWeight: 700, px: 1, py: 2.2 }}
+                  />
+                ) : inscripcionAbierta(convocatoriaSeleccionada) && (
+                  <Button
+                    variant="contained"
+                    startIcon={<RegisterIcon />}
+                    onClick={() => handleAbrirInscripcion(convocatoriaSeleccionada)}
+                    sx={{ bgcolor: COLORS.burgundy, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: COLORS.burgundyDark } }}
+                  >
+                    Inscribirme a esta Convocatoria
+                  </Button>
+                )}
+              </Box>
+            </Box>
+          </Box>
         )}
       </Container>
 
-      {/* ── Confirmar Inscripción ── */}
+      {/* ── Confirmar Inscripción y Aceptar Riesgos ── */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar sx={{ bgcolor: GREEN, width: 36, height: 36 }}>
-                <RegisterIcon sx={{ fontSize: 20 }} />
-              </Avatar>
-              <Typography variant="h6" sx={{ color: BURGUNDY, fontWeight: 700 }}>
-                Confirmar Inscripción
-              </Typography>
-            </Box>
-            <IconButton onClick={() => setModalOpen(false)} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
+          Confirmar Inscripción
         </DialogTitle>
         <DialogContent dividers>
-          {convocatoriaSeleccionada && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <Typography variant="body1" sx={{ color: '#555' }}>
-                ¿Deseas inscribirte a esta convocatoria?
-              </Typography>
+          <Typography variant="body1" sx={{ mb: 2, fontWeight: 600 }}>
+            Estás a punto de inscribirte al evento: <span style={{ color: COLORS.burgundy }}>{convocatoriaSeleccionada?.titulo}</span>
+          </Typography>
 
-              {/* Datos del atleta */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: `${BURGUNDY}14`, width: 32, height: 32 }}>
-                    <PersonIcon sx={{ fontSize: 18, color: BURGUNDY }} />
-                  </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: BURGUNDY, fontWeight: 700 }}>
-                    Tus Datos
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, pl: 5.5 }}>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Nombre</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {user?.nombre} {user?.apellido_paterno} {user?.apellido_materno}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>CURP</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{user?.curp}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Género</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{user?.genero}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Edad</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {calcularEdad(user?.fecha_nacimiento)} años
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-
-              <Divider />
-
-              {/* Datos de la convocatoria */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: `${GREEN}14`, width: 32, height: 32 }}>
-                    <SportsIcon sx={{ fontSize: 18, color: GREEN }} />
-                  </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: GREEN, fontWeight: 700 }}>
-                    Convocatoria
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, pl: 5.5 }}>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Evento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{convocatoriaSeleccionada.titulo}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Disciplina</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{convocatoriaSeleccionada.disciplina}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Categoría</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{convocatoriaSeleccionada.categoria}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Fecha</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{fmt(convocatoriaSeleccionada.fecha)}</Typography>
-                  </Box>
-                  <Box sx={{ gridColumn: '1 / -1' }}>
-                    <Typography variant="caption" sx={{ color: '#888' }}>Lugar</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{convocatoriaSeleccionada.lugar}</Typography>
-                  </Box>
-                </Box>
-              </Box>
+          <Box sx={{ p: 2, bgcolor: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 2, mt: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#E65100', mb: 1 }}>
+              <WarningIcon fontSize="small" />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Documento de Riesgos y Responsabilidades</Typography>
             </Box>
-          )}
+            <Typography variant="body2" sx={{ color: '#E65100', mb: 2 }}>
+              Es obligatorio leer el documento de riesgos proporcionado por el administrador antes de confirmar tu participación.
+            </Typography>
+
+            {convocatoriaSeleccionada?.documentoDeslinde && (
+              <Box sx={{ mb: 2 }}>
+                <Button
+                  onClick={() => abrirDocumentoParaVer(convocatoriaSeleccionada.documentoDeslinde)}
+                  variant="contained"
+                  size="small"
+                  sx={{ bgcolor: '#E65100', color: '#fff', textTransform: 'none', '&:hover': { bgcolor: '#BF360C' } }}
+                >
+                  Ver Documento de Riesgos
+                </Button>
+              </Box>
+            )}
+
+            <FormControlLabel
+              sx={{ display: 'flex', alignItems: 'flex-start', ml: 0 }}
+              control={
+                <Checkbox
+                  checked={aceptaRiesgos}
+                  onChange={(e) => setAceptaRiesgos(e.target.checked)}
+                  sx={{ color: '#E65100', '&.Mui-checked': { color: '#E65100' } }}
+                />
+              }
+              label={<Typography variant="body2" sx={{ fontWeight: 700, color: '#E65100', mt: 1 }}>He leído y acepto los riesgos del evento.</Typography>}
+            />
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button onClick={() => setModalOpen(false)} variant="outlined"
-            sx={{ color: PURPLE, borderColor: PURPLE, textTransform: 'none', fontWeight: 600 }}>
+          <Button onClick={() => setModalOpen(false)} variant="outlined" sx={{ color: COLORS.purple, borderColor: COLORS.purple, fontWeight: 600 }}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirmarInscripcion} variant="contained" disabled={inscribiendo}
-            sx={{ bgcolor: GREEN, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#1B5E20' } }}>
+          <Button
+            onClick={handleConfirmarInscripcion}
+            variant="contained"
+            disabled={!aceptaRiesgos || inscribiendo}
+            sx={{ bgcolor: COLORS.burgundy, fontWeight: 700, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+          >
             {inscribiendo ? 'Procesando...' : 'Confirmar Inscripción'}
           </Button>
         </DialogActions>

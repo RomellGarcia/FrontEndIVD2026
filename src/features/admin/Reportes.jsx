@@ -1,207 +1,165 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Container, Typography, Paper, Grid, Card, CardContent, Button,
+  Box, Container, Typography, Button,
   Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  TextField, Chip, Table, TableBody, TableCell, TableHead, TableRow,
-  IconButton, Dialog, DialogTitle, DialogContent, DialogActions
+  TextField, Chip, Table, TableBody, TableCell, TableHead, TableRow, TableContainer,
+  IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Avatar
 } from '@mui/material';
 import {
-  Assessment as AssessmentIcon, Download as DownloadIcon, FilterList as FilterIcon,
+  Download as DownloadIcon, FilterList as FilterIcon,
   Visibility as VisibilityIcon, TrendingUp as TrendingUpIcon, People as PeopleIcon,
-  EmojiEvents as EmojiEventsIcon, Group as GroupIcon
+  EmojiEvents as TrophyIcon, Group as GroupIcon
 } from '@mui/icons-material';
-import axios from 'axios';
+import { resultadosAPI, eventosAPI, atletasAPI, clubesAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import * as XLSX from 'xlsx';
+
+// --- Paleta institucional IVD (misma que las páginas principales) ---
+const COLORS = {
+  burgundy: '#800020',
+  burgundyDark: '#5C0017',
+  purple: '#7A4069',
+  cream: '#e4e4e5',
+  paper: '#FFFFFF',
+  ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)',
+  lineSoft: 'rgba(128,0,32,0.08)',
+};
+
+const cardSx = {
+  bgcolor: COLORS.paper,
+  borderRadius: '10px',
+  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+};
+
+const tableHeadSx = {
+  fontWeight: 700,
+  color: '#fff',
+  fontSize: '0.72rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  py: 2,
+};
+
+const nombreCompleto = (obj, prefijo = '') => {
+  if (!obj) return 'N/A';
+  const n = obj[`${prefijo}nombre`];
+  const ap = obj[`${prefijo}apellido_paterno`] || obj[`${prefijo}apellido`];
+  const am = obj[`${prefijo}apellido_materno`];
+  return [n, ap, am].filter(Boolean).join(' ') || 'N/A';
+};
 
 const Reportes = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [resultados, setResultados] = useState([]);
   const [eventos, setEventos] = useState([]);
-  const [atletas, setAtletas] = useState([]);
   const [clubes, setClubes] = useState([]);
   const [estadisticas, setEstadisticas] = useState({});
   const [filtros, setFiltros] = useState({
-    eventoId: '',
+    evento_id: '',
     categoria: '',
     club: '',
-    añoCompetitivo: '',
-    sexo: ''
+    ano_competitivo: '',
+    genero: ''
   });
   const [modalDetallesOpen, setModalDetallesOpen] = useState(false);
   const [resultadoSeleccionado, setResultadoSeleccionado] = useState(null);
   const [error, setError] = useState('');
 
   const categorias = [
-    'Sub-8', 'Sub-10', 'Sub-12', 'Sub-14', 'Sub-16', 'Sub-18', 
+    'Sub-8', 'Sub-10', 'Sub-12', 'Sub-14', 'Sub-16', 'Sub-18',
     'Sub-20', 'Sub-23', 'Mayor', 'Máster'
   ];
 
   useEffect(() => {
-    if (user) {
-    cargarDatos();
-    }
+    if (user) cargarDatos();
   }, [user]);
 
- const cargarDatos = async () => {
-  try {
-    setLoading(true);
-
-    // Cargar resultados
-    const resultadosRes = await axios.get('http://localhost:5000/api/resultados');
-    setResultados(
-      Array.isArray(resultadosRes.data)
-        ? resultadosRes.data
-        : Array.isArray(resultadosRes.data?.resultados)
-          ? resultadosRes.data.resultados
-          : []
-    );
-
-    // Cargar eventos
-    const eventosRes = await axios.get('http://localhost:5000/api/eventos');
-    setEventos(
-      Array.isArray(eventosRes.data)
-        ? eventosRes.data
-        : Array.isArray(eventosRes.data?.eventos)
-          ? eventosRes.data.eventos
-          : []
-    );
-
-    // Cargar atletas
-    const atletasRes = await axios.get('http://localhost:5000/api/atletas');
-    setAtletas(
-      Array.isArray(atletasRes.data)
-        ? atletasRes.data
-        : Array.isArray(atletasRes.data?.atletas)
-          ? atletasRes.data.atletas
-          : []
-    );
-
-    // Cargar clubes
-    const clubesRes = await axios.get('http://localhost:5000/api/clubes');
-    setClubes(
-      Array.isArray(clubesRes.data)
-        ? clubesRes.data
-        : Array.isArray(clubesRes.data?.clubes)
-          ? clubesRes.data.clubes
-          : []
-    );
-
-    // Cargar estadísticas — en try/catch aparte para que un fallo aquí
-    // no tumbe los datos que ya cargaron bien arriba
+  const cargarDatos = async () => {
     try {
-      const estadisticasRes = await axios.get('http://localhost:5000/api/resultados/estadisticas/generales');
-      setEstadisticas(estadisticasRes.data || {});
-    } catch (statsError) {
-      console.error('Error al cargar estadísticas:', statsError);
-      setEstadisticas({});
-    }
+      setLoading(true);
 
-  } catch (error) {
-    console.error('Error al cargar datos:', error);
-    setError('Error al cargar los datos para los reportes');
-    setResultados([]);
-    setEventos([]);
-    setAtletas([]);
-    setClubes([]);
-  } finally {
-    setLoading(false);
-  }
-};
+      const [resultadosRes, eventosRes, clubesRes] = await Promise.all([
+        resultadosAPI.getAll({ limit: 1000 }),
+        eventosAPI.getAll(),
+        clubesAPI.getAll(),
+      ]);
+
+      setResultados(resultadosRes.data.resultados || resultadosRes.data || []);
+      setEventos(eventosRes.data.eventos || eventosRes.data || []);
+      setClubes(clubesRes.data.clubes || clubesRes.data || []);
+
+      try {
+        const estadisticasRes = await resultadosAPI.getEstadisticasGenerales();
+        setEstadisticas(estadisticasRes.data || {});
+      } catch (statsError) {
+        console.error('Error al cargar estadísticas:', statsError);
+        setEstadisticas({});
+      }
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      setError('Error al cargar los datos para los reportes');
+      setResultados([]); setEventos([]); setClubes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const aplicarFiltros = () => {
     let resultadosFiltrados = [...resultados];
 
-    if (filtros.eventoId) {
-      resultadosFiltrados = resultadosFiltrados.filter(r => r.eventoId === filtros.eventoId);
+    if (filtros.evento_id) {
+      resultadosFiltrados = resultadosFiltrados.filter(r => r.evento_id === filtros.evento_id);
     }
     if (filtros.categoria) {
       resultadosFiltrados = resultadosFiltrados.filter(r => r.categoria === filtros.categoria);
     }
     if (filtros.club) {
-      resultadosFiltrados = resultadosFiltrados.filter(r => r.club === filtros.club);
+      resultadosFiltrados = resultadosFiltrados.filter(r => r.club_nombre === filtros.club);
     }
-    if (filtros.añoCompetitivo) {
-      resultadosFiltrados = resultadosFiltrados.filter(r => r.añoCompetitivo === parseInt(filtros.añoCompetitivo));
+    if (filtros.ano_competitivo) {
+      resultadosFiltrados = resultadosFiltrados.filter(r => r.ano_competitivo === parseInt(filtros.ano_competitivo));
     }
-    if (filtros.sexo) {
-      resultadosFiltrados = resultadosFiltrados.filter(r => r.sexo === filtros.sexo);
+    if (filtros.genero) {
+      resultadosFiltrados = resultadosFiltrados.filter(r => r.genero === filtros.genero);
     }
 
     return resultadosFiltrados;
   };
 
-  const obtenerNombreEvento = (eventoId) => {
-    const evento = eventos.find(e => e._id === eventoId);
-    return evento ? evento.titulo : 'Evento no encontrado';
-  };
-
-  const obtenerNombreAtleta = (atletaId) => {
-    const atleta = atletas.find(a => a._id === atletaId);
-    if (!atleta) return 'Atleta no encontrado';
-    return `${atleta.nombre} ${atleta.apellidopa} ${atleta.apellidoma}`;
-  };
-
-  const obtenerNombreEntrenador = (entrenadorId) => {
-    if (!entrenadorId) return 'Independiente';
-    const entrenador = atletas.find(a => a._id === entrenadorId && a.rol === 'entrenador');
-    return entrenador ? `${entrenador.nombre} ${entrenador.apellidopa} ${entrenador.apellidoma}` : 'No encontrado';
-  };
-
-  const calcularEdad = (fechaNacimiento) => {
-    if (!fechaNacimiento) return 'N/A';
-    const hoy = new Date();
-    const fechaNac = new Date(fechaNacimiento);
-    let edad = hoy.getFullYear() - fechaNac.getFullYear();
-    const mes = hoy.getMonth() - fechaNac.getMonth();
-    if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
-      edad--;
-    }
-    return edad;
-  };
-
   const exportarExcel = () => {
     const resultadosFiltrados = aplicarFiltros();
-    
+
     if (resultadosFiltrados.length === 0) {
       alert('No hay datos para exportar');
       return;
     }
 
-    // Preparar datos para Excel
-    const datosExcel = resultadosFiltrados.map(resultado => {
-      const atleta = atletas.find(a => a._id === resultado.atletaId);
-      const evento = eventos.find(e => e._id === resultado.eventoId);
-      
-      return {
-        'CURP': atleta?.curp || 'N/A',
-        'FECHA NACIMIENTO': atleta?.fecha_nacimiento ? new Date(atleta.fecha_nacimiento).toLocaleDateString('es-ES') : 'N/A',
-        'NOMBRE ATLETA': atleta ? `${atleta.nombre} ${atleta.apellidopa} ${atleta.apellidoma}` : 'N/A',
-        'SEXO': resultado.sexo || 'N/A',
-        'CATEGORIA': resultado.categoria || 'N/A',
-        'MUNICIPIO': resultado.municipio || 'N/A',
-        'CLUB': resultado.club || 'Independiente',
-        'AÑO DE COMPETITIVO': resultado.añoCompetitivo || 'N/A',
-        'PRUEBA 1': resultado.pruebas?.[0]?.nombre || 'N/A',
-        'MARCA 1': resultado.pruebas?.[0]?.marca ? `${resultado.pruebas[0].marca} ${resultado.pruebas[0].unidad}` : 'N/A',
-        'PRUEBA 2': resultado.pruebas?.[1]?.nombre || 'N/A',
-        'MARCA 2': resultado.pruebas?.[1]?.marca ? `${resultado.pruebas[1].marca} ${resultado.pruebas[1].unidad}` : 'N/A',
-        'PRUEBA 3': resultado.pruebas?.[2]?.nombre || 'N/A',
-        'MARCA 3': resultado.pruebas?.[2]?.marca ? `${resultado.pruebas[2].marca} ${resultado.pruebas[2].unidad}` : 'N/A',
-        'PRUEBA 4': resultado.pruebas?.[3]?.nombre || 'N/A',
-        'MARCA 4': resultado.pruebas?.[3]?.marca ? `${resultado.pruebas[3].marca} ${resultado.pruebas[3].unidad}` : 'N/A',
-        'NOMBRE ENTRENADOR': obtenerNombreEntrenador(resultado.entrenadorId),
-        'LUGAR DE ENTRENAMIENTO': resultado.lugarEntrenamiento || 'N/A'
-      };
-    });
+    const datosExcel = resultadosFiltrados.map(resultado => ({
+      'CURP': resultado.curp || 'N/A',
+      'NOMBRE ATLETA': nombreCompleto(resultado),
+      'GÉNERO': resultado.genero || 'N/A',
+      'CATEGORIA': resultado.categoria || 'N/A',
+      'MUNICIPIO': resultado.municipio || 'N/A',
+      'CLUB': resultado.club_nombre || 'Independiente',
+      'AÑO COMPETITIVO': resultado.ano_competitivo || 'N/A',
+      'PRUEBA 1': resultado.pruebas?.[0]?.nombre || 'N/A',
+      'MARCA 1': resultado.pruebas?.[0]?.marca ? `${resultado.pruebas[0].marca} ${resultado.pruebas[0].unidad}` : 'N/A',
+      'PRUEBA 2': resultado.pruebas?.[1]?.nombre || 'N/A',
+      'MARCA 2': resultado.pruebas?.[1]?.marca ? `${resultado.pruebas[1].marca} ${resultado.pruebas[1].unidad}` : 'N/A',
+      'PRUEBA 3': resultado.pruebas?.[2]?.nombre || 'N/A',
+      'MARCA 3': resultado.pruebas?.[2]?.marca ? `${resultado.pruebas[2].marca} ${resultado.pruebas[2].unidad}` : 'N/A',
+      'PRUEBA 4': resultado.pruebas?.[3]?.nombre || 'N/A',
+      'MARCA 4': resultado.pruebas?.[3]?.marca ? `${resultado.pruebas[3].marca} ${resultado.pruebas[3].unidad}` : 'N/A',
+      'NOMBRE ENTRENADOR': resultado.entrenador_nombre ? `${resultado.entrenador_nombre} ${resultado.entrenador_apellido || ''}`.trim() : 'Independiente',
+      'LUGAR DE ENTRENAMIENTO': resultado.lugar_entrenamiento || 'N/A'
+    }));
 
-    // Crear libro de Excel
     const ws = XLSX.utils.json_to_sheet(datosExcel);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Resultados');
-    
-    // Descargar archivo
+
     const nombreArchivo = `Reporte_Resultados_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
   };
@@ -212,19 +170,13 @@ const Reportes = () => {
   };
 
   const limpiarFiltros = () => {
-    setFiltros({
-      eventoId: '',
-      categoria: '',
-      club: '',
-      añoCompetitivo: '',
-      sexo: ''
-    });
+    setFiltros({ evento_id: '', categoria: '', club: '', ano_competitivo: '', genero: '' });
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
       </Box>
     );
   }
@@ -232,119 +184,75 @@ const Reportes = () => {
   const resultadosFiltrados = aplicarFiltros();
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, background: '#e4e4e5', minHeight: '100vh' }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
-        Reportes y Análisis de Resultados
-      </Typography>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
+        <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, md: 3 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel Administrativo
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            Reportes y Análisis de Resultados
+          </Typography>
+        </Container>
+      </Box>
 
-      {/* Estadísticas generales */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <EmojiEventsIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.totalResultados || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Total de Resultados
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+      <Container maxWidth="xl" sx={{ px: { xs: 2, md: 3 }, pb: { xs: 5, md: 7 } }}>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <PeopleIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.totalAtletas || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Atletas Participantes
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+        {/* ── Stat-strip flotante ── */}
+        <Box
+          sx={{
+            mt: { xs: -5, md: -6 }, mb: 4,
+            bgcolor: '#fff', borderRadius: '10px',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
+            overflow: 'hidden',
+          }}
+        >
+          {[
+            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: estadisticas.total_resultados || 0, label: 'Total de Resultados', accent: COLORS.burgundy },
+            { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: estadisticas.total_atletas || 0, label: 'Atletas Participantes', accent: COLORS.purple },
+            { icon: <GroupIcon sx={{ fontSize: 24 }} />, value: estadisticas.total_clubes || 0, label: 'Clubes Representados', accent: COLORS.burgundy },
+            { icon: <TrendingUpIcon sx={{ fontSize: 24 }} />, value: estadisticas.total_eventos || 0, label: 'Eventos Registrados', accent: COLORS.purple },
+          ].map((s, i) => (
+            <Box key={i} sx={{
+              p: { xs: 2, md: 2.75 }, textAlign: 'center',
+              borderRight: { sm: i < 3 ? `1px solid ${COLORS.line}` : 'none' },
+              borderBottom: { xs: i < 2 ? `1px solid ${COLORS.line}` : 'none', sm: 'none' },
+            }}>
+              <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+              <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>{s.value}</Typography>
+              <Typography sx={{ fontSize: '0.68rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+            </Box>
+          ))}
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <GroupIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.totalClubes || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Clubes Representados
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setError('')}>{error}</Alert>
+        )}
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#f8f9fa' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <TrendingUpIcon sx={{ fontSize: 40, color: '#800020', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {estadisticas.totalEventos || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Eventos Registrados
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+        {/* ── Filtros ── */}
+        <Box sx={{ ...cardSx, p: 3, mb: 3 }}>
+          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FilterIcon /> Filtros de Búsqueda
+          </Typography>
 
-      {/* Filtros */}
-      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 3 }}>
-          <FilterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Filtros de Búsqueda
-        </Typography>
-        
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={2}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(5, 1fr)' }, gap: 2, alignItems: 'end' }}>
             <FormControl fullWidth size="small">
               <InputLabel>Evento</InputLabel>
               <Select
-                value={filtros.eventoId}
-                onChange={(e) => setFiltros(prev => ({ ...prev, eventoId: e.target.value }))}
+                value={filtros.evento_id}
+                onChange={(e) => setFiltros(prev => ({ ...prev, evento_id: e.target.value }))}
                 label="Evento"
               >
                 <MenuItem value="">Todos los eventos</MenuItem>
                 {eventos.map((evento) => (
-                  <MenuItem key={evento._id} value={evento._id}>
-                    {evento.titulo}
-                  </MenuItem>
+                  <MenuItem key={evento.id} value={evento.id}>{evento.titulo}</MenuItem>
                 ))}
               </Select>
             </FormControl>
-          </Grid>
 
-          <Grid item xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Categoría</InputLabel>
               <Select
@@ -358,9 +266,7 @@ const Reportes = () => {
                 ))}
               </Select>
             </FormControl>
-          </Grid>
 
-          <Grid item xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Club</InputLabel>
               <Select
@@ -370,33 +276,27 @@ const Reportes = () => {
               >
                 <MenuItem value="">Todos los clubes</MenuItem>
                 {clubes.map((club) => (
-                  <MenuItem key={club._id} value={club.nombre}>
-                    {club.nombre}
-                  </MenuItem>
+                  <MenuItem key={club.id} value={club.nombre}>{club.nombre}</MenuItem>
                 ))}
               </Select>
             </FormControl>
-          </Grid>
 
-          <Grid item xs={12} md={2}>
             <TextField
               fullWidth
               size="small"
               label="Año Competitivo"
               type="number"
-              value={filtros.añoCompetitivo}
-              onChange={(e) => setFiltros(prev => ({ ...prev, añoCompetitivo: e.target.value }))}
+              value={filtros.ano_competitivo}
+              onChange={(e) => setFiltros(prev => ({ ...prev, ano_competitivo: e.target.value }))}
               inputProps={{ min: 2020, max: 2030 }}
             />
-          </Grid>
 
-          <Grid item xs={12} md={2}>
             <FormControl fullWidth size="small">
-              <InputLabel>Sexo</InputLabel>
+              <InputLabel>Género</InputLabel>
               <Select
-                value={filtros.sexo}
-                onChange={(e) => setFiltros(prev => ({ ...prev, sexo: e.target.value }))}
-                label="Sexo"
+                value={filtros.genero}
+                onChange={(e) => setFiltros(prev => ({ ...prev, genero: e.target.value }))}
+                label="Género"
               >
                 <MenuItem value="">Todos</MenuItem>
                 <MenuItem value="masculino">Masculino</MenuItem>
@@ -404,201 +304,161 @@ const Reportes = () => {
                 <MenuItem value="mixto">Mixto</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={2}>
-            <Box display="flex" gap={1}>
-              <Button
-                variant="outlined"
-                onClick={limpiarFiltros}
-                size="small"
-                sx={{ color: '#7A4069' }}
-              >
-                Limpiar
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Button variant="outlined" onClick={limpiarFiltros} size="small" sx={{ color: COLORS.purple, borderColor: COLORS.purple }}>
+              Limpiar filtros
+            </Button>
+          </Box>
+        </Box>
 
-      {/* Botones de acción */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-          Resultados Filtrados ({resultadosFiltrados.length})
-        </Typography>
-        
-        <Button
-          variant="contained"
-          startIcon={<DownloadIcon />}
-          onClick={exportarExcel}
-          disabled={resultadosFiltrados.length === 0}
-          sx={{
-            backgroundColor: '#2E7D32',
-            '&:hover': { backgroundColor: '#1B5E20' }
-          }}
-        >
-          Exportar a Excel
-        </Button>
-      </Box>
+        {/* ── Encabezado de resultados + exportar ── */}
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
+            Resultados Filtrados ({resultadosFiltrados.length})
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={exportarExcel}
+            disabled={resultadosFiltrados.length === 0}
+            sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700, textTransform: 'none' }}
+          >
+            Exportar a Excel
+          </Button>
+        </Box>
 
-      {/* Tabla de resultados */}
-      <Paper elevation={3} sx={{ overflow: 'auto' }}>
+        {/* ── Tabla de resultados ── */}
         {resultadosFiltrados.length === 0 ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="textSecondary">
-              No hay resultados que coincidan con los filtros aplicados.
+          <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
+            <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
+              <TrophyIcon sx={{ fontSize: 32, color: COLORS.purple }} />
+            </Avatar>
+            <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+              No hay resultados que coincidan con los filtros aplicados
             </Typography>
           </Box>
         ) : (
-              <Table>
+          <Box sx={{ ...cardSx, overflow: 'hidden' }}>
+            <TableContainer>
+              <Table size="small">
                 <TableHead>
-                  <TableRow>
-                <TableCell><strong>Evento</strong></TableCell>
-                <TableCell><strong>Atleta</strong></TableCell>
-                <TableCell><strong>Categoría</strong></TableCell>
-                <TableCell><strong>Club</strong></TableCell>
-                <TableCell><strong>Año</strong></TableCell>
-                <TableCell><strong>Pruebas</strong></TableCell>
-                <TableCell><strong>Acciones</strong></TableCell>
+                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                    <TableCell sx={tableHeadSx}>Evento</TableCell>
+                    <TableCell sx={tableHeadSx}>Atleta</TableCell>
+                    <TableCell sx={tableHeadSx}>Categoría</TableCell>
+                    <TableCell sx={tableHeadSx}>Club</TableCell>
+                    <TableCell sx={tableHeadSx}>Año</TableCell>
+                    <TableCell sx={tableHeadSx}>Pruebas</TableCell>
+                    <TableCell sx={tableHeadSx} align="center">Acciones</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-              {resultadosFiltrados.map((resultado) => (
-                <TableRow key={resultado._id}>
-                  <TableCell>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {obtenerNombreEvento(resultado.eventoId)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{obtenerNombreAtleta(resultado.atletaId)}</TableCell>
-                  <TableCell>
-                    <Chip label={resultado.categoria} color="primary" size="small" />
-                  </TableCell>
-                  <TableCell>{resultado.club || 'Independiente'}</TableCell>
-                  <TableCell>{resultado.añoCompetitivo}</TableCell>
-                      <TableCell>
-                    <Box display="flex" flexWrap="wrap" gap={0.5}>
-                      {resultado.pruebas?.map((prueba, index) => (
-                        <Chip 
-                          key={index}
-                          label={`${prueba.nombre}: ${prueba.marca} ${prueba.unidad}`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
+                  {resultadosFiltrados.map((resultado) => (
+                    <TableRow key={resultado.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
+                          {resultado.evento_titulo || 'Evento no encontrado'}
+                        </Typography>
                       </TableCell>
-                      <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleVerDetalles(resultado)}
-                      color="primary"
-                      title="Ver detalles"
-                    >
-                      <VisibilityIcon />
-                    </IconButton>
+                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{nombreCompleto(resultado)}</TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <Chip
+                          label={resultado.categoria || 'N/A'}
+                          size="small"
+                          sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.club_nombre || 'Independiente'}</TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.ano_competitivo}</TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {resultado.pruebas?.map((prueba, index) => (
+                            <Chip
+                              key={index}
+                              label={`${prueba.nombre}: ${prueba.marca} ${prueba.unidad}`}
+                              size="small"
+                              sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+                            />
+                          ))}
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line }} align="center">
+                        <IconButton size="small" onClick={() => handleVerDetalles(resultado)} title="Ver detalles" sx={{ color: COLORS.burgundy }}>
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </TableContainer>
+          </Box>
         )}
-      </Paper>
+      </Container>
 
-      {/* Modal de detalles */}
+      {/* ── Modal de detalles ── */}
       <Dialog open={modalDetallesOpen} onClose={() => setModalDetallesOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-            Detalles del Resultado
-          </Typography>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>Detalles del Resultado</Typography>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 3 }}>
           {resultadoSeleccionado && (
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Evento:
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+              <Box>
+                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Evento</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.evento_titulo}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Atleta</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{nombreCompleto(resultadoSeleccionado)}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.categoria || 'N/A'}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Club</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.club_nombre || 'Independiente'}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Entrenador</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                  {resultadoSeleccionado.entrenador_nombre
+                    ? `${resultadoSeleccionado.entrenador_nombre} ${resultadoSeleccionado.entrenador_apellido || ''}`.trim()
+                    : 'Independiente'}
                 </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {obtenerNombreEvento(resultadoSeleccionado.eventoId)}
-                </Typography>
-              </Grid>
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar de Entrenamiento</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.lugar_entrenamiento || 'No especificado'}</Typography>
+              </Box>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Atleta:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {obtenerNombreAtleta(resultadoSeleccionado.atletaId)}
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Categoría:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {resultadoSeleccionado.categoria}
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Club:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {resultadoSeleccionado.club || 'Independiente'}
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Entrenador:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {obtenerNombreEntrenador(resultadoSeleccionado.entrenadorId)}
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Lugar de Entrenamiento:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {resultadoSeleccionado.lugarEntrenamiento || 'No especificado'}
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 2 }}>
+              <Box sx={{ gridColumn: { md: '1 / -1' } }}>
+                <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 700, mb: 1.5 }}>
                   Pruebas y Marcas
                 </Typography>
-              <Grid container spacing={2}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                   {resultadoSeleccionado.pruebas?.map((prueba, index) => (
-                    <Grid item xs={12} md={6} key={index}>
-                      <Card variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                          Prueba {index + 1}: {prueba.nombre}
-                        </Typography>
-                        <Typography variant="body1">
-                          Marca: {prueba.marca} {prueba.unidad}
-                        </Typography>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-              </Grid>
-            </Grid>
+                    <Box key={index} sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}` }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.purple }}>
+                        Prueba {index + 1}: {prueba.nombre}
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: COLORS.ink }}>Marca: {prueba.marca} {prueba.unidad}</Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setModalDetallesOpen(false)} sx={{ color: '#7A4069' }}>
-            Cerrar
-          </Button>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setModalDetallesOpen(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 };
 
-export default Reportes; 
+export default Reportes;

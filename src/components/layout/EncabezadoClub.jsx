@@ -36,6 +36,9 @@ const EncabezadoClub = () => {
       case 'eventos':
         navigate('/club/eventos');
         break;
+      case 'convocatorias':
+        navigate('/club/convocatoria');
+        break;
       case 'resultados':
         navigate('/club/resultados');
         break;
@@ -109,6 +112,7 @@ const EncabezadoClub = () => {
     { texto: 'Inicio', key: 'inicio' },
     { texto: 'Gestionar', key: 'gestionAtletas' },
     { texto: 'Eventos', key: 'eventos' },
+    { texto: 'Convocatorias', key: 'convocatorias' },
     { texto: 'Resultados', key: 'resultados' },
     { texto: 'Perfil', key: 'perfil' },
   ];

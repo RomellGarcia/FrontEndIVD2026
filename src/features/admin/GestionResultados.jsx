@@ -1,708 +1,338 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Box, Container, Typography, Paper, Grid, TextField, Button, 
-  Alert, CircularProgress, Chip, Avatar, Card, CardContent,
-  FormControl, InputLabel, Select, MenuItem, OutlinedInput,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Table, TableBody, TableCell, TableHead, TableRow,
-  IconButton, Divider
+  Box, Container, Typography, Button, Alert, CircularProgress, Chip,
+  FormControl, InputLabel, Select, MenuItem, Tabs, Tab,
+  FormControlLabel, Switch, IconButton,
 } from '@mui/material';
 import {
-  EmojiEvents as EmojiEventsIcon, Add as AddIcon, Edit as EditIcon,
-  Delete as DeleteIcon, Visibility as VisibilityIcon, Save as SaveIcon,
-  Cancel as CancelIcon, Person as PersonIcon, Group as GroupIcon
+  UploadFile as UploadFileIcon,
+  Visibility as VisibilityIcon,
+  Delete as DeleteIcon,
+  Autorenew as ReplaceIcon,
+  EmojiEvents as TrophyIcon,
+  Event as EventIcon,
+  CheckCircle as CheckIcon,
+  HourglassEmpty as PendingIcon,
+  ListAlt as ListAltIcon,
 } from '@mui/icons-material';
-import axios from 'axios';
+import { eventosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import Swal from 'sweetalert2';
 
+const COLORS = {
+  burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
+  cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+};
+
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+
+// Los PDF los abre el navegador solo; Word/Excel pasan por el visor
+// público de Google Docs, que los muestra sin necesidad de descargarlos.
+const abrirDocumentoParaVer = (url) => {
+  if (!url) return;
+  const esPdf = /\.pdf(\?|$)/i.test(url);
+  const urlFinal = esPdf ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  window.open(urlFinal, '_blank', 'noopener,noreferrer');
+};
+
 const GestionResultados = () => {
   const { user } = useAuth();
+  const [tabActivo, setTabActivo] = useState('subir');
   const [loading, setLoading] = useState(true);
-  const [eventos, setEventos] = useState([]);
-  const [resultados, setResultados] = useState([]);
-  const [modalResultadoOpen, setModalResultadoOpen] = useState(false);
-  const [modalVerResultadoOpen, setModalVerResultadoOpen] = useState(false);
-  const [resultadoSeleccionado, setResultadoSeleccionado] = useState(null);
-  const [editMode, setEditMode] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
-  // Estado del formulario de resultado
-  const [formData, setFormData] = useState({
-    eventoId: '',
-    convocatoriaIndex: 0,
-    atletaId: '',
-    categoria: '',
-    sexo: '',
-    municipio: '',
-    club: '',
-    añoCompetitivo: new Date().getFullYear(),
-    pruebas: [
-      { nombre: '', marca: '', unidad: 'segundos' },
-      { nombre: '', marca: '', unidad: 'metros' },
-      { nombre: '', marca: '', unidad: 'segundos' },
-      { nombre: '', marca: '', unidad: 'metros' }
-    ],
-    entrenadorId: '',
-    lugarEntrenamiento: ''
-  });
+  const [eventos, setEventos] = useState([]);
+  const [eventoSeleccionadoId, setEventoSeleccionadoId] = useState('');
+  const [convocatorias, setConvocatorias] = useState([]);
+  const [cargandoConvocatorias, setCargandoConvocatorias] = useState(false);
+  const [soloPendientes, setSoloPendientes] = useState(true);
+  const [subiendoId, setSubiendoId] = useState(null);
 
-  // Datos de referencia
-  const [atletas, setAtletas] = useState([]);
-  const [entrenadores, setEntrenadores] = useState([]);
-  const [clubes, setClubes] = useState([]);
-
-  const categorias = [
-    'Sub-8', 'Sub-10', 'Sub-12', 'Sub-14', 'Sub-16', 'Sub-18', 
-    'Sub-20', 'Sub-23', 'Mayor', 'Máster'
-  ];
-
-  const unidades = ['segundos', 'metros', 'minutos', 'centímetros', 'kilómetros'];
+  const fileInputRef = useRef(null);
+  const convocatoriaObjetivoRef = useRef(null);
 
   useEffect(() => {
-    if (user) {
-      cargarDatos();
-    }
+    cargarEventos();
   }, [user]);
 
-  const cargarDatos = async () => {
-  try {
-    setLoading(true);
+  useEffect(() => {
+    setSoloPendientes(tabActivo === 'subir');
+  }, [tabActivo]);
 
-    const eventosRes = await axios.get('http://localhost:5000/api/eventos');
-    setEventos(Array.isArray(eventosRes.data) ? eventosRes.data : (eventosRes.data?.eventos || []));
-
-    const resultadosRes = await axios.get('http://localhost:5000/api/resultados');
-    setResultados(Array.isArray(resultadosRes.data) ? resultadosRes.data : (resultadosRes.data?.resultados || []));
-
-    const atletasRes = await axios.get('http://localhost:5000/api/atletas');
-    setAtletas(Array.isArray(atletasRes.data) ? atletasRes.data : (atletasRes.data?.atletas || []));
-
-    const entrenadoresRes = { data: { entrenadores: [] } }; // TODO: endpoint de entrenadores global
-    setEntrenadores(Array.isArray(entrenadoresRes.data) ? entrenadoresRes.data : (entrenadoresRes.data?.entrenadores || []));
-
-    const clubesRes = await axios.get('http://localhost:5000/api/clubes');
-    setClubes(Array.isArray(clubesRes.data) ? clubesRes.data : (clubesRes.data?.clubes || []));
-
-  } catch (error) {
-    console.error('Error al cargar datos:', error);
-    setError('Error al cargar los datos');
-    setEventos([]);
-    setResultados([]);
-    setAtletas([]);
-    setEntrenadores([]);
-    setClubes([]);
-  } finally {
-    setLoading(false);
-  }
-};
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handlePruebaChange = (index, field, value) => {
-    const nuevasPruebas = [...formData.pruebas];
-    nuevasPruebas[index] = { ...nuevasPruebas[index], [field]: value };
-    setFormData(prev => ({
-      ...prev,
-      pruebas: nuevasPruebas
-    }));
-  };
-
-  const handleSubmit = async () => {
+  const cargarEventos = async () => {
     try {
-      // Validaciones
-      if (!formData.eventoId || !formData.atletaId) {
-        setError('Evento y atleta son obligatorios');
-        return;
-      }
-
-      if (editMode && resultadoSeleccionado) {
-        // Actualizar resultado existente
-        await axios.put(`http://localhost:5000/api/resultados/${resultadoSeleccionado._id}`, formData);
-        setSuccess('Resultado actualizado correctamente');
-      } else {
-        // Crear nuevo resultado
-                  await axios.post('http://localhost:5000/api/resultados', formData);
-        setSuccess('Resultado creado correctamente');
-      }
-
-      // Recargar datos y cerrar modal
-      await cargarDatos();
-      handleCloseModal();
-      
-      Swal.fire({
-        icon: 'success',
-        title: '¡Éxito!',
-        text: editMode ? 'Resultado actualizado correctamente' : 'Resultado creado correctamente',
-        confirmButtonColor: '#800020'
-      });
-      
-    } catch (error) {
-      console.error('Error al guardar resultado:', error);
-      setError(`Error al guardar: ${error.response?.data?.message || error.message}`);
-      
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: `Error al guardar: ${error.response?.data?.message || error.message}`,
-        confirmButtonColor: '#800020'
-      });
+      setLoading(true);
+      const response = await eventosAPI.getAll({ todos: true });
+      const data = response.data.eventos || response.data || [];
+      setEventos(data);
+    } catch (err) {
+      console.error('Error al cargar eventos:', err);
+      setError('Error al cargar los eventos.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleEdit = (resultado) => {
-    setResultadoSeleccionado(resultado);
-    setFormData({
-      eventoId: resultado.eventoId,
-      convocatoriaIndex: resultado.convocatoriaIndex,
-      atletaId: resultado.atletaId,
-      categoria: resultado.categoria,
-      sexo: resultado.sexo,
-      municipio: resultado.municipio,
-      club: resultado.club,
-      añoCompetitivo: resultado.añoCompetitivo,
-      pruebas: resultado.pruebas || [
-        { nombre: '', marca: '', unidad: 'segundos' },
-        { nombre: '', marca: '', unidad: 'metros' },
-        { nombre: '', marca: '', unidad: 'segundos' },
-        { nombre: '', marca: '', unidad: 'metros' }
-      ],
-      entrenadorId: resultado.entrenadorId || '',
-      lugarEntrenamiento: resultado.lugarEntrenamiento || ''
-    });
-    setEditMode(true);
-    setModalResultadoOpen(true);
+  const cargarConvocatorias = async (eventoId) => {
+    if (!eventoId) { setConvocatorias([]); return; }
+    try {
+      setCargandoConvocatorias(true);
+      const response = await eventosAPI.getConvocatoriasByEvento(eventoId);
+      setConvocatorias(response.data.convocatorias || []);
+    } catch (err) {
+      console.error('Error al cargar convocatorias:', err);
+      setError('Error al cargar las convocatorias de este evento.');
+    } finally {
+      setCargandoConvocatorias(false);
+    }
   };
 
-  const handleDelete = async (resultadoId) => {
-    const result = await Swal.fire({
-      title: '¿Confirmar eliminación?',
-      text: 'Esta acción no se puede deshacer',
+  const handleSeleccionarEvento = (id) => {
+    setEventoSeleccionadoId(id);
+    cargarConvocatorias(id);
+  };
+
+  const handleAbrirSelectorArchivo = (convocatoriaId) => {
+    convocatoriaObjetivoRef.current = convocatoriaId;
+    fileInputRef.current?.click();
+  };
+
+  const handleArchivoSeleccionado = async (e) => {
+    const file = e.target.files?.[0];
+    const convocatoriaId = convocatoriaObjetivoRef.current;
+    if (!file || !convocatoriaId) return;
+
+    const extension = file.name.split('.').pop().toLowerCase();
+    if (!['doc', 'docx', 'xls', 'xlsx', 'pdf'].includes(extension)) {
+      Swal.fire({ icon: 'error', title: 'Formato no soportado', text: 'Solo se aceptan archivos Word, Excel o PDF.', confirmButtonColor: COLORS.burgundy });
+      e.target.value = '';
+      return;
+    }
+
+    setSubiendoId(convocatoriaId);
+    try {
+      const formData = new FormData();
+      formData.append('documentoResultado', file);
+      await eventosAPI.subirResultadoConvocatoria(convocatoriaId, formData);
+      await cargarConvocatorias(eventoSeleccionadoId);
+      Swal.fire({ icon: 'success', title: 'Resultado subido', confirmButtonColor: COLORS.burgundy, timer: 1800, showConfirmButton: false });
+    } catch (err) {
+      console.error('Error al subir resultado:', err);
+      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.error || 'No se pudo subir el archivo.', confirmButtonColor: COLORS.burgundy });
+    } finally {
+      setSubiendoId(null);
+      e.target.value = '';
+      convocatoriaObjetivoRef.current = null;
+    }
+  };
+
+  const handleEliminarResultado = async (convocatoria) => {
+    const confirm = await Swal.fire({
+      title: '¿Quitar este documento de resultados?',
+      text: `${convocatoria.disciplina} - ${convocatoria.categoria}`,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      confirmButtonColor: COLORS.burgundy,
+      cancelButtonColor: COLORS.purple,
+      confirmButtonText: 'Sí, quitarlo',
+      cancelButtonText: 'Cancelar',
     });
+    if (!confirm.isConfirmed) return;
 
-    if (result.isConfirmed) {
-      try {
-        await axios.delete(`http://localhost:5000/api/resultados/${resultadoId}`);
-        await cargarDatos();
-        setSuccess('Resultado eliminado correctamente');
-        
-        Swal.fire({
-          icon: 'success',
-          title: '¡Eliminado!',
-          text: 'Resultado eliminado correctamente',
-          confirmButtonColor: '#800020'
-        });
-      } catch (error) {
-        console.error('Error al eliminar:', error);
-        setError('Error al eliminar el resultado');
-      }
+    try {
+      await eventosAPI.eliminarResultadoConvocatoria(convocatoria.id);
+      await cargarConvocatorias(eventoSeleccionadoId);
+      Swal.fire({ icon: 'success', title: 'Documento eliminado', confirmButtonColor: COLORS.burgundy, timer: 1500, showConfirmButton: false });
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo eliminar el documento.', confirmButtonColor: COLORS.burgundy });
     }
   };
 
-  const handleVerResultado = (resultado) => {
-    setResultadoSeleccionado(resultado);
-    setModalVerResultadoOpen(true);
+  const textoGenero = (g) => {
+    const v = (g || '').toLowerCase();
+    if (v === 'masculino') return 'Masculino';
+    if (v === 'femenino') return 'Femenino';
+    if (v === 'mixto') return 'Mixto';
+    return g || 'N/A';
   };
 
-  const handleCloseModal = () => {
-    setModalResultadoOpen(false);
-    setModalVerResultadoOpen(false);
-    setResultadoSeleccionado(null);
-    setEditMode(false);
-    setFormData({
-      eventoId: '',
-      convocatoriaIndex: 0,
-      atletaId: '',
-      categoria: '',
-      sexo: '',
-      municipio: '',
-      club: '',
-      añoCompetitivo: new Date().getFullYear(),
-      pruebas: [
-        { nombre: '', marca: '', unidad: 'segundos' },
-        { nombre: '', marca: '', unidad: 'metros' },
-        { nombre: '', marca: '', unidad: 'segundos' },
-        { nombre: '', marca: '', unidad: 'metros' }
-      ],
-      entrenadorId: '',
-      lugarEntrenamiento: ''
-    });
-    setError('');
-    setSuccess('');
-  };
+  const convocatoriasFiltradas = soloPendientes
+    ? convocatorias.filter((c) => !c.documentoResultado)
+    : convocatorias;
 
-  const obtenerNombreEvento = (eventoId) => {
-    const evento = eventos.find(e => e._id === eventoId);
-    return evento ? evento.titulo : 'Evento no encontrado';
-  };
-
-  const obtenerNombreAtleta = (atletaId) => {
-    const atleta = atletas.find(a => a._id === atletaId);
-    if (!atleta) return 'Atleta no encontrado';
-    return `${atleta.nombre} ${atleta.apellidopa} ${atleta.apellidoma}`;
-  };
-
-  const obtenerNombreEntrenador = (entrenadorId) => {
-    if (!entrenadorId) return 'Independiente';
-    const entrenador = entrenadores.find(e => e._id === entrenadorId);
-    return entrenador ? `${entrenador.nombre} ${entrenador.apellidopa} ${entrenador.apellidoma}` : 'No encontrado';
-  };
+  const totalConEventoSeleccionado = convocatorias.length;
+  const totalConResultado = convocatorias.filter((c) => c.documentoResultado).length;
+  const totalPendientes = totalConEventoSeleccionado - totalConResultado;
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, background: '#e4e4e5', minHeight: '100vh' }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
-        Gestión de Resultados
-      </Typography>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
+      <input ref={fileInputRef} type="file" accept=".doc,.docx,.xls,.xlsx,.pdf" hidden onChange={handleArchivoSeleccionado} />
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-          {error}
-          </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
-          {success}
-          </Alert>
-      )}
-
-      {/* Botón para agregar nuevo resultado */}
-      <Box sx={{ mb: 3, textAlign: 'center' }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setModalResultadoOpen(true)}
-          sx={{
-            backgroundColor: '#800020',
-            '&:hover': { backgroundColor: '#600018' }
-          }}
-        >
-          Agregar Nuevo Resultado
-        </Button>
+      {/* ── Franja de bienvenida ── */}
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
+        <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, md: 3 } }}>
+          <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            IVD · Panel Administrativo
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            Gestión de Resultados
+          </Typography>
+          <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
+            Sube el documento de resultados de cada convocatoria
+          </Typography>
+        </Container>
       </Box>
 
-      {/* Lista de resultados existentes */}
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 3 }}>
-          Resultados Registrados ({resultados.length})
-        </Typography>
-        
-        {resultados.length === 0 ? (
-          <Alert severity="info">
-            No hay resultados registrados. Agrega el primer resultado de un evento.
-          </Alert>
-        ) : (
-        <Table>
-          <TableHead>
-            <TableRow>
-                <TableCell><strong>Evento</strong></TableCell>
-                <TableCell><strong>Atleta</strong></TableCell>
-                <TableCell><strong>Categoría</strong></TableCell>
-                <TableCell><strong>Club</strong></TableCell>
-                <TableCell><strong>Año</strong></TableCell>
-                <TableCell><strong>Acciones</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-              {resultados.map((resultado) => (
-                <TableRow key={resultado._id}>
-                <TableCell>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {obtenerNombreEvento(resultado.eventoId)}
-                    </Typography>
-                </TableCell>
-                  <TableCell>{obtenerNombreAtleta(resultado.atletaId)}</TableCell>
-                <TableCell>
-                    <Chip label={resultado.categoria} color="primary" size="small" />
-                </TableCell>
-                  <TableCell>{resultado.club || 'Independiente'}</TableCell>
-                  <TableCell>{resultado.añoCompetitivo}</TableCell>
-                <TableCell>
-                    <Box display="flex" gap={1}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleVerResultado(resultado)}
-                        color="primary"
-                        title="Ver detalles"
-                      >
-                        <VisibilityIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(resultado)}
-                        color="secondary"
-                        title="Editar"
-                      >
-                    <EditIcon />
-                  </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(resultado._id)}
-                        color="error"
-                        title="Eliminar"
-                      >
-                    <DeleteIcon />
-                  </IconButton>
-                    </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        )}
-      </Paper>
+      <Container maxWidth="lg" sx={{ px: { xs: 2, md: 3 }, pt: { xs: 3, md: 4 }, pb: { xs: 5, md: 7 } }}>
 
-      {/* Modal para crear/editar resultado */}
-      <Dialog open={modalResultadoOpen} onClose={handleCloseModal} maxWidth="md" fullWidth>
-        <DialogTitle>
-            <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-            {editMode ? 'Editar Resultado' : 'Nuevo Resultado'}
-            </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            {/* Selección de evento y convocatoria */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Evento</InputLabel>
-                <Select
-                  name="eventoId"
-                  value={formData.eventoId}
-                  onChange={handleInputChange}
-                  label="Evento"
-                >
-                  {eventos.map((evento) => (
-                    <MenuItem key={evento._id} value={evento._id}>
-                      {evento.titulo}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+        {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setError('')}>{error}</Alert>}
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Índice de Convocatoria"
-                name="convocatoriaIndex"
-                type="number"
-                value={formData.convocatoriaIndex}
-                onChange={handleInputChange}
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0 }}
-              />
-            </Grid>
-
-            {/* Selección de atleta */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Atleta</InputLabel>
-                <Select
-                  name="atletaId"
-                  value={formData.atletaId}
-                  onChange={handleInputChange}
-                  label="Atleta"
-                >
-                  {atletas.map((atleta) => (
-                    <MenuItem key={atleta._id} value={atleta._id}>
-                      {`${atleta.nombre} ${atleta.apellidopa} ${atleta.apellidoma}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Categoría y sexo */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Categoría</InputLabel>
-                <Select
-                  name="categoria"
-                  value={formData.categoria}
-                  onChange={handleInputChange}
-                  label="Categoría"
-                >
-                  {categorias.map((cat) => (
-                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Sexo</InputLabel>
-                <Select
-                  name="sexo"
-                  value={formData.sexo}
-                  onChange={handleInputChange}
-                  label="Sexo"
-                >
-                  <MenuItem value="masculino">Masculino</MenuItem>
-                  <MenuItem value="femenino">Femenino</MenuItem>
-                  <MenuItem value="mixto">Mixto</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Municipio y club */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Municipio"
-                name="municipio"
-                value={formData.municipio}
-                onChange={handleInputChange}
-                sx={{ mb: 2 }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Club</InputLabel>
-                <Select
-                  name="club"
-                  value={formData.club}
-                  onChange={handleInputChange}
-                  label="Club"
-                >
-                  <MenuItem value="">Independiente</MenuItem>
-                  {clubes.map((club) => (
-                    <MenuItem key={club._id} value={club.nombre}>
-                      {club.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Año competitivo */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Año Competitivo"
-                name="añoCompetitivo"
-                type="number"
-                value={formData.añoCompetitivo}
-                onChange={handleInputChange}
-                sx={{ mb: 2 }}
-                inputProps={{ min: 2020, max: 2030 }}
-              />
-            </Grid>
-
-            {/* Entrenador */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Entrenador</InputLabel>
-                <Select
-                  name="entrenadorId"
-                  value={formData.entrenadorId}
-                  onChange={handleInputChange}
-                  label="Entrenador"
-                >
-                  <MenuItem value="">Independiente</MenuItem>
-                  {entrenadores.map((entrenador) => (
-                    <MenuItem key={entrenador._id} value={entrenador._id}>
-                      {`${entrenador.nombre} ${entrenador.apellidopa} ${entrenador.apellidoma}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Lugar de entrenamiento */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Lugar de Entrenamiento"
-                name="lugarEntrenamiento"
-                value={formData.lugarEntrenamiento}
-                onChange={handleInputChange}
-                sx={{ mb: 2 }}
-              />
-            </Grid>
-
-            {/* Pruebas */}
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ color: '#7A4069', fontWeight: 'bold', mb: 2 }}>
-                Pruebas y Marcas
-              </Typography>
-              <Grid container spacing={2}>
-                {formData.pruebas.map((prueba, index) => (
-                  <Grid item xs={12} md={6} key={index}>
-                    <Card variant="outlined" sx={{ p: 2 }}>
-                      <Typography variant="subtitle2" sx={{ mb: 1, color: '#800020' }}>
-                        Prueba {index + 1}
-                      </Typography>
-              <TextField
-                fullWidth
-                        label="Nombre de la Prueba"
-                        value={prueba.nombre}
-                        onChange={(e) => handlePruebaChange(index, 'nombre', e.target.value)}
-                        sx={{ mb: 1 }}
-                        size="small"
-                      />
-                      <Grid container spacing={1}>
-                        <Grid item xs={8}>
-              <TextField
-                fullWidth
-                label="Marca"
-                            value={prueba.marca}
-                            onChange={(e) => handlePruebaChange(index, 'marca', e.target.value)}
-                            size="small"
-              />
-            </Grid>
-                        <Grid item xs={4}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel>Unidad</InputLabel>
-                            <Select
-                              value={prueba.unidad}
-                              onChange={(e) => handlePruebaChange(index, 'unidad', e.target.value)}
-                              label="Unidad"
-                            >
-                              {unidades.map((unidad) => (
-                                <MenuItem key={unidad} value={unidad}>{unidad}</MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        </Grid>
-                      </Grid>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModal} sx={{ color: '#7A4069' }}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSubmit} 
-              variant="contained"
-            startIcon={<SaveIcon />}
-            sx={{ backgroundColor: '#800020' }}
+        {/* ── Pestañas ── */}
+        <Box sx={{ mb: 3, borderBottom: `1px solid ${COLORS.line}` }}>
+          <Tabs
+            value={tabActivo}
+            onChange={(e, v) => setTabActivo(v)}
+            sx={{ '& .MuiTabs-indicator': { backgroundColor: COLORS.burgundy, height: 3 } }}
           >
-            {editMode ? 'Actualizar' : 'Guardar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Tab icon={<UploadFileIcon />} iconPosition="start" label="Subir Resultados" value="subir"
+              sx={{ fontWeight: 700, color: COLORS.purple, '&.Mui-selected': { color: COLORS.burgundy } }} />
+            <Tab icon={<ListAltIcon />} iconPosition="start" label="Ver Eventos y Resultados" value="ver"
+              sx={{ fontWeight: 700, color: COLORS.purple, '&.Mui-selected': { color: COLORS.burgundy } }} />
+          </Tabs>
+        </Box>
 
-      {/* Modal para ver resultado */}
-      <Dialog open={modalVerResultadoOpen} onClose={() => setModalVerResultadoOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-            Detalles del Resultado
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {resultadoSeleccionado && (
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Evento:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {obtenerNombreEvento(resultadoSeleccionado.eventoId)}
-                </Typography>
-              </Grid>
+        {/* ── Selector de evento ── */}
+        <Box sx={{ ...cardSx, p: 3, mb: 3 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Evento</InputLabel>
+            <Select
+              label="Evento"
+              value={eventoSeleccionadoId}
+              onChange={(e) => handleSeleccionarEvento(e.target.value)}
+            >
+              <MenuItem value="">Selecciona un evento</MenuItem>
+              {eventos.map((ev) => (
+                <MenuItem key={ev.id} value={ev.id}>
+                  {ev.titulo} {!ev.estado && '(cerrado)'}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Atleta:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {obtenerNombreAtleta(resultadoSeleccionado.atletaId)}
-                </Typography>
-              </Grid>
+        {!eventoSeleccionadoId ? (
+          <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
+            <EventIcon sx={{ fontSize: 40, color: COLORS.purple, mb: 1 }} />
+            <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+              Selecciona un evento para ver sus convocatorias
+            </Typography>
+          </Box>
+        ) : cargandoConvocatorias ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress sx={{ color: COLORS.burgundy }} />
+          </Box>
+        ) : (
+          <>
+            {/* ── Stat-strip del evento seleccionado ── */}
+            <Box sx={{ ...cardSx, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', overflow: 'hidden', mb: 3 }}>
+              {[
+                { icon: <ListAltIcon sx={{ fontSize: 22 }} />, value: totalConEventoSeleccionado, label: 'Convocatorias', accent: COLORS.burgundy },
+                { icon: <CheckIcon sx={{ fontSize: 22 }} />, value: totalConResultado, label: 'Con resultado', accent: COLORS.purple },
+                { icon: <PendingIcon sx={{ fontSize: 22 }} />, value: totalPendientes, label: 'Pendientes', accent: COLORS.burgundy },
+              ].map((s, i) => (
+                <Box key={i} sx={{ p: 2.5, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
+                  <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+                  <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.5rem' }}>{s.value}</Typography>
+                  <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>{s.label}</Typography>
+                </Box>
+              ))}
+            </Box>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Categoría:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {resultadoSeleccionado.categoria}
-                </Typography>
-              </Grid>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <FormControlLabel
+                control={<Switch checked={soloPendientes} onChange={(e) => setSoloPendientes(e.target.checked)}
+                  sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: COLORS.burgundy }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: COLORS.burgundy } }} />}
+                label={<Typography variant="body2" sx={{ color: COLORS.ink }}>Mostrar solo pendientes</Typography>}
+              />
+            </Box>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Club:
+            {/* ── Lista de convocatorias ── */}
+            {convocatoriasFiltradas.length === 0 ? (
+              <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
+                <TrophyIcon sx={{ fontSize: 40, color: COLORS.purple, mb: 1 }} />
+                <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+                  {soloPendientes ? '¡Todas las convocatorias ya tienen resultado!' : 'Este evento no tiene convocatorias'}
                 </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {resultadoSeleccionado.club || 'Independiente'}
-                </Typography>
-              </Grid>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {convocatoriasFiltradas.map((conv) => (
+                  <Box
+                    key={conv.id}
+                    sx={{
+                      ...cardSx, p: 2.5,
+                      display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2,
+                    }}
+                  >
+                    <Box sx={{ minWidth: 220 }}>
+                      <Typography sx={{ fontWeight: 700, color: COLORS.ink }}>{conv.disciplina}</Typography>
+                      <Box sx={{ display: 'flex', gap: 0.75, mt: 0.5, flexWrap: 'wrap' }}>
+                        <Chip label={conv.categoria} size="small" sx={{ border: `1px solid ${COLORS.purple}`, bgcolor: 'transparent', color: COLORS.purple }} />
+                        <Chip label={textoGenero(conv.genero)} size="small" sx={{ border: `1px solid ${COLORS.line}`, bgcolor: 'transparent', color: COLORS.ink }} />
+                        {conv.edadMin != null && conv.edadMax != null && (
+                          <Chip label={`${conv.edadMin}-${conv.edadMax} años`} size="small" sx={{ border: `1px solid ${COLORS.line}`, bgcolor: 'transparent', color: COLORS.ink }} />
+                        )}
+                      </Box>
+                    </Box>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Entrenador:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {obtenerNombreEntrenador(resultadoSeleccionado.entrenadorId)}
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                  Lugar de Entrenamiento:
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  {resultadoSeleccionado.lugarEntrenamiento || 'No especificado'}
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold', mb: 2 }}>
-                  Pruebas y Marcas
-                </Typography>
-                <Grid container spacing={2}>
-                  {resultadoSeleccionado.pruebas?.map((prueba, index) => (
-                    <Grid item xs={12} md={6} key={index}>
-                      <Card variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#7A4069' }}>
-                          Prueba {index + 1}: {prueba.nombre}
-                        </Typography>
-                        <Typography variant="body1">
-                          Marca: {prueba.marca} {prueba.unidad}
-                        </Typography>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setModalVerResultadoOpen(false)} sx={{ color: '#7A4069' }}>
-            Cerrar
-            </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                      {conv.documentoResultado ? (
+                        <>
+                          <Chip icon={<CheckIcon sx={{ fontSize: 16 }} />} label="Resultado subido" size="small" sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 700 }} />
+                          <IconButton size="small" onClick={() => abrirDocumentoParaVer(conv.documentoResultado)} sx={{ color: COLORS.burgundy }} title="Ver documento">
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleAbrirSelectorArchivo(conv.id)} sx={{ color: COLORS.purple }} title="Reemplazar documento" disabled={subiendoId === conv.id}>
+                            {subiendoId === conv.id ? <CircularProgress size={18} /> : <ReplaceIcon fontSize="small" />}
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleEliminarResultado(conv)} sx={{ color: '#A13A3A' }} title="Eliminar documento">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </>
+                      ) : (
+                        <>
+                          <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Sin resultado" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={subiendoId === conv.id ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <UploadFileIcon />}
+                            onClick={() => handleAbrirSelectorArchivo(conv.id)}
+                            disabled={subiendoId === conv.id}
+                            sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
+                          >
+                            {subiendoId === conv.id ? 'Subiendo...' : 'Subir resultado'}
+                          </Button>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </>
+        )}
+      </Container>
+    </Box>
   );
 };
 
-export default GestionResultados; 
+export default GestionResultados;
