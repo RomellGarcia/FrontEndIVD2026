@@ -1,23 +1,27 @@
-import { resultadosAPI, perfilEmpresaAPI } from '../../api/index.js';
+import { resultadosAPI, atletasAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
   Container, Button, IconButton, Alert, CircularProgress, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Divider, Pagination,
+  Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Divider,
 } from '@mui/material';
 import {
   Visibility as ViewIcon, PictureAsPdf as PdfIcon,
   EmojiEvents as TrophyIcon, Person as PersonIcon,
   CalendarToday as CalendarIcon,
   Close as CloseIcon, SportsScore as SportsIcon,
-  BarChart as BarChartIcon,
+  BarChart as BarChartIcon, Event as EventIcon,
+  LocationOn as LocationIcon, ArrowBack as ArrowBackIcon,
+  TableChart as ExcelIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 
-// --- Paleta institucional IVD (misma que las páginas principales) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -29,7 +33,7 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
-const tableHeadSx = {
+const estilosCabeceraTabla = {
   fontWeight: 700,
   color: '#fff',
   fontSize: '0.72rem',
@@ -38,198 +42,447 @@ const tableHeadSx = {
   py: 2,
 };
 
+// Chip que muestra la posición con colores según medalla
+const ChipPosicion = ({ posicion }) => {
+  if (!posicion) return <Typography variant="body2" sx={{ color: COLORS.purple }}>—</Typography>;
+  const estilos = {
+    1: { bgcolor: '#B8860B', color: '#fff' },
+    2: { bgcolor: '#8a8a8a', color: '#fff' },
+    3: { bgcolor: '#A15C2E', color: '#fff' },
+  };
+  const sx = estilos[posicion] || { bgcolor: COLORS.lineSoft, color: COLORS.ink };
+  return (
+    <Chip
+      icon={posicion <= 3 ? <TrophyIcon sx={{ fontSize: 15, color: 'inherit !important' }} /> : undefined}
+      label={`${posicion}°`}
+      size="small"
+      sx={{ ...sx, fontWeight: 800, minWidth: 46 }}
+    />
+  );
+};
+
+// Obtiene el nombre completo de un atleta
+const nombreAtleta = (registro) => [registro?.nombre, registro?.apellido_paterno, registro?.apellido_materno].filter(Boolean).join(' ');
+
+// Disciplinas de campo (salto/lanzamiento) vs tiempo
+const DISCIPLINAS_DISTANCIA = new Set([
+  'Salto de longitud', 'Salto de altura',
+  'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
+]);
+const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
+
+// Genera un slug para nombres de archivo
+const generarSlug = (texto) => (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
+
+// Formatea fecha en formato largo
+const formatearFechaLarga = (fecha) => {
+  if (!fecha) return '—';
+  try {
+    return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch { return '—'; }
+};
+
+// Formatea fecha en formato corto
+const formatearFechaCorta = (fecha) => {
+  if (!fecha) return '—';
+  return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 const ResultadosAtleta = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [resultados, setResultados] = useState([]);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [mensajeError, setMensajeError] = useState('');
+  const [cargando, setCargando] = useState(true);
+  const [modalAbierto, setModalAbierto] = useState(false);
   const [seleccionado, setSeleccionado] = useState(null);
   const [logoUrl, setLogoUrl] = useState('');
-  const [page, setPage] = useState(1);
+  const [logoRatio, setLogoRatio] = useState(3);
+  const [pagina, setPagina] = useState(1);
   const porPagina = 8;
+
+  const [vista, setVista] = useState('eventos');
+  const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
 
   useEffect(() => {
     if (!user) navigate('/login');
-    else { fetchResultados(); fetchLogo(); }
+    else { cargarResultados(); cargarLogo(); }
   }, [user, navigate]);
 
-  const fetchResultados = async () => {
+  // Obtiene los resultados del atleta desde el backend
+  const cargarResultados = async () => {
     try {
-      setLoading(true);
-      const response = await resultadosAPI.getByAtleta(user.id);
+      setCargando(true);
+      const perfilResponse = await atletasAPI.getPerfil();
+      const atletaId = perfilResponse.data.atleta?.id;
+      if (!atletaId) { setMensajeError('No se encontró tu perfil de atleta.'); return; }
+
+      const response = await resultadosAPI.getByAtleta(atletaId);
       const data = response.data.resultados || [];
-      setResultados(data.sort((a, b) => new Date(b.evento_fecha || b.fechaEvento) - new Date(a.evento_fecha || a.fechaEvento)));
-    } catch { setErrorMessage('Error al cargar los resultados.'); }
-    finally { setLoading(false); }
+      setResultados(data.sort((a, b) => new Date(b.evento_fecha || 0) - new Date(a.evento_fecha || 0)));
+    } catch { setMensajeError('Error al cargar los resultados.'); }
+    finally { setCargando(false); }
   };
 
-  const fetchLogo = async () => {
+  // Carga el logo institucional para el PDF
+  const cargarLogo = async () => {
+    const LOGO_URL = 'https://res.cloudinary.com/dtnxbeqox/image/upload/v1782881553/IVD_TITULO_th3ydc.png';
     try {
-      const response = await perfilEmpresaAPI.get();
-      setLogoUrl(response.data.perfil?.logo || '');
-    } catch { /* silenciar */ }
+      const response = await fetch(LOGO_URL);
+      const blob = await response.blob();
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const dims = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = base64;
+      });
+      setLogoUrl(base64);
+      if (dims?.w && dims?.h) setLogoRatio(dims.w / dims.h);
+    } catch { /* sin logo, el PDF se genera igual solo sin la imagen */ }
   };
 
-  const fmt = (fecha) => {
-    if (!fecha) return '—';
-    try {
-      return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
-    } catch { return '—'; }
-  };
-
-  const fmtCorta = (fecha) => {
-    if (!fecha) return '—';
-    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
-  const getDisciplina = (pruebas) => pruebas?.[0]?.nombre || 'Sin disciplina';
-  const getMarca = (pruebas) => {
+  // Obtiene la marca principal de un resultado (Marca, ChipTime o GunTime)
+  const obtenerMarca = (pruebas) => {
     if (!pruebas?.length) return '—';
-    return `${pruebas[0]?.marca || '0'} ${pruebas[0]?.unidad || ''}`;
+    const marca = pruebas.find((p) => p.nombre === 'Marca');
+    if (marca) return `${marca.marca || '0'} ${marca.unidad || ''}`.trim();
+    const chip = pruebas.find((p) => p.nombre === 'ChipTime');
+    if (chip) return chip.marca || '—';
+    return `${pruebas[0]?.marca || '0'} ${pruebas[0]?.unidad || ''}`.trim();
   };
 
-  const handleVerDetalle = (r) => { setSeleccionado(r); setModalOpen(true); };
-  const handleCerrar = () => { setModalOpen(false); setSeleccionado(null); };
+  const manejarVerDetalle = (resultado) => { setSeleccionado(resultado); setModalAbierto(true); };
+  const manejarCerrarModal = () => { setModalAbierto(false); setSeleccionado(null); };
 
-  const resultadosPaginados = resultados.slice((page - 1) * porPagina, page * porPagina);
   const totalPruebas = resultados.reduce((acc, r) => acc + (r.pruebas?.length || 0), 0);
-  const disciplinasDistintas = new Set(resultados.map((r) => getDisciplina(r.pruebas))).size;
+  const disciplinasDistintas = new Set(resultados.map((r) => r.disciplina).filter(Boolean)).size;
 
-  /* ── Generar PDF ── */
-  const handleDownloadPDF = async (resultado) => {
+  // Agrupa resultados por evento
+  const eventos = React.useMemo(() => {
+    const mapa = new Map();
+    for (const r of resultados) {
+      if (!mapa.has(r.evento_id)) {
+        mapa.set(r.evento_id, {
+          evento_id: r.evento_id,
+          evento_titulo: r.evento_titulo,
+          evento_fecha: r.evento_fecha,
+          evento_lugar: r.evento_lugar,
+          evento_imagen_url: r.evento_imagen_url,
+          resultados: [],
+        });
+      }
+      mapa.get(r.evento_id).resultados.push(r);
+    }
+    return [...mapa.values()].sort((a, b) => new Date(b.evento_fecha || 0) - new Date(a.evento_fecha || 0));
+  }, [resultados]);
+
+  const manejarEntrarEvento = (ev) => {
+    setEventoSeleccionado(ev);
+    setVista('evento');
+    setPagina(1);
+  };
+
+  const manejarVolverAEventos = () => {
+    setVista('eventos');
+    setEventoSeleccionado(null);
+  };
+
+  const resultadosDelEvento = eventoSeleccionado?.resultados || [];
+  const mejorPosicionEvento = resultadosDelEvento.reduce((mejor, r) => {
+    if (!r.posicion) return mejor;
+    return mejor === null ? r.posicion : Math.min(mejor, r.posicion);
+  }, null);
+
+  // Genera un certificado PDF para un resultado individual
+  const manejarDescargarPDF = async (resultado) => {
     try {
-      const doc = new jsPDF();
-      let y = 15;
-      const margin = 20;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const pageWidth = doc.internal.pageSize.width;
-      const contentWidth = pageWidth - (2 * margin);
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 12;
 
-      const addText = (text, x, yPos, maxWidth) => {
-        const lines = doc.splitTextToSize(text, maxWidth);
-        doc.text(lines, x, yPos);
-        return yPos + (lines.length * 5);
+      const burgundy = [128, 0, 32];
+      const gold = [184, 134, 11];
+      const ink = [43, 30, 30];
+      const grayText = [110, 100, 100];
+
+      const centerText = (text, y, { size = 12, font = 'helvetica', style = 'normal', color = ink } = {}) => {
+        doc.setFont(font, style);
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+        doc.text(text, pageWidth / 2, y, { align: 'center' });
       };
 
-      const addCenteredTitle = (text, yPos, fontSize = 16) => {
-        doc.setFontSize(fontSize);
-        doc.setFont('helvetica', 'bold');
-        doc.text(text, pageWidth / 2, yPos, { align: 'center' });
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        return yPos + 8;
-      };
+      // Marco decorativo
+      doc.setDrawColor(...burgundy);
+      doc.setLineWidth(1.1);
+      doc.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
+      doc.setDrawColor(...gold);
+      doc.setLineWidth(0.35);
+      doc.rect(margin + 3, margin + 3, pageWidth - 2 * (margin + 3), pageHeight - 2 * (margin + 3));
 
-      const addSubtitle = (text, yPos) => {
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(128, 0, 32);
-        doc.text(text, margin, yPos);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-        return yPos + 6;
-      };
+      let y = margin + 18;
 
+      // Logo
       if (logoUrl) {
-        try { doc.addImage(logoUrl, 'JPEG', margin, y, 20, 20); y += 25; } catch { /* sin logo */ }
+        try {
+          const logoW = 85;
+          const logoH = logoW / (logoRatio || 3);
+          doc.addImage(logoUrl, 'PNG', (pageWidth - logoW) / 2, y - logoH + 6, logoW, logoH);
+          y += 10;
+        } catch { /* sin logo */ }
       }
 
-      y = addCenteredTitle('INSTITUTO VERACRUZANO DEL DEPORTE', y, 16);
-      y = addCenteredTitle('Gobierno del Estado de Veracruz', y, 10);
-      y = addCenteredTitle('REPORTE DE RESULTADOS', y, 14);
+      y += 12;
+      centerText('CONSTANCIA DE RESULTADOS', y, { size: 20, font: 'times', style: 'bolditalic', color: burgundy });
       y += 10;
 
-      doc.setDrawColor(128, 0, 32);
-      doc.line(margin, y, pageWidth - margin, y);
+      doc.setDrawColor(...gold);
+      doc.setLineWidth(0.5);
+      doc.line(pageWidth / 2 - 35, y, pageWidth / 2 + 35, y);
+      y += 14;
+
+      centerText('El Instituto Veracruzano del Deporte otorga la presente constancia a', y, { size: 11, style: 'italic', color: grayText });
+      y += 13;
+
+      centerText(nombreAtleta(resultado) || 'Atleta', y, { size: 26, font: 'times', style: 'bold', color: ink });
       y += 12;
 
-      const fechaActual = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
-      doc.setFontSize(9);
-      doc.text(`Veracruz, Ver. a ${fechaActual}`, pageWidth - margin, y, { align: 'right' });
-      doc.setFontSize(10);
-      y += 10;
+      centerText(
+        `por su participación en "${resultado.evento_titulo || 'el evento'}", disciplina de ${resultado.disciplina || '—'}`,
+        y, { size: 11.5, style: 'italic', color: grayText }
+      );
+      y += 6;
+      centerText(`categoría ${resultado.categoria || '—'}, celebrado el ${formatearFechaLarga(resultado.evento_fecha)} en ${resultado.evento_lugar || '—'}.`,
+        y, { size: 11.5, style: 'italic', color: grayText });
+      y += 16;
 
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(128, 0, 32);
-      doc.text(resultado.nombreEvento || 'Evento Deportivo', pageWidth / 2, y, { align: 'center' });
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0);
-      y += 10;
-
-      y = addSubtitle('INFORMACIÓN DEL ATLETA:', y);
-      const infoAtleta = [
-        ['Nombre Completo:', resultado.nombreAtleta || '—'],
-        ['Categoría:', resultado.categoria || '—'],
-        ['Sexo:', resultado.sexo === 'masculino' ? 'Masculino' : resultado.sexo === 'femenino' ? 'Femenino' : '—'],
-        ['Municipio:', resultado.municipio || '—'],
-        ['Club:', resultado.club || '—'],
-        ['Año Competitivo:', resultado.añoCompetitivo || resultado.ano_competitivo || '—'],
-      ];
-
-      infoAtleta.forEach(([label, value]) => {
+      // Insignia de medalla si está en podio
+      if (resultado.posicion && resultado.posicion <= 3) {
+        const medalColors = { 1: [184, 134, 11], 2: [138, 138, 138], 3: [161, 92, 46] };
+        const cx = pageWidth / 2;
+        doc.setFillColor(...medalColors[resultado.posicion]);
+        doc.circle(cx, y + 9, 11, 'F');
+        doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        const lbl = `• ${label}`;
-        doc.text(lbl, margin, y);
-        doc.setFont('helvetica', 'normal');
-        const lw = doc.getTextWidth(lbl);
-        y = addText(value, margin + lw + 3, y, contentWidth - lw - 3);
-        y += 3;
-      });
-
-      y += 5;
-      y = addSubtitle('INFORMACIÓN DEL EVENTO:', y);
-      const infoEvento = [
-        ['Fecha del Evento:', fmt(resultado.fechaEvento || resultado.evento_fecha)],
-        ['Lugar de Entrenamiento:', resultado.lugarEntrenamiento || resultado.lugar_entrenamiento || '—'],
-      ];
-
-      infoEvento.forEach(([label, value]) => {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        const lbl = `• ${label}`;
-        doc.text(lbl, margin, y);
-        doc.setFont('helvetica', 'normal');
-        const lw = doc.getTextWidth(lbl);
-        y = addText(value, margin + lw + 3, y, contentWidth - lw - 3);
-        y += 3;
-      });
-
-      y += 5;
-      y = addSubtitle('PRUEBAS Y MARCAS:', y);
-      if (resultado.pruebas?.length > 0) {
-        resultado.pruebas.forEach((p) => {
-          if (p.nombre && p.marca) {
-            y = addText(`• ${p.nombre}: ${p.marca} ${p.unidad || ''}`, margin, y, contentWidth);
-            y += 3;
-          }
-        });
-      } else {
-        y = addText('No hay pruebas registradas', margin, y, contentWidth);
+        doc.setFontSize(14);
+        doc.text(`${resultado.posicion}°`, cx, y + 12, { align: 'center' });
+        y += 26;
       }
 
-      y += 8;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 6;
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text('Este reporte es oficial y ha sido emitido por el Instituto Veracruzano del Deporte.', pageWidth / 2, y, { align: 'center' });
-      y += 4;
-      doc.text(`Documento generado el ${fechaActual}`, pageWidth / 2, y, { align: 'center' });
+      // Franja de datos clave
+      const stats = [
+        ['BIB', resultado.bib ? String(resultado.bib).padStart(3, '0') : '—'],
+        ['LUGAR OBTENIDO', resultado.posicion ? `${resultado.posicion}°` : '—'],
+        ['MARCA', obtenerMarca(resultado.pruebas)],
+        ['AÑO', String(resultado.ano_competitivo || '—')],
+      ];
+      const stripW = pageWidth - 2 * (margin + 14);
+      const stripX = margin + 14;
+      const colW = stripW / stats.length;
+      doc.setDrawColor(...burgundy);
+      doc.setLineWidth(0.3);
+      doc.line(stripX, y, stripX + stripW, y);
+      stats.forEach(([label, value], i) => {
+        const cx = stripX + colW * i + colW / 2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...grayText);
+        doc.text(label, cx, y + 7, { align: 'center' });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(...burgundy);
+        doc.text(value, cx, y + 14, { align: 'center' });
+        if (i > 0) {
+          doc.setDrawColor(230, 220, 220);
+          doc.line(stripX + colW * i, y + 2, stripX + colW * i, y + 16);
+        }
+      });
+      y += 20;
+      doc.setDrawColor(...burgundy);
+      doc.line(stripX, y, stripX + stripW, y);
 
-      doc.save(`Resultado_${resultado.nombreAtleta || 'atleta'}_${resultado.nombreEvento || 'evento'}.pdf`);
-      Swal.fire({ icon: 'success', title: 'PDF Generado', text: 'El reporte se descargó exitosamente', confirmButtonColor: COLORS.burgundy });
+      // Pie: fecha y firma institucional
+      const footerY = pageHeight - margin - 14;
+      const fechaActual = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...grayText);
+      doc.text(`Veracruz, Ver. a ${fechaActual}`, margin + 14, footerY);
+
+      const firmaX = pageWidth - margin - 70;
+      doc.setDrawColor(...ink);
+      doc.setLineWidth(0.3);
+      doc.line(firmaX, footerY, firmaX + 60, footerY);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...ink);
+      doc.text('Instituto Veracruzano del Deporte', firmaX + 30, footerY + 5, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...grayText);
+      doc.text('Documento generado automáticamente por el sistema del IVD — no requiere firma autógrafa.', pageWidth / 2, pageHeight - margin - 3, { align: 'center' });
+
+      doc.save(`Constancia_${nombreAtleta(resultado) || 'atleta'}_${resultado.evento_titulo || 'evento'}.pdf`);
+      Swal.fire({ icon: 'success', title: 'PDF generado', text: 'La constancia se descargó exitosamente', confirmButtonColor: COLORS.burgundy });
     } catch (error) {
       Swal.fire({ icon: 'error', title: 'Error', text: `Error al generar el PDF: ${error.message}`, confirmButtonColor: COLORS.burgundy });
     }
   };
 
-  if (loading) {
+  // Muestra los resultados de la categoría en formato PDF (abre en nueva pestaña)
+  const manejarVerResultadosPDF = async (resultado) => {
+    if (!resultado?.convocatoria_id) {
+      Swal.fire({
+        icon: 'error', title: 'No disponible',
+        text: 'Falta el identificador de la convocatoria en este resultado.',
+        confirmButtonColor: COLORS.burgundy,
+      });
+      return;
+    }
+    try {
+      const response = await resultadosAPI.getByConvocatoria(resultado.convocatoria_id);
+      const resultadosCategoria = response.data.resultados || [];
+      if (resultadosCategoria.length === 0) {
+        Swal.fire({ icon: 'info', title: 'Sin resultados', text: 'Esta categoría todavía no tiene resultados registrados.', confirmButtonColor: COLORS.burgundy });
+        return;
+      }
+
+      const esDistancia = esDisciplinaDeDistancia(resultado.disciplina);
+      const ordenados = [...resultadosCategoria].sort((a, b) => {
+        if (a.posicion === null) return 1;
+        if (b.posicion === null) return -1;
+        return (a.posicion ?? 999) - (b.posicion ?? 999);
+      });
+
+      const columnas = esDistancia
+        ? [['Pl.', 20], ['Bib', 20], ['Nombre', 70], ['Club', 55], ['Marca', 30]]
+        : [['Pl.', 20], ['Bib', 20], ['Nombre', 60], ['Club', 50], ['ChipTime', 27], ['GunTime', 27]];
+
+      const filas = ordenados.map((r) => {
+        const marca = r.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
+        const chip = r.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
+        const gun = r.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
+        const base = [r.posicion ? `${r.posicion}°` : '—', r.bib ? String(r.bib).padStart(3, '0') : '—', nombreAtleta(r), r.club_nombre || 'Libre'];
+        return esDistancia ? [...base, marca || '—'] : [...base, chip || '—', gun || '—'];
+      });
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.width;
+      const margin = 14;
+      let y = 18;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(128, 0, 32);
+      doc.text(`${resultado.disciplina || ''} — ${resultado.categoria || ''}`, margin, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(90, 90, 90);
+      doc.text(resultado.evento_titulo || '', margin, y);
+      y += 10;
+
+      // Encabezado de la tabla
+      let x = margin;
+      doc.setFillColor(128, 0, 32);
+      doc.rect(margin, y, pageWidth - margin * 2, 8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      columnas.forEach(([label, w]) => { doc.text(label, x + 2, y + 5.5); x += w; });
+      y += 8;
+
+      // Filas
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(43, 30, 30);
+      filas.forEach((fila, i) => {
+        if (y > 190) { doc.addPage(); y = 18; }
+        if (i % 2 === 0) {
+          doc.setFillColor(245, 240, 242);
+          doc.rect(margin, y, pageWidth - margin * 2, 7, 'F');
+        }
+        x = margin;
+        fila.forEach((valor, ci) => {
+          doc.text(String(valor), x + 2, y + 5, { maxWidth: columnas[ci][1] - 3 });
+          x += columnas[ci][1];
+        });
+        y += 7;
+      });
+
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron abrir los resultados.', confirmButtonColor: COLORS.burgundy });
+    }
+  };
+
+  // Descarga un Excel con los resultados de la categoría
+  const manejarDescargarExcelCategoria = async (resultado) => {
+    if (!resultado?.convocatoria_id) {
+      Swal.fire({
+        icon: 'error', title: 'No disponible',
+        text: 'Falta el identificador de la convocatoria en este resultado. Pide al equipo de backend que incluya "convocatoria_id" en la respuesta de resultadosAPI.getByAtleta.',
+        confirmButtonColor: COLORS.burgundy,
+      });
+      return;
+    }
+    try {
+      const response = await resultadosAPI.getByConvocatoria(resultado.convocatoria_id);
+      const resultadosCategoria = response.data.resultados || [];
+      if (resultadosCategoria.length === 0) {
+        Swal.fire({ icon: 'info', title: 'Sin resultados', text: 'Esta categoría todavía no tiene resultados registrados.', confirmButtonColor: COLORS.burgundy });
+        return;
+      }
+
+      const esDistancia = esDisciplinaDeDistancia(resultado.disciplina);
+      const ordenados = [...resultadosCategoria].sort((a, b) => {
+        if (a.posicion === null) return 1;
+        if (b.posicion === null) return -1;
+        return (a.posicion ?? 999) - (b.posicion ?? 999);
+      });
+
+      const filas = ordenados.map((r) => {
+        const marca = r.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
+        const chip = r.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
+        const gun = r.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
+        const base = {
+          'Pl.': r.posicion ? `${r.posicion}°` : '—',
+          Bib: r.bib ? String(r.bib).padStart(3, '0') : '—',
+          Nombre: nombreAtleta(r),
+          Club: r.club_nombre || 'Libre',
+        };
+        return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
+      });
+
+      const headers = esDistancia
+        ? ['Pl.', 'Bib', 'Nombre', 'Club', 'Marca']
+        : ['Pl.', 'Bib', 'Nombre', 'Club', 'ChipTime', 'GunTime'];
+
+      const ws = XLSX.utils.json_to_sheet(filas, { header: headers });
+      ws['!cols'] = esDistancia
+        ? [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 14 }]
+        : [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+
+      const wb = XLSX.utils.book_new();
+      const nombreHoja = `${resultado.disciplina || ''} ${resultado.categoria || ''}`.slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, nombreHoja || 'Resultados');
+      XLSX.writeFile(wb, `Resultados_${generarSlug(resultado.disciplina)}_${generarSlug(resultado.categoria)}.xlsx`);
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo descargar el Excel de la categoría.', confirmButtonColor: COLORS.burgundy });
+    }
+  };
+
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -239,25 +492,36 @@ const ResultadosAtleta = () => {
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera superior */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+          {vista === 'evento' && (
+            <Box sx={{ textAlign: 'left', mb: 1 }}>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                onClick={manejarVolverAEventos}
+                sx={{ color: '#fff', textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              >
+                Volver a mis eventos
+              </Button>
+            </Box>
+          )}
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Atleta
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
-            Mis Resultados
+            {vista === 'eventos' ? 'Mis Resultados' : (eventoSeleccionado?.evento_titulo || 'Resultados del evento')}
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
-            Historial de participaciones y marcas obtenidas
+            {vista === 'eventos'
+              ? 'Eventos en los que has participado'
+              : `${resultadosDelEvento.length} disciplina${resultadosDelEvento.length !== 1 ? 's' : ''} registrada${resultadosDelEvento.length !== 1 ? 's' : ''}`}
           </Typography>
         </Container>
       </Box>
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 4,
@@ -267,26 +531,40 @@ const ResultadosAtleta = () => {
             overflow: 'hidden',
           }}
         >
-          {[
-            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: resultados.length, label: 'Resultados', accent: COLORS.burgundy },
-            { icon: <SportsIcon sx={{ fontSize: 24 }} />, value: disciplinasDistintas, label: 'Disciplinas', accent: COLORS.purple },
-            { icon: <BarChartIcon sx={{ fontSize: 24 }} />, value: totalPruebas, label: 'Pruebas Registradas', accent: COLORS.burgundy },
-          ].map((s, i) => (
-            <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
-              <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
-              <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
-              <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
-            </Box>
-          ))}
+          {vista === 'eventos' ? (
+            [
+              { icon: <EventIcon sx={{ fontSize: 24 }} />, value: eventos.length, label: 'Eventos', accent: COLORS.burgundy },
+              { icon: <SportsIcon sx={{ fontSize: 24 }} />, value: disciplinasDistintas, label: 'Disciplinas', accent: COLORS.purple },
+              { icon: <BarChartIcon sx={{ fontSize: 24 }} />, value: resultados.length, label: 'Resultados', accent: COLORS.burgundy },
+            ].map((s, i) => (
+              <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
+                <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+              </Box>
+            ))
+          ) : (
+            [
+              { icon: <CalendarIcon sx={{ fontSize: 24 }} />, value: formatearFechaCorta(eventoSeleccionado?.evento_fecha), label: 'Fecha', accent: COLORS.burgundy },
+              { icon: <LocationIcon sx={{ fontSize: 24 }} />, value: eventoSeleccionado?.evento_lugar || '—', label: 'Lugar', accent: COLORS.purple, small: true },
+              { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: mejorPosicionEvento ? `${mejorPosicionEvento}°` : '—', label: 'Mejor lugar', accent: COLORS.burgundy },
+            ].map((s, i) => (
+              <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
+                <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: s.small ? '0.95rem' : { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+              </Box>
+            ))
+          )}
         </Box>
 
-        {errorMessage && (
-          <Alert severity="error" onClose={() => setErrorMessage('')} sx={{ mb: 3, borderRadius: '8px' }}>
-            {errorMessage}
+        {mensajeError && (
+          <Alert severity="error" onClose={() => setMensajeError('')} sx={{ mb: 3, borderRadius: '8px' }}>
+            {mensajeError}
           </Alert>
         )}
 
-        {/* ── Contenido ── */}
+        {/* Contenido principal */}
         {resultados.length === 0 ? (
           <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', textAlign: 'center', py: 6 }}>
             <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
@@ -297,38 +575,84 @@ const ResultadosAtleta = () => {
               Los resultados aparecerán aquí una vez que participes en eventos.
             </Typography>
           </Box>
+        ) : vista === 'eventos' ? (
+          /* Lista de eventos */
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2.5 }}>
+            {eventos.map((ev) => {
+              const mejorPos = ev.resultados.reduce((m, r) => (r.posicion ? (m === null ? r.posicion : Math.min(m, r.posicion)) : m), null);
+              return (
+                <Box
+                  key={ev.evento_id}
+                  onClick={() => manejarEntrarEvento(ev)}
+                  sx={{
+                    bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+                    overflow: 'hidden', cursor: 'pointer', transition: 'transform .15s, box-shadow .15s',
+                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                  }}
+                >
+                  {ev.evento_imagen_url ? (
+                    <Box component="img" src={ev.evento_imagen_url} alt={ev.evento_titulo}
+                      sx={{ width: '100%', height: 130, objectFit: 'cover', display: 'block' }} />
+                  ) : (
+                    <Box sx={{ width: '100%', height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
+                      <EventIcon sx={{ fontSize: 36, color: COLORS.purple }} />
+                    </Box>
+                  )}
+                  <Box sx={{ p: 2.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                      <Typography sx={{ fontWeight: 800, color: COLORS.burgundy, mb: 0.5 }}>{ev.evento_titulo}</Typography>
+                      {mejorPos && <ChipPosicion posicion={mejorPos} />}
+                    </Box>
+                    <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <CalendarIcon sx={{ fontSize: 13 }} /> {formatearFechaCorta(ev.evento_fecha)}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3 }}>
+                      <LocationIcon sx={{ fontSize: 13 }} /> {ev.evento_lugar || '—'}
+                    </Typography>
+                    <Chip
+                      icon={<SportsIcon sx={{ fontSize: 14 }} />}
+                      label={`${ev.resultados.length} disciplina${ev.resultados.length !== 1 ? 's' : ''}`}
+                      size="small"
+                      sx={{ mt: 1.5, bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 700 }}
+                    />
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
         ) : (
+          /* Detalle de un evento: disciplinas/resultados */
           <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                  {['Fecha', 'Evento', 'Disciplina', 'Marca', 'Categoría', 'Acciones'].map((h) => (
-                    <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
+                  {['Disciplina', 'Bib', 'Lugar', 'Marca', 'Categoría', 'Acciones'].map((h) => (
+                    <TableCell key={h} sx={estilosCabeceraTabla}>{h}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {resultadosPaginados.map((r, i) => (
-                  <TableRow key={r.id || r._id || i} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                {resultadosDelEvento.map((r) => (
+                  <TableRow key={r.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
                     <TableCell sx={{ borderColor: COLORS.line }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
-                        {fmtCorta(r.fechaEvento || r.evento_fecha)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ borderColor: COLORS.line }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
-                        {r.nombreEvento || r.evento_titulo || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ borderColor: COLORS.line }}>
-                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5, color: COLORS.ink }}>
+                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5, fontWeight: 700, color: COLORS.ink }}>
                         <SportsIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
-                        {getDisciplina(r.pruebas)}
+                        {r.disciplina || '—'}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ borderColor: COLORS.line }}>
                       <Chip
-                        label={getMarca(r.pruebas)}
+                        label={r.bib ? String(r.bib).padStart(3, '0') : '—'}
+                        size="small"
+                        sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 800, fontFamily: 'monospace' }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ borderColor: COLORS.line }}>
+                      <ChipPosicion posicion={r.posicion} />
+                    </TableCell>
+                    <TableCell sx={{ borderColor: COLORS.line }}>
+                      <Chip
+                        label={obtenerMarca(r.pruebas)}
                         size="small"
                         sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }}
                       />
@@ -344,7 +668,7 @@ const ResultadosAtleta = () => {
                       <Box sx={{ display: 'flex', gap: .5 }}>
                         <IconButton
                           size="small"
-                          onClick={() => handleVerDetalle(r)}
+                          onClick={() => manejarVerDetalle(r)}
                           sx={{ color: COLORS.burgundy, '&:hover': { bgcolor: COLORS.lineSoft } }}
                           title="Ver detalles"
                         >
@@ -352,11 +676,27 @@ const ResultadosAtleta = () => {
                         </IconButton>
                         <IconButton
                           size="small"
-                          onClick={() => handleDownloadPDF(r)}
+                          onClick={() => manejarDescargarPDF(r)}
                           sx={{ color: COLORS.purple, '&:hover': { bgcolor: COLORS.lineSoft } }}
                           title="Descargar PDF"
                         >
                           <PdfIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => manejarVerResultadosPDF(r)}
+                          sx={{ color: COLORS.burgundy, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                          title="Ver resultados de la categoría (se abre en una pestaña nueva)"
+                        >
+                          <OpenInNewIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => manejarDescargarExcelCategoria(r)}
+                          sx={{ color: '#1D6F42', '&:hover': { bgcolor: COLORS.lineSoft } }}
+                          title="Descargar Excel de resultados de la categoría"
+                        >
+                          <ExcelIcon fontSize="small" />
                         </IconButton>
                       </Box>
                     </TableCell>
@@ -364,29 +704,19 @@ const ResultadosAtleta = () => {
                 ))}
               </TableBody>
             </Table>
-
-            {resultados.length > porPagina && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
-                <Pagination
-                  count={Math.ceil(resultados.length / porPagina)}
-                  page={page} onChange={(e, v) => setPage(v)}
-                  sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }}
-                />
-              </Box>
-            )}
           </Box>
         )}
       </Container>
 
-      {/* Detalle */}
-      <Dialog open={modalOpen} onClose={handleCerrar} maxWidth="sm" fullWidth>
+      {/* Modal de detalle del resultado */}
+      <Dialog open={modalAbierto} onClose={manejarCerrarModal} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff', py: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TrophyIcon />
               <Typography variant="h6" sx={{ fontWeight: 700 }}>Detalle del Resultado</Typography>
             </Box>
-            <IconButton onClick={handleCerrar} size="small" sx={{ color: '#fff' }}>
+            <IconButton onClick={manejarCerrarModal} size="small" sx={{ color: '#fff' }}>
               <CloseIcon />
             </IconButton>
           </Box>
@@ -394,9 +724,12 @@ const ResultadosAtleta = () => {
         <DialogContent dividers sx={{ p: 3 }}>
           {seleccionado && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-
               {/* Evento */}
               <Box>
+                {seleccionado.evento_imagen_url && (
+                  <Box component="img" src={seleccionado.evento_imagen_url} alt={seleccionado.evento_titulo}
+                    sx={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: '8px', mb: 2 }} />
+                )}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                   <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
                     <CalendarIcon sx={{ fontSize: 18, color: COLORS.burgundy }} />
@@ -409,14 +742,18 @@ const ResultadosAtleta = () => {
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Evento</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.nombreEvento || seleccionado.evento_titulo || '—'}
+                      {seleccionado.evento_titulo || '—'}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {fmt(seleccionado.fechaEvento || seleccionado.evento_fecha)}
+                      {formatearFechaLarga(seleccionado.evento_fecha)}
                     </Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar del evento</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{seleccionado.evento_lugar || '—'}</Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
@@ -425,8 +762,18 @@ const ResultadosAtleta = () => {
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Año competitivo</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.añoCompetitivo || seleccionado.ano_competitivo || '—'}
+                      {seleccionado.ano_competitivo || '—'}
                     </Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Bib</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                      {seleccionado.bib ? String(seleccionado.bib).padStart(3, '0') : '—'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar obtenido</Typography>
+                    <Box sx={{ mt: .3 }}><ChipPosicion posicion={seleccionado.posicion} /></Box>
                   </Box>
                 </Box>
               </Box>
@@ -462,7 +809,7 @@ const ResultadosAtleta = () => {
 
               <Divider sx={{ borderColor: COLORS.line }} />
 
-              {/* Info adicional */}
+              {/* Información adicional */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                   <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
@@ -482,13 +829,13 @@ const ResultadosAtleta = () => {
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Club</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.club || seleccionado.club_nombre || '—'}
+                      {seleccionado.club_nombre || 'Libre'}
                     </Typography>
                   </Box>
                   <Box sx={{ gridColumn: '1 / -1' }}>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar de entrenamiento</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.lugarEntrenamiento || seleccionado.lugar_entrenamiento || '—'}
+                      {seleccionado.lugar_entrenamiento || '—'}
                     </Typography>
                   </Box>
                 </Box>
@@ -498,14 +845,30 @@ const ResultadosAtleta = () => {
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button
-            onClick={handleCerrar}
+            onClick={manejarCerrarModal}
             variant="outlined"
             sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 600 }}
           >
             Cerrar
           </Button>
           <Button
-            onClick={() => handleDownloadPDF(seleccionado)}
+            onClick={() => manejarVerResultadosPDF(seleccionado)}
+            variant="outlined"
+            startIcon={<OpenInNewIcon />}
+            sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: COLORS.lineSoft } }}
+          >
+            Ver resultados
+          </Button>
+          <Button
+            onClick={() => manejarDescargarExcelCategoria(seleccionado)}
+            variant="outlined"
+            startIcon={<ExcelIcon />}
+            sx={{ color: '#1D6F42', borderColor: '#1D6F42', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: 'rgba(29,111,66,0.08)' } }}
+          >
+            Excel de la categoría
+          </Button>
+          <Button
+            onClick={() => manejarDescargarPDF(seleccionado)}
             variant="contained"
             startIcon={<PdfIcon />}
             sx={{ bgcolor: COLORS.burgundy, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: COLORS.burgundyDark } }}

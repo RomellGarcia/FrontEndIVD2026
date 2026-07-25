@@ -46,6 +46,7 @@ import { atletasAPI, entrenadoresAPI, clubesAPI, api } from '../../api/index.js'
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
+// Paleta de colores institucional
 const C = {
   primary:    '#800020',
   primary2:   '#600018',
@@ -57,12 +58,14 @@ const C = {
   danger:     '#A13A3A',
 };
 
+// Configuración de estilos para cada rol
 const ROL_STYLES = {
   admin:       { color: C.primary,   bg: 'rgba(128,0,32,0.1)',   label: 'Administrador', icon: <AdminIcon fontSize="small" /> },
   entrenador:  { color: C.secondary, bg: 'rgba(122,64,105,0.1)', label: 'Entrenador',    icon: <CoachIcon fontSize="small" /> },
   atleta:      { color: '#2B1E1E',   bg: 'rgba(43,30,30,0.08)',  label: 'Atleta',        icon: <SportsIcon fontSize="small" /> },
 };
 
+// Estilos reutilizables para botones
 const outlineSecondarySx = {
   borderRadius: 2,
   borderColor: C.secondary,
@@ -94,6 +97,7 @@ const solidExpulsarSx = {
   '&:hover': { bgcolor: C.secondary2, boxShadow: 'none' },
 };
 
+// Botón de acción con tooltip
 const ActionIconButton = ({ title, color, onClick, disabled, icon }) => (
   <Tooltip title={title} arrow>
     <span>
@@ -113,9 +117,7 @@ const ActionIconButton = ({ title, color, onClick, disabled, icon }) => (
   </Tooltip>
 );
 
-//API por rol: cada rol resuelve a las funciones reales de api/index.js.
-//Solo atletas soporta eliminar (entrenadores no tiene DELETE en el backend,
-//admin no tiene ninguna ruta CRUD todavia, por eso no aparece aqui).
+// API por rol: mapea cada rol a las funciones correspondientes
 const API_POR_ROL = {
   atleta: {
     updateAdmin: atletasAPI.updateAdmin,
@@ -143,6 +145,7 @@ const API_POR_ROL = {
   },
 };
 
+// Elimina campos vacíos o undefined del payload
 const limpiarPayload = (obj) => Object.fromEntries(
   Object.entries(obj).filter(([, v]) => v !== undefined && v !== '')
 );
@@ -153,22 +156,22 @@ const ELIMINAR_NO_SOPORTADO = 'Eliminar entrenadores todavía no tiene endpoint 
 const GestionarUsuarios = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [exito, setExito] = useState('');
   const [usuarios, setUsuarios] = useState([]);
   const [clubes, setClubes] = useState([]);
   const [filtroRol, setFiltroRol] = useState('todos');
 
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [usuarioToDelete, setUsuarioToDelete] = useState(null);
+  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
 
-  const [openExpulsarModal, setOpenExpulsarModal] = useState(false);
-  const [usuarioToExpulsar, setUsuarioToExpulsar] = useState(null);
+  const [modalExpulsarAbierto, setModalExpulsarAbierto] = useState(false);
+  const [usuarioAExpulsar, setUsuarioAExpulsar] = useState(null);
 
-  const [openEditModal, setOpenEditModal] = useState(false);
-  const [usuarioToEdit, setUsuarioToEdit] = useState(null);
-  const [editFormData, setEditFormData] = useState({
+  const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
+  const [usuarioAEditar, setUsuarioAEditar] = useState(null);
+  const [formEditar, setFormEditar] = useState({
     nombre: '',
     apellido_paterno: '',
     apellido_materno: '',
@@ -190,9 +193,10 @@ const GestionarUsuarios = () => {
     cargarDatos();
   }, [user, navigate]);
 
+  // Carga todos los datos necesarios: atletas, entrenadores, admins y clubes
   const cargarDatos = async () => {
     try {
-      setLoading(true);
+      setCargando(true);
       const [atletasRes, entrenadoresRes, adminsRes, clubesRes] = await Promise.all([
         atletasAPI.getAll(),
         entrenadoresAPI.getAll().catch(() => ({ data: { entrenadores: [] } })),
@@ -217,7 +221,7 @@ const GestionarUsuarios = () => {
       setUsuarios([]);
       setClubes([]);
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
@@ -225,17 +229,18 @@ const GestionarUsuarios = () => {
     ? usuarios
     : usuarios.filter((u) => u.rol === filtroRol);
 
-  const handleDeleteClick = (usuario) => {
-    setUsuarioToDelete(usuario);
-    setOpenDeleteModal(true);
+  // Manejadores para eliminar usuario
+  const manejarEliminarClick = (usuario) => {
+    setUsuarioAEliminar(usuario);
+    setModalEliminarAbierto(true);
   };
 
-  const handleDeleteConfirm = async () => {
+  const manejarEliminarConfirmar = async () => {
     try {
-      await API_POR_ROL[usuarioToDelete.rol].remove(usuarioToDelete.id);
-      setSuccess('Usuario eliminado correctamente');
-      setOpenDeleteModal(false);
-      setUsuarioToDelete(null);
+      await API_POR_ROL[usuarioAEliminar.rol].remove(usuarioAEliminar.id);
+      setExito('Usuario eliminado correctamente');
+      setModalEliminarAbierto(false);
+      setUsuarioAEliminar(null);
       cargarDatos();
     } catch (error) {
       console.error('Error al eliminar usuario:', error);
@@ -243,22 +248,23 @@ const GestionarUsuarios = () => {
     }
   };
 
-  const handleDeleteCancel = () => {
-    setOpenDeleteModal(false);
-    setUsuarioToDelete(null);
+  const manejarEliminarCancelar = () => {
+    setModalEliminarAbierto(false);
+    setUsuarioAEliminar(null);
   };
 
-  const handleExpulsarClick = (usuario) => {
-    setUsuarioToExpulsar(usuario);
-    setOpenExpulsarModal(true);
+  // Manejadores para expulsar del club
+  const manejarExpulsarClick = (usuario) => {
+    setUsuarioAExpulsar(usuario);
+    setModalExpulsarAbierto(true);
   };
 
-  const handleExpulsarConfirm = async () => {
+  const manejarExpulsarConfirmar = async () => {
     try {
-      await API_POR_ROL[usuarioToExpulsar.rol].updateClub(usuarioToExpulsar.id, { club_id: null });
-      setSuccess('Atleta expulsado correctamente del club. Ahora es independiente.');
-      setOpenExpulsarModal(false);
-      setUsuarioToExpulsar(null);
+      await API_POR_ROL[usuarioAExpulsar.rol].updateClub(usuarioAExpulsar.id, { club_id: null });
+      setExito('Usuario expulsado correctamente del club. Ahora es independiente.');
+      setModalExpulsarAbierto(false);
+      setUsuarioAExpulsar(null);
       cargarDatos();
     } catch (error) {
       console.error('Error al expulsar atleta:', error);
@@ -266,14 +272,15 @@ const GestionarUsuarios = () => {
     }
   };
 
-  const handleExpulsarCancel = () => {
-    setOpenExpulsarModal(false);
-    setUsuarioToExpulsar(null);
+  const manejarExpulsarCancelar = () => {
+    setModalExpulsarAbierto(false);
+    setUsuarioAExpulsar(null);
   };
 
-  const handleEditClick = (usuario) => {
-    setUsuarioToEdit(usuario);
-    setEditFormData({
+  // Manejadores para editar usuario
+  const manejarEditarClick = (usuario) => {
+    setUsuarioAEditar(usuario);
+    setFormEditar({
       nombre: usuario.nombre || '',
       apellido_paterno: usuario.apellido_paterno || '',
       apellido_materno: usuario.apellido_materno || '',
@@ -286,32 +293,32 @@ const GestionarUsuarios = () => {
       clubId: usuario.club_id ?? '',
       anos_experiencia: usuario.anos_experiencia ?? '',
     });
-    setOpenEditModal(true);
+    setModalEditarAbierto(true);
   };
 
-  const handleEditChange = (e) => {
+  const manejarEditarChange = (e) => {
     const { name, value } = e.target;
-    setEditFormData((prev) => ({ ...prev, [name]: value }));
+    setFormEditar((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleEditSubmit = async () => {
-    const rol = usuarioToEdit.rol;
-    const id = usuarioToEdit.id;
+  const manejarEditarGuardar = async () => {
+    const rol = usuarioAEditar.rol;
+    const id = usuarioAEditar.id;
     const rolApi = API_POR_ROL[rol];
 
     try {
       const payloadGeneral = limpiarPayload({
-        nombre: editFormData.nombre,
-        apellido_paterno: editFormData.apellido_paterno,
-        apellido_materno: editFormData.apellido_materno,
-        email: editFormData.email,
-        telefono: editFormData.telefono,
-        curp: editFormData.curp,
-        fecha_nacimiento: editFormData.fecha_nacimiento,
-        estado_nacimiento: editFormData.estado_nacimiento,
-        genero: editFormData.genero,
-        anos_experiencia: rol === 'entrenador' && editFormData.anos_experiencia !== ''
-          ? Number(editFormData.anos_experiencia)
+        nombre: formEditar.nombre,
+        apellido_paterno: formEditar.apellido_paterno,
+        apellido_materno: formEditar.apellido_materno,
+        email: formEditar.email,
+        telefono: formEditar.telefono,
+        curp: formEditar.curp,
+        fecha_nacimiento: formEditar.fecha_nacimiento,
+        estado_nacimiento: formEditar.estado_nacimiento,
+        genero: formEditar.genero,
+        anos_experiencia: rol === 'entrenador' && formEditar.anos_experiencia !== ''
+          ? Number(formEditar.anos_experiencia)
           : undefined,
       });
 
@@ -319,13 +326,13 @@ const GestionarUsuarios = () => {
 
       if (rolApi.soportaClub) {
         await rolApi.updateClub(id, {
-          club_id: editFormData.clubId === '' ? null : Number(editFormData.clubId),
+          club_id: formEditar.clubId === '' ? null : Number(formEditar.clubId),
         });
       }
 
-      setSuccess('Usuario actualizado correctamente');
-      setOpenEditModal(false);
-      setUsuarioToEdit(null);
+      setExito('Usuario actualizado correctamente');
+      setModalEditarAbierto(false);
+      setUsuarioAEditar(null);
       cargarDatos();
     } catch (error) {
       console.error('Error al actualizar usuario:', error);
@@ -333,11 +340,12 @@ const GestionarUsuarios = () => {
     }
   };
 
-  const handleEditCancel = () => {
-    setOpenEditModal(false);
-    setUsuarioToEdit(null);
+  const manejarEditarCancelar = () => {
+    setModalEditarAbierto(false);
+    setUsuarioAEditar(null);
   };
 
+  // Formatea fecha a formato largo en español
   const formatearFecha = (fecha) => {
     if (!fecha) return 'N/A';
     try {
@@ -349,27 +357,35 @@ const GestionarUsuarios = () => {
     }
   };
 
-  const getRolStyle = (rol) => ROL_STYLES[rol] || ROL_STYLES.atleta;
+  // Calcula la edad a partir de la fecha de nacimiento
+  const calcularEdad = (fechaNacimiento) => {
+    if (!fechaNacimiento) return null;
+    const hoy = new Date();
+    const nac = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const mes = hoy.getMonth() - nac.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nac.getDate())) edad--;
+    return edad;
+  };
 
-  if (loading) {
+  const obtenerRolStyle = (rol) => ROL_STYLES[rol] || ROL_STYLES.atleta;
+
+  if (cargando) {
     return (
-      <Box sx={{ bgcolor: C.bg, minHeight: '100vh', width: '100%' }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-          <CircularProgress size={60} sx={{ color: C.primary }} />
-        </Box>
+      <Box sx={{ bgcolor: C.bg, minHeight: '100vh', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress size={60} sx={{ color: C.primary }} />
       </Box>
     );
   }
 
-  const clubActualNombre = usuarioToEdit?.club_nombre || 'Sin club asignado';
+  const clubActualNombre = usuarioAEditar?.club_nombre || 'Sin club asignado';
   const totalAtletas = usuarios.filter((u) => u.rol === 'atleta').length;
   const totalEntrenadores = usuarios.filter((u) => u.rol === 'entrenador').length;
   const totalAdmins = usuarios.filter((u) => u.rol === 'admin').length;
 
   return (
     <Box sx={{ bgcolor: C.bg, minHeight: '100vh', width: '100%' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera superior */}
       <Box sx={{ bgcolor: C.primary, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="xl" sx={{ textAlign: 'center' }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -382,8 +398,7 @@ const GestionarUsuarios = () => {
       </Box>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
-
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 3,
@@ -405,39 +420,38 @@ const GestionarUsuarios = () => {
           ))}
         </Box>
 
-
         {error && (
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError('')}>
             {error}
           </Alert>
         )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setSuccess('')}>
-            {success}
+        {exito && (
+          <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setExito('')}>
+            {exito}
           </Alert>
         )}
 
-        <Box
-          sx={{
-            mb: 3, p: 2, borderRadius: 2, bgcolor: C.primary, border: '1px solid rgba(128,0,32,0.12)',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2,
-          }}
-        >
-          <Typography variant="subtitle1" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
-            Total de Usuarios: {usuariosFiltrados.length}
-          </Typography>
-          <FormControl sx={{ minWidth: 200, bgcolor: '#fff', borderRadius: 1 }} size="small">
-            <InputLabel id="filtro-rol-label">Filtrar por rol</InputLabel>
-            <Select labelId="filtro-rol-label" value={filtroRol} label="Filtrar por rol" onChange={(e) => setFiltroRol(e.target.value)}>
-              <MenuItem value="todos">Todos</MenuItem>
-              <MenuItem value="atleta">Atletas</MenuItem>
-              <MenuItem value="entrenador">Entrenadores</MenuItem>
-              <MenuItem value="admin">Administradores</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-
         <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 3, border: '1px solid rgba(128,0,32,0.1)' }}>
+          <Box
+            sx={{
+              p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              flexWrap: 'wrap', gap: 2, borderBottom: '1px solid rgba(128,0,32,0.1)',
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ color: C.primary, fontWeight: 700 }}>
+              Total de usuarios: {usuariosFiltrados.length}
+            </Typography>
+            <FormControl sx={{ minWidth: 200 }} size="small">
+              <InputLabel id="filtro-rol-label">Filtrar por rol</InputLabel>
+              <Select labelId="filtro-rol-label" value={filtroRol} label="Filtrar por rol" onChange={(e) => setFiltroRol(e.target.value)}>
+                <MenuItem value="todos">Todos</MenuItem>
+                <MenuItem value="atleta">Atletas</MenuItem>
+                <MenuItem value="entrenador">Entrenadores</MenuItem>
+                <MenuItem value="admin">Administradores</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
           <Box
             sx={{
               maxHeight: '70vh',
@@ -466,10 +480,10 @@ const GestionarUsuarios = () => {
               </TableHead>
               <TableBody>
                 {usuariosFiltrados.map((usuario) => {
-                  const rolStyle = getRolStyle(usuario.rol);
+                  const rolStyle = obtenerRolStyle(usuario.rol);
                   const soporte = API_POR_ROL[usuario.rol] || {};
                   return (
-                    <TableRow key={`${usuario.rol}-${usuario.id}`} sx={{ '&:hover': { backgroundColor: 'rgba(245,232,199,0.4)' } }}>
+                    <TableRow key={`${usuario.rol}-${usuario.id}`} sx={{ '&:hover': { backgroundColor: 'rgba(128,0,32,0.04)' } }}>
                       <TableCell sx={{ minWidth: 200 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Avatar sx={{ width: 32, height: 32, bgcolor: C.primary }}>
@@ -496,11 +510,13 @@ const GestionarUsuarios = () => {
                         </Box>
                       </TableCell>
                       <TableCell sx={{ minWidth: 150 }}>
-                        {usuario.rol === 'atleta' ? (
+                        {usuario.rol === 'atleta' || usuario.rol === 'entrenador' ? (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <CalendarIcon sx={{ fontSize: 16, color: C.secondary }} />
                             <Typography variant="body2" noWrap>
-                              {usuario.fecha_nacimiento ? `${formatearFecha(usuario.fecha_nacimiento)} (${usuario.edad ?? 'N/A'} años)` : 'N/A'}
+                              {usuario.fecha_nacimiento
+                                ? `${formatearFecha(usuario.fecha_nacimiento)} (${usuario.edad ?? calcularEdad(usuario.fecha_nacimiento) ?? 'N/A'} años)`
+                                : 'N/A'}
                             </Typography>
                           </Box>
                         ) : (
@@ -541,14 +557,14 @@ const GestionarUsuarios = () => {
                             color={C.primary}
                             icon={<EditIcon fontSize="small" />}
                             disabled={!soporte.soportaEdicion}
-                            onClick={() => soporte.soportaEdicion ? handleEditClick(usuario) : setError(EDITAR_NO_SOPORTADO)}
+                            onClick={() => soporte.soportaEdicion ? manejarEditarClick(usuario) : setError(EDITAR_NO_SOPORTADO)}
                           />
-                          {usuario.rol === 'atleta' && usuario.club_id && (
+                          {(usuario.rol === 'atleta' || usuario.rol === 'entrenador') && usuario.club_id && (
                             <ActionIconButton
                               title="Expulsar del club"
                               color={C.secondary}
                               icon={<ExitToAppIcon fontSize="small" />}
-                              onClick={() => handleExpulsarClick(usuario)}
+                              onClick={() => manejarExpulsarClick(usuario)}
                             />
                           )}
                           <ActionIconButton
@@ -556,7 +572,7 @@ const GestionarUsuarios = () => {
                             color={C.danger}
                             icon={<DeleteIcon fontSize="small" />}
                             disabled={!soporte.soportaEliminar}
-                            onClick={() => soporte.soportaEliminar ? handleDeleteClick(usuario) : setError(ELIMINAR_NO_SOPORTADO)}
+                            onClick={() => soporte.soportaEliminar ? manejarEliminarClick(usuario) : setError(ELIMINAR_NO_SOPORTADO)}
                           />
                         </Box>
                       </TableCell>
@@ -568,7 +584,8 @@ const GestionarUsuarios = () => {
           </Box>
         </Paper>
 
-        <Dialog open={openDeleteModal} onClose={handleDeleteCancel} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        {/* Modal de confirmación de eliminación */}
+        <Dialog open={modalEliminarAbierto} onClose={manejarEliminarCancelar} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ bgcolor: C.primarys }}>
             <Typography component="span" variant="h6" sx={{ color: C.primary, fontWeight: 'bold' }}>
               Confirmar Eliminación
@@ -582,7 +599,7 @@ const GestionarUsuarios = () => {
             <Typography variant="body1" sx={{ mb: 2 }}>
               ¿Estás seguro de que deseas eliminar al usuario{' '}
               <Box component="span" sx={{ fontWeight: 'bold', color: C.primary }}>
-                "{usuarioToDelete?.nombre} {usuarioToDelete?.apellido_paterno} {usuarioToDelete?.apellido_materno}"
+                "{usuarioAEliminar?.nombre} {usuarioAEliminar?.apellido_paterno} {usuarioAEliminar?.apellido_materno}"
               </Box>?
             </Typography>
             <Typography variant="body2" color="textSecondary">
@@ -590,12 +607,13 @@ const GestionarUsuarios = () => {
             </Typography>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-            <Button onClick={handleDeleteCancel} variant="outlined" sx={outlineSecondarySx}>Cancelar</Button>
-            <Button onClick={handleDeleteConfirm} variant="contained" sx={solidDangerSx}>Eliminar Usuario</Button>
+            <Button onClick={manejarEliminarCancelar} variant="outlined" sx={outlineSecondarySx}>Cancelar</Button>
+            <Button onClick={manejarEliminarConfirmar} variant="contained" sx={solidDangerSx}>Eliminar Usuario</Button>
           </DialogActions>
         </Dialog>
 
-        <Dialog open={openExpulsarModal} onClose={handleExpulsarCancel} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        {/* Modal de confirmación de expulsión del club */}
+        <Dialog open={modalExpulsarAbierto} onClose={manejarExpulsarCancelar} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ bgcolor: C.primary }}>
             <Typography component="span" variant="h6" sx={{ color: C.primary, fontWeight: 'bold' }}>
               Confirmar Expulsión del Club
@@ -609,7 +627,7 @@ const GestionarUsuarios = () => {
             <Typography variant="body1" sx={{ mb: 2 }}>
               ¿Estás seguro de que deseas expulsar a{' '}
               <Box component="span" sx={{ fontWeight: 'bold', color: C.primary }}>
-                "{usuarioToExpulsar?.nombre} {usuarioToExpulsar?.apellido_paterno} {usuarioToExpulsar?.apellido_materno}"
+                "{usuarioAExpulsar?.nombre} {usuarioAExpulsar?.apellido_paterno} {usuarioAExpulsar?.apellido_materno}"
               </Box>{' '}del club?
             </Typography>
             <Typography variant="body2" color="textSecondary">
@@ -617,21 +635,22 @@ const GestionarUsuarios = () => {
             </Typography>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-            <Button onClick={handleExpulsarCancel} variant="outlined" sx={outlineSecondarySx}>Cancelar</Button>
-            <Button onClick={handleExpulsarConfirm} variant="contained" sx={solidExpulsarSx}>Expulsar del Club</Button>
+            <Button onClick={manejarExpulsarCancelar} variant="outlined" sx={outlineSecondarySx}>Cancelar</Button>
+            <Button onClick={manejarExpulsarConfirmar} variant="contained" sx={solidExpulsarSx}>Expulsar del Club</Button>
           </DialogActions>
         </Dialog>
 
-        <Dialog open={openEditModal} onClose={handleEditCancel} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        {/* Modal de edición de usuario */}
+        <Dialog open={modalEditarAbierto} onClose={manejarEditarCancelar} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ backgroundColor: C.primary, color: 'white', py: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Avatar sx={{ width: 44, height: 44, bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }}>
-                {editFormData.nombre?.charAt(0) || 'U'}
+                {formEditar.nombre?.charAt(0) || 'U'}
               </Avatar>
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>Editar Usuario</Typography>
                 <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                  {editFormData.nombre} {editFormData.apellido_paterno} {editFormData.apellido_materno} · {ROL_STYLES[usuarioToEdit?.rol]?.label}
+                  {formEditar.nombre} {formEditar.apellido_paterno} {formEditar.apellido_materno} · {ROL_STYLES[usuarioAEditar?.rol]?.label}
                 </Typography>
               </Box>
             </Box>
@@ -648,42 +667,42 @@ const GestionarUsuarios = () => {
             <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, mb: 3, border: '1px solid rgba(128,0,32,0.12)' }}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
-                  <TextField label="Nombre" name="nombre" value={editFormData.nombre} onChange={handleEditChange} fullWidth size="small" />
+                  <TextField label="Nombre" name="nombre" value={formEditar.nombre} onChange={manejarEditarChange} fullWidth size="small" />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
-                  <TextField label="Apellido Paterno" name="apellido_paterno" value={editFormData.apellido_paterno} onChange={handleEditChange} fullWidth size="small" />
+                  <TextField label="Apellido Paterno" name="apellido_paterno" value={formEditar.apellido_paterno} onChange={manejarEditarChange} fullWidth size="small" />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
-                  <TextField label="Apellido Materno" name="apellido_materno" value={editFormData.apellido_materno} onChange={handleEditChange} fullWidth size="small" />
+                  <TextField label="Apellido Materno" name="apellido_materno" value={formEditar.apellido_materno} onChange={manejarEditarChange} fullWidth size="small" />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
-                    label="Correo electrónico" name="email" type="email" value={editFormData.email} onChange={handleEditChange} fullWidth size="small"
+                    label="Correo electrónico" name="email" type="email" value={formEditar.email} onChange={manejarEditarChange} fullWidth size="small"
                     slotProps={{ input: { startAdornment: <EmailIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
-                    label="Teléfono (10 dígitos)" name="telefono" value={editFormData.telefono} onChange={handleEditChange} fullWidth size="small"
+                    label="Teléfono (10 dígitos)" name="telefono" value={formEditar.telefono} onChange={manejarEditarChange} fullWidth size="small"
                     slotProps={{ input: { startAdornment: <PhoneIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
-                    label="CURP" name="curp" value={editFormData.curp} onChange={handleEditChange} fullWidth size="small"
+                    label="CURP" name="curp" value={formEditar.curp} onChange={manejarEditarChange} fullWidth size="small"
                     slotProps={{ input: { startAdornment: <BadgeIcon sx={{ fontSize: 18, color: C.secondary, mr: 1 }} /> } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <TextField
-                    label="Fecha de Nacimiento" name="fecha_nacimiento" type="date" value={editFormData.fecha_nacimiento}
-                    onChange={handleEditChange} fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }}
+                    label="Fecha de Nacimiento" name="fecha_nacimiento" type="date" value={formEditar.fecha_nacimiento}
+                    onChange={manejarEditarChange} fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="edit-genero-label">Género</InputLabel>
-                    <Select labelId="edit-genero-label" name="genero" value={editFormData.genero} label="Género" onChange={handleEditChange}>
+                    <Select labelId="edit-genero-label" name="genero" value={formEditar.genero} label="Género" onChange={manejarEditarChange}>
                       <MenuItem value="masculino">Masculino</MenuItem>
                       <MenuItem value="femenino">Femenino</MenuItem>
                       <MenuItem value="otro">Otro</MenuItem>
@@ -691,20 +710,20 @@ const GestionarUsuarios = () => {
                   </FormControl>
                 </Box>
                 <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
-                  <TextField label="Estado de Nacimiento" name="estado_nacimiento" value={editFormData.estado_nacimiento} onChange={handleEditChange} fullWidth size="small" />
+                  <TextField label="Estado de Nacimiento" name="estado_nacimiento" value={formEditar.estado_nacimiento} onChange={manejarEditarChange} fullWidth size="small" />
                 </Box>
-                {usuarioToEdit?.rol === 'entrenador' && (
+                {usuarioAEditar?.rol === 'entrenador' && (
                   <Box sx={{ flex: '1 1 220px', minWidth: 200 }}>
                     <TextField
-                      label="Años de experiencia" name="anos_experiencia" type="number" value={editFormData.anos_experiencia}
-                      onChange={handleEditChange} fullWidth size="small"
+                      label="Años de experiencia" name="anos_experiencia" type="number" value={formEditar.anos_experiencia}
+                      onChange={manejarEditarChange} fullWidth size="small"
                     />
                   </Box>
                 )}
               </Box>
             </Paper>
 
-            {(usuarioToEdit?.rol === 'atleta' || usuarioToEdit?.rol === 'entrenador') && (
+            {(usuarioAEditar?.rol === 'atleta' || usuarioAEditar?.rol === 'entrenador') && (
               <>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                   <GroupIcon sx={{ color: C.primary }} fontSize="small" />
@@ -718,14 +737,14 @@ const GestionarUsuarios = () => {
                     <Chip
                       label={clubActualNombre}
                       size="small"
-                      sx={usuarioToEdit?.club_id
+                      sx={usuarioAEditar?.club_id
                         ? { bgcolor: 'transparent', border: `1px solid ${C.secondary}`, color: C.secondary, fontWeight: 600 }
                         : { bgcolor: 'rgba(0,0,0,0.06)', color: 'text.secondary', fontWeight: 600 }}
                     />
                   </Box>
                   <FormControl fullWidth size="small">
                     <InputLabel id="edit-club-label">Cambiar o asignar club</InputLabel>
-                    <Select labelId="edit-club-label" name="clubId" value={editFormData.clubId} label="Cambiar o asignar club" onChange={handleEditChange}>
+                    <Select labelId="edit-club-label" name="clubId" value={formEditar.clubId} label="Cambiar o asignar club" onChange={manejarEditarChange}>
                       <MenuItem value="">Sin club (independiente)</MenuItem>
                       {clubes.map((club) => (
                         <MenuItem key={club.id} value={club.id}>{club.nombre}</MenuItem>
@@ -737,8 +756,8 @@ const GestionarUsuarios = () => {
             )}
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2, backgroundColor: C.bg, gap: 1 }}>
-            <Button onClick={handleEditCancel} variant="outlined" sx={outlineSecondarySx}>Cancelar</Button>
-            <Button onClick={handleEditSubmit} variant="contained" sx={solidPrimarySx}>Guardar Cambios</Button>
+            <Button onClick={manejarEditarCancelar} variant="outlined" sx={outlineSecondarySx}>Cancelar</Button>
+            <Button onClick={manejarEditarGuardar} variant="contained" sx={solidPrimarySx}>Guardar Cambios</Button>
           </DialogActions>
         </Dialog>
       </Container>

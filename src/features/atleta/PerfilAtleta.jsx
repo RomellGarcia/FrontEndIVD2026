@@ -34,7 +34,7 @@ import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
-// --- Paleta institucional IVD (misma que las páginas principales) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -57,6 +57,7 @@ const fieldFocusSx = {
   '& .MuiInputLabel-root.Mui-focused': { color: COLORS.burgundy },
 };
 
+// Componente para mostrar un campo de solo lectura con ícono
 const ReadOnlyField = ({ icon, label, value }) => (
   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: 2, px: 1 }}>
     <Box sx={{ color: COLORS.burgundy, mt: 0.4, flexShrink: 0, fontSize: 22 }}>{icon}</Box>
@@ -78,25 +79,27 @@ const PerfilAtleta = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [perfil, setPerfil] = useState(null);
-  const [editMode, setEditMode] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [mensajeError, setMensajeError] = useState('');
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     if (!user || !user.id) {
       navigate('/login');
       return;
     }
-    fetchPerfil();
+    cargarPerfil();
   }, [user]);
 
-  const fetchPerfil = async () => {
+  // Carga el perfil del atleta desde el backend
+  const cargarPerfil = async () => {
     try {
       if (!user?.id) return;
-      setLoading(true);
+      setCargando(true);
       const response = await atletasAPI.getPerfil();
       const data = response.data.atleta;
       if (data) {
+        // Mapea los campos del backend a nombres más cortos para el formulario
         setPerfil({
           ...data,
           apellidopa: data.apellido_paterno,
@@ -106,30 +109,32 @@ const PerfilAtleta = () => {
           gmail: data.email,
           sexo: data.genero,
         });
-        setErrorMessage('');
+        setMensajeError('');
       }
     } catch (error) {
       console.error('Error al cargar perfil:', error);
-      setErrorMessage('Error al cargar el perfil.');
+      setMensajeError('Error al cargar el perfil.');
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
-  const handleInputChange = (e) => {
+  // Actualiza el estado del perfil cuando el usuario edita un campo
+  const manejarCambioInput = (e) => {
     const { name, value } = e.target;
     if (perfil) {
       setPerfil({ ...perfil, [name]: value });
     }
   };
 
-  const handleEdit = () => setEditMode(true);
-  const handleCancelEdit = () => {
-    setEditMode(false);
-    fetchPerfil();
+  const manejarEditar = () => setModoEdicion(true);
+  const manejarCancelarEdicion = () => {
+    setModoEdicion(false);
+    cargarPerfil();
   };
 
-  const handleSave = async () => {
+  // Guarda los cambios del perfil
+  const manejarGuardar = async () => {
     try {
       await atletasAPI.updatePerfil({
         nombre: perfil.nombre,
@@ -139,9 +144,10 @@ const PerfilAtleta = () => {
         email: perfil.gmail,
         genero: perfil.sexo,
         municipio: perfil.municipio,
+        lugar_entrenamiento: perfil.lugar_entrenamiento,
       });
-      setEditMode(false);
-      await fetchPerfil();
+      setModoEdicion(false);
+      await cargarPerfil();
       Swal.fire({
         icon: 'success',
         title: 'Perfil actualizado',
@@ -160,9 +166,10 @@ const PerfilAtleta = () => {
     }
   };
 
-  const limpiarMensaje = () => setErrorMessage('');
+  const limpiarError = () => setMensajeError('');
 
-  const formatFecha = (fecha) => {
+  // Formatea una fecha para mostrarla en español
+  const formatearFecha = (fecha) => {
     if (!fecha) return '';
     try {
       return new Date(fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -171,7 +178,7 @@ const PerfilAtleta = () => {
     }
   };
 
-  const getInitials = () => {
+  const obtenerIniciales = () => {
     if (!perfil) return '?';
     const n = perfil.nombre?.[0] || '';
     const a = perfil.apellidopa?.[0] || '';
@@ -180,7 +187,7 @@ const PerfilAtleta = () => {
 
   const clubNombre = perfil?.club_id ? (perfil.club_nombre || 'Club asignado') : 'Independiente';
 
-  if (loading) {
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: COLORS.cream, width: '100%' }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -202,7 +209,7 @@ const PerfilAtleta = () => {
             </Typography>
             <Button
               variant="contained"
-              onClick={fetchPerfil}
+              onClick={cargarPerfil}
               sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
             >
               Intentar de Nuevo
@@ -216,18 +223,18 @@ const PerfilAtleta = () => {
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
       <Container maxWidth="md" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
-        {/* ── Alerts ── */}
-        {errorMessage && (
+        {/* Alertas de error/éxito */}
+        {mensajeError && (
           <Alert
-            severity={errorMessage.includes('exitosamente') || errorMessage.includes('enviada') ? 'success' : 'error'}
-            onClose={limpiarMensaje}
+            severity={mensajeError.includes('exitosamente') || mensajeError.includes('enviada') ? 'success' : 'error'}
+            onClose={limpiarError}
             sx={{ mb: 2, borderRadius: '8px' }}
           >
-            {errorMessage}
+            {mensajeError}
           </Alert>
         )}
 
-        {/* ── Encabezado de perfil ── */}
+        {/* Cabecera del perfil con foto e iniciales */}
         <Box sx={{ ...cardSx, mb: 3, overflow: 'visible', position: 'relative' }}>
           <Box sx={{ bgcolor: COLORS.burgundy, height: { xs: 80, md: 100 }, borderRadius: '10px 10px 0 0' }} />
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: { xs: '-40px', md: '-48px' }, pb: 3 }}>
@@ -238,7 +245,7 @@ const PerfilAtleta = () => {
                 border: '4px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,0.15)', mb: 1.5,
               }}
             >
-              {getInitials()}
+              {obtenerIniciales()}
             </Avatar>
 
             <Typography variant="h5" sx={{ color: COLORS.burgundy, fontWeight: 800, textAlign: 'center', fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
@@ -264,18 +271,18 @@ const PerfilAtleta = () => {
           </Box>
         </Box>
 
-        {/* ── Información Personal ── */}
+        {/* Sección de información personal */}
         <Box sx={{ ...cardSx, mb: 3, p: { xs: 2.5, md: 3.5 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
               Información Personal
             </Typography>
-            {!editMode ? (
+            {!modoEdicion ? (
               <Button
                 variant="outlined"
                 size="small"
                 startIcon={<EditIcon />}
-                onClick={handleEdit}
+                onClick={manejarEditar}
                 sx={{ borderColor: COLORS.burgundy, color: COLORS.burgundy, fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
               >
                 Editar
@@ -286,7 +293,7 @@ const PerfilAtleta = () => {
                   variant="outlined"
                   size="small"
                   startIcon={<CancelIcon />}
-                  onClick={handleCancelEdit}
+                  onClick={manejarCancelarEdicion}
                   sx={{ borderColor: COLORS.purple, color: COLORS.purple, fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
                 >
                   Cancelar
@@ -295,7 +302,7 @@ const PerfilAtleta = () => {
                   variant="contained"
                   size="small"
                   startIcon={<SaveIcon />}
-                  onClick={handleSave}
+                  onClick={manejarGuardar}
                   sx={{ bgcolor: COLORS.burgundy, fontWeight: 700, '&:hover': { bgcolor: COLORS.burgundyDark } }}
                 >
                   Guardar
@@ -306,24 +313,35 @@ const PerfilAtleta = () => {
 
           <Divider sx={{ mb: 2, borderColor: COLORS.line }} />
 
-          {editMode ? (
+          {modoEdicion ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Chip label="Campos editables" size="small" sx={{ alignSelf: 'flex-start', bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontSize: '0.75rem' }} />
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <TextField label="Nombre" name="nombre" value={perfil.nombre || ''} onChange={handleInputChange} fullWidth size="small" sx={fieldFocusSx} />
-                <TextField label="Apellido Paterno" name="apellidopa" value={perfil.apellidopa || ''} onChange={handleInputChange} fullWidth size="small" sx={fieldFocusSx} />
-                <TextField label="Apellido Materno" name="apellidoma" value={perfil.apellidoma || ''} onChange={handleInputChange} fullWidth size="small" sx={fieldFocusSx} />
-                <TextField label="Teléfono" name="telefono" value={perfil.telefono || ''} onChange={handleInputChange} fullWidth size="small" sx={fieldFocusSx} />
-                <TextField label="Correo Electrónico" name="gmail" value={perfil.gmail || ''} onChange={handleInputChange} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Nombre" name="nombre" value={perfil.nombre || ''} onChange={manejarCambioInput} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Apellido Paterno" name="apellidopa" value={perfil.apellidopa || ''} onChange={manejarCambioInput} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Apellido Materno" name="apellidoma" value={perfil.apellidoma || ''} onChange={manejarCambioInput} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Teléfono" name="telefono" value={perfil.telefono || ''} onChange={manejarCambioInput} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Correo Electrónico" name="gmail" value={perfil.gmail || ''} onChange={manejarCambioInput} fullWidth size="small" sx={fieldFocusSx} />
                 <FormControl fullWidth size="small" sx={fieldFocusSx}>
                   <InputLabel>Sexo</InputLabel>
-                  <Select name="sexo" value={perfil.sexo || ''} onChange={handleInputChange} label="Sexo">
+                  <Select name="sexo" value={(perfil.sexo || '').toLowerCase()} onChange={manejarCambioInput} label="Sexo">
                     <MenuItem value="masculino">Masculino</MenuItem>
                     <MenuItem value="femenino">Femenino</MenuItem>
                   </Select>
                 </FormControl>
-                <TextField label="Municipio" name="municipio" value={perfil.municipio || ''} onChange={handleInputChange} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Municipio" name="municipio" value={perfil.municipio || ''} onChange={manejarCambioInput} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField
+                  label="Lugar de Entrenamiento"
+                  name="lugar_entrenamiento"
+                  value={perfil.lugar_entrenamiento || ''}
+                  onChange={manejarCambioInput}
+                  fullWidth
+                  size="small"
+                  disabled={!!perfil.club_lugar_entrenamiento}
+                  helperText={perfil.club_lugar_entrenamiento ? 'Lo define tu club — no se puede editar aquí' : ''}
+                  sx={{ ...fieldFocusSx, gridColumn: { sm: '1 / -1' } }}
+                />
               </Box>
 
               <Divider sx={{ my: 1, borderColor: COLORS.line }}>
@@ -340,14 +358,13 @@ const PerfilAtleta = () => {
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
                 <TextField label="Estado de Nacimiento" value={perfil.estadoNacimiento || ''} fullWidth disabled size="small" />
-                <TextField label="Lugar de Entrenamiento" value={perfil.lugar_entrenamiento || ''} fullWidth disabled size="small" sx={{ gridColumn: { sm: '1 / -1' } }} />
               </Box>
             </Box>
           ) : (
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
               <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Nombre completo" value={`${perfil.nombre || ''} ${perfil.apellidopa || ''} ${perfil.apellidoma || ''}`} />
               <ReadOnlyField icon={<BadgeIcon fontSize="small" />} label="CURP" value={perfil.curp} />
-              <ReadOnlyField icon={<CalendarTodayIcon fontSize="small" />} label="Fecha de nacimiento" value={formatFecha(perfil.fechaNacimiento)} />
+              <ReadOnlyField icon={<CalendarTodayIcon fontSize="small" />} label="Fecha de nacimiento" value={formatearFecha(perfil.fechaNacimiento)} />
               <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Sexo" value={perfil.sexo} />
               <ReadOnlyField icon={<PhoneIcon fontSize="small" />} label="Teléfono" value={perfil.telefono} />
               <ReadOnlyField icon={<EmailIcon fontSize="small" />} label="Correo electrónico" value={perfil.gmail} />
@@ -360,7 +377,7 @@ const PerfilAtleta = () => {
           )}
         </Box>
 
-        {/* ── Club: enlaza a /atleta/club, sin duplicar solicitudes/invitaciones aquí ── */}
+        {/* Sección de club */}
         <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3.5 } }}>
           <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
             Mi Club

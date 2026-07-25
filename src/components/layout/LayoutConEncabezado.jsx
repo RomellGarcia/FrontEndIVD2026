@@ -3,10 +3,9 @@ import { useLocation, Navigate } from 'react-router-dom';
 import EncabezadoPublico from './EncabezadoPublico.jsx';
 import EncabezadoAdministrativo from './EncabezadoAdministrativo.jsx';
 import EncabezadoAtleta from './EncabezadoAtleta.jsx';
-import PieDePaginaAtleta from './PieDePaginaAtleta.jsx';
-import PieDePaginaAdmin from './PieDePaginaAdmin.jsx';
 import PieDePagina from './PieDePagina.jsx';
 import EncabezadoClub from './EncabezadoClub.jsx';
+import EncabezadoEntrenador from './EncabezadoEntrenador.jsx';
 import { useTheme } from '../common/ThemeContext.jsx';
 import { useAuth } from '../common/AuthContext.jsx';
 
@@ -15,7 +14,6 @@ const LayoutConEncabezado = ({ children }) => {
   const { user, login } = useAuth();
   const { theme } = useTheme();
 
-  // Inicializar user desde localStorage si existe
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser && !user) {
@@ -24,37 +22,33 @@ const LayoutConEncabezado = ({ children }) => {
   }, [login, user]);
 
   let encabezado;
-  let pieDePagina;
+  const pieDePagina = <PieDePagina />;
 
-  // Determinar encabezado y pie de página basado en el rol del usuario
   if (user) {
     switch (user.tipo) {
       case 'admin':
         encabezado = <EncabezadoAdministrativo />;
-        pieDePagina = <PieDePaginaAdmin />;
         break;
       case 'atleta':
         encabezado = <EncabezadoAtleta />;
-        pieDePagina = <PieDePaginaAtleta />;
         break;
       case 'club':
         encabezado = <EncabezadoClub />;
-        pieDePagina = <PieDePaginaAtleta />;
+        break;
+      case 'entrenador':
+        encabezado = <EncabezadoEntrenador />;
         break;
       default:
         encabezado = <EncabezadoPublico />;
-        pieDePagina = <PieDePagina />;
     }
   } else {
-    // Si no hay usuario autenticado, usar encabezado público
     encabezado = <EncabezadoPublico />;
-    pieDePagina = <PieDePagina />;
   }
 
-  // Redirección si el usuario intenta acceder a una ruta protegida sin autenticación
   const isProtectedRoute = location.pathname.startsWith('/administrador') ||
                           location.pathname.startsWith('/atleta') ||
                           location.pathname.startsWith('/club') ||
+                          location.pathname.startsWith('/entrenador') ||
                           location.pathname === '/eventosA' ||
                           location.pathname === '/convocatoria' ||
                           location.pathname === '/perfilA' ||

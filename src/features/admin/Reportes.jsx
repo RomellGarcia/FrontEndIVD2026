@@ -8,13 +8,13 @@ import {
 import {
   Download as DownloadIcon, FilterList as FilterIcon,
   Visibility as VisibilityIcon, TrendingUp as TrendingUpIcon, People as PeopleIcon,
-  EmojiEvents as TrophyIcon, Group as GroupIcon
+  EmojiEvents as TrophyIcon, Group as GroupIcon, MilitaryTech as MedalIcon,
 } from '@mui/icons-material';
-import { resultadosAPI, eventosAPI, atletasAPI, clubesAPI } from '../../api/index.js';
+import { resultadosAPI, atletasAPI, clubesAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import * as XLSX from 'xlsx';
 
-// --- Paleta institucional IVD (misma que las páginas principales) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -32,7 +32,7 @@ const cardSx = {
   boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
 };
 
-const tableHeadSx = {
+const estilosCabeceraTabla = {
   fontWeight: 700,
   color: '#fff',
   fontSize: '0.72rem',
@@ -41,7 +41,8 @@ const tableHeadSx = {
   py: 2,
 };
 
-const nombreCompleto = (obj, prefijo = '') => {
+// Obtiene el nombre completo de una persona a partir de un objeto
+const obtenerNombreCompleto = (obj, prefijo = '') => {
   if (!obj) return 'N/A';
   const n = obj[`${prefijo}nombre`];
   const ap = obj[`${prefijo}apellido_paterno`] || obj[`${prefijo}apellido`];
@@ -49,22 +50,73 @@ const nombreCompleto = (obj, prefijo = '') => {
   return [n, ap, am].filter(Boolean).join(' ') || 'N/A';
 };
 
+// Chip que muestra la posición con colores según medalla
+const ChipPosicion = ({ posicion }) => {
+  if (!posicion) return <Typography variant="body2" sx={{ color: COLORS.purple }}>—</Typography>;
+  const estilos = {
+    1: { bgcolor: '#B8860B', color: '#fff' },
+    2: { bgcolor: '#8a8a8a', color: '#fff' },
+    3: { bgcolor: '#A15C2E', color: '#fff' },
+  };
+  const sx = estilos[posicion] || { bgcolor: COLORS.lineSoft, color: COLORS.ink };
+  return <Chip label={`${posicion}°`} size="small" sx={{ ...sx, fontWeight: 800, minWidth: 42 }} />;
+};
+
+// Disciplinas de campo (salto/lanzamiento): gana la marca MÁS ALTA.
+// El resto (carreras, vallas, marcha, relevos) es por tiempo: gana la MÁS BAJA.
+const DISCIPLINAS_DISTANCIA = new Set([
+  'Salto de longitud', 'Salto de altura',
+  'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
+]);
+const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
+
+// Convierte un tiempo en formato "01:02:17,45" o "62:17,45" a centésimas
+const tiempoACentesimas = (str) => {
+  if (!str) return null;
+  const limpio = String(str).trim().replace(',', '.');
+  const partes = limpio.split(':').map((p) => parseFloat(p));
+  if (partes.some((p) => Number.isNaN(p))) return null;
+  let segundos = 0;
+  if (partes.length === 3) segundos = partes[0] * 3600 + partes[1] * 60 + partes[2];
+  else if (partes.length === 2) segundos = partes[0] * 60 + partes[1];
+  else if (partes.length === 1) segundos = partes[0];
+  else return null;
+  return Math.round(segundos * 100);
+};
+
+// Convierte una marca de distancia (ej. "6,45 m") a número
+const marcaANumero = (str) => {
+  if (!str) return null;
+  const num = parseFloat(String(str).trim().replace(',', '.').replace(/[^0-9.]/g, ''));
+  return Number.isNaN(num) ? null : num;
+};
+
+// Extrae de un resultado el valor comparable (según disciplina de distancia o tiempo)
+const obtenerValorComparable = (resultado) => {
+  const esDistancia = esDisciplinaDeDistancia(resultado.disciplina);
+  const prueba = esDistancia
+    ? resultado.pruebas?.find((p) => p.nombre === 'Marca')
+    : resultado.pruebas?.find((p) => p.nombre === 'ChipTime') || resultado.pruebas?.find((p) => p.nombre === 'GunTime');
+  const valor = prueba ? (esDistancia ? marcaANumero(prueba.marca) : tiempoACentesimas(prueba.marca)) : null;
+  const texto = prueba ? `${prueba.marca}${prueba.unidad ? ' ' + prueba.unidad : ''}`.trim() : null;
+  return { valor, esDistancia, texto };
+};
+
 const Reportes = () => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [resultados, setResultados] = useState([]);
-  const [eventos, setEventos] = useState([]);
   const [clubes, setClubes] = useState([]);
   const [estadisticas, setEstadisticas] = useState({});
   const [filtros, setFiltros] = useState({
-    evento_id: '',
     categoria: '',
     club: '',
     ano_competitivo: '',
     genero: ''
   });
-  const [modalDetallesOpen, setModalDetallesOpen] = useState(false);
+  const [modalDetallesAbierto, setModalDetallesAbierto] = useState(false);
   const [resultadoSeleccionado, setResultadoSeleccionado] = useState(null);
+  const [comboSeleccionado, setComboSeleccionado] = useState(null);
   const [error, setError] = useState('');
 
   const categorias = [
@@ -76,23 +128,21 @@ const Reportes = () => {
     if (user) cargarDatos();
   }, [user]);
 
+  // Carga todos los datos necesarios: resultados, clubes y estadísticas
   const cargarDatos = async () => {
     try {
-      setLoading(true);
-
-      const [resultadosRes, eventosRes, clubesRes] = await Promise.all([
+      setCargando(true);
+      const [resultadosRes, clubesRes] = await Promise.all([
         resultadosAPI.getAll({ limit: 1000 }),
-        eventosAPI.getAll(),
         clubesAPI.getAll(),
       ]);
 
       setResultados(resultadosRes.data.resultados || resultadosRes.data || []);
-      setEventos(eventosRes.data.eventos || eventosRes.data || []);
       setClubes(clubesRes.data.clubes || clubesRes.data || []);
 
       try {
         const estadisticasRes = await resultadosAPI.getEstadisticasGenerales();
-        setEstadisticas(estadisticasRes.data || {});
+        setEstadisticas(estadisticasRes.data?.estadisticas || estadisticasRes.data || {});
       } catch (statsError) {
         console.error('Error al cargar estadísticas:', statsError);
         setEstadisticas({});
@@ -100,18 +150,17 @@ const Reportes = () => {
     } catch (error) {
       console.error('Error al cargar datos:', error);
       setError('Error al cargar los datos para los reportes');
-      setResultados([]); setEventos([]); setClubes([]);
+      setResultados([]);
+      setClubes([]);
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
+  // Aplica los filtros seleccionados a la lista de resultados
   const aplicarFiltros = () => {
     let resultadosFiltrados = [...resultados];
 
-    if (filtros.evento_id) {
-      resultadosFiltrados = resultadosFiltrados.filter(r => r.evento_id === filtros.evento_id);
-    }
     if (filtros.categoria) {
       resultadosFiltrados = resultadosFiltrados.filter(r => r.categoria === filtros.categoria);
     }
@@ -128,6 +177,7 @@ const Reportes = () => {
     return resultadosFiltrados;
   };
 
+  // Exporta los resultados filtrados a un archivo Excel
   const exportarExcel = () => {
     const resultadosFiltrados = aplicarFiltros();
 
@@ -138,9 +188,10 @@ const Reportes = () => {
 
     const datosExcel = resultadosFiltrados.map(resultado => ({
       'CURP': resultado.curp || 'N/A',
-      'NOMBRE ATLETA': nombreCompleto(resultado),
+      'NOMBRE ATLETA': obtenerNombreCompleto(resultado),
       'GÉNERO': resultado.genero || 'N/A',
       'CATEGORIA': resultado.categoria || 'N/A',
+      'LUGAR': resultado.posicion ? `${resultado.posicion}°` : 'N/A',
       'MUNICIPIO': resultado.municipio || 'N/A',
       'CLUB': resultado.club_nombre || 'Independiente',
       'AÑO COMPETITIVO': resultado.ano_competitivo || 'N/A',
@@ -164,16 +215,49 @@ const Reportes = () => {
     XLSX.writeFile(wb, nombreArchivo);
   };
 
-  const handleVerDetalles = (resultado) => {
+  // Abre el modal con los detalles de un resultado
+  const manejarVerDetalles = (resultado) => {
     setResultadoSeleccionado(resultado);
-    setModalDetallesOpen(true);
+    setModalDetallesAbierto(true);
   };
 
+  // Limpia todos los filtros
   const limpiarFiltros = () => {
-    setFiltros({ evento_id: '', categoria: '', club: '', ano_competitivo: '', genero: '' });
+    setFiltros({ categoria: '', club: '', ano_competitivo: '', genero: '' });
   };
 
-  if (loading) {
+  const resultadosFiltrados = aplicarFiltros();
+
+  // Mejor marca por disciplina+categoría+género (sobre resultados filtrados)
+  const mejoresMarcasPorDisciplina = React.useMemo(() => {
+    const porCombo = new Map();
+    for (const r of resultadosFiltrados) {
+      if (!r.disciplina) continue;
+      const { valor, esDistancia, texto } = obtenerValorComparable(r);
+      if (valor === null) continue;
+
+      const clave = `${r.disciplina}|${r.categoria || '—'}|${r.genero || '—'}`;
+      if (!porCombo.has(clave)) {
+        porCombo.set(clave, {
+          clave, disciplina: r.disciplina, categoria: r.categoria || '—', genero: r.genero || '—',
+          esDistancia, atletas: [],
+        });
+      }
+      porCombo.get(clave).atletas.push({
+        atleta_id: r.atleta_id, nombre: obtenerNombreCompleto(r), club_nombre: r.club_nombre || 'Independiente',
+        evento_titulo: r.evento_titulo, valor, texto,
+      });
+    }
+
+    return [...porCombo.values()]
+      .map((combo) => ({
+        ...combo,
+        atletas: combo.atletas.sort((a, b) => combo.esDistancia ? b.valor - a.valor : a.valor - b.valor),
+      }))
+      .sort((a, b) => a.disciplina.localeCompare(b.disciplina) || a.categoria.localeCompare(b.categoria));
+  }, [resultadosFiltrados]);
+
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -181,12 +265,9 @@ const Reportes = () => {
     );
   }
 
-  const resultadosFiltrados = aplicarFiltros();
-
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera superior */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, md: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -199,8 +280,7 @@ const Reportes = () => {
       </Box>
 
       <Container maxWidth="xl" sx={{ px: { xs: 2, md: 3 }, pb: { xs: 5, md: 7 } }}>
-
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 4,
@@ -232,27 +312,13 @@ const Reportes = () => {
           <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setError('')}>{error}</Alert>
         )}
 
-        {/* ── Filtros ── */}
+        {/* Filtros */}
         <Box sx={{ ...cardSx, p: 3, mb: 3 }}>
           <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <FilterIcon /> Filtros de Búsqueda
           </Typography>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(5, 1fr)' }, gap: 2, alignItems: 'end' }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Evento</InputLabel>
-              <Select
-                value={filtros.evento_id}
-                onChange={(e) => setFiltros(prev => ({ ...prev, evento_id: e.target.value }))}
-                label="Evento"
-              >
-                <MenuItem value="">Todos los eventos</MenuItem>
-                {eventos.map((evento) => (
-                  <MenuItem key={evento.id} value={evento.id}>{evento.titulo}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, alignItems: 'end' }}>
             <FormControl fullWidth size="small">
               <InputLabel>Categoría</InputLabel>
               <Select
@@ -313,7 +379,71 @@ const Reportes = () => {
           </Box>
         </Box>
 
-        {/* ── Encabezado de resultados + exportar ── */}
+        {/* Mejor marca por disciplina */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <MedalIcon /> Mejor Marca por Disciplina
+          </Typography>
+          <Typography variant="body2" sx={{ color: COLORS.purple, mb: 2 }}>
+            El atleta con la mejor marca en cada disciplina/categoría/género, dentro de los filtros de arriba — para saber a quién convocar.
+          </Typography>
+
+          {mejoresMarcasPorDisciplina.length === 0 ? (
+            <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
+              <Typography variant="body2" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+                No hay marcas registradas con los filtros actuales.
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                      <TableCell sx={estilosCabeceraTabla}>Disciplina</TableCell>
+                      <TableCell sx={estilosCabeceraTabla}>Categoría</TableCell>
+                      <TableCell sx={estilosCabeceraTabla}>Género</TableCell>
+                      <TableCell sx={estilosCabeceraTabla}>Mejor marca</TableCell>
+                      <TableCell sx={estilosCabeceraTabla}>Atleta</TableCell>
+                      <TableCell sx={estilosCabeceraTabla}>Club</TableCell>
+                      <TableCell sx={estilosCabeceraTabla} align="center">Candidatos</TableCell>
+                      <TableCell sx={estilosCabeceraTabla} align="center">Ver más</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {mejoresMarcasPorDisciplina.map((combo) => {
+                      const mejor = combo.atletas[0];
+                      return (
+                        <TableRow key={combo.clave} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{combo.disciplina}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <Chip label={combo.categoria} size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }} />
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{combo.genero}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <Chip label={mejor.texto || '—'} size="small" sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }} />
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{mejor.nombre}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{mejor.club_nombre}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }} align="center">{combo.atletas.length}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }} align="center">
+                            {combo.atletas.length > 1 && (
+                              <Button size="small" onClick={() => setComboSeleccionado(combo)} sx={{ color: COLORS.burgundy, fontWeight: 700, textTransform: 'none' }}>
+                                Ver top {Math.min(5, combo.atletas.length)}
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </Box>
+
+        {/* Encabezado de resultados + exportar */}
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
           <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
             Resultados Filtrados ({resultadosFiltrados.length})
@@ -329,7 +459,7 @@ const Reportes = () => {
           </Button>
         </Box>
 
-        {/* ── Tabla de resultados ── */}
+        {/* Tabla de resultados */}
         {resultadosFiltrados.length === 0 ? (
           <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
             <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
@@ -345,13 +475,14 @@ const Reportes = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    <TableCell sx={tableHeadSx}>Evento</TableCell>
-                    <TableCell sx={tableHeadSx}>Atleta</TableCell>
-                    <TableCell sx={tableHeadSx}>Categoría</TableCell>
-                    <TableCell sx={tableHeadSx}>Club</TableCell>
-                    <TableCell sx={tableHeadSx}>Año</TableCell>
-                    <TableCell sx={tableHeadSx}>Pruebas</TableCell>
-                    <TableCell sx={tableHeadSx} align="center">Acciones</TableCell>
+                    <TableCell sx={estilosCabeceraTabla}>Evento</TableCell>
+                    <TableCell sx={estilosCabeceraTabla}>Atleta</TableCell>
+                    <TableCell sx={estilosCabeceraTabla}>Categoría</TableCell>
+                    <TableCell sx={estilosCabeceraTabla}>Lugar</TableCell>
+                    <TableCell sx={estilosCabeceraTabla}>Club</TableCell>
+                    <TableCell sx={estilosCabeceraTabla}>Año</TableCell>
+                    <TableCell sx={estilosCabeceraTabla}>Pruebas</TableCell>
+                    <TableCell sx={estilosCabeceraTabla} align="center">Acciones</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -362,13 +493,16 @@ const Reportes = () => {
                           {resultado.evento_titulo || 'Evento no encontrado'}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{nombreCompleto(resultado)}</TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{obtenerNombreCompleto(resultado)}</TableCell>
                       <TableCell sx={{ borderColor: COLORS.line }}>
                         <Chip
                           label={resultado.categoria || 'N/A'}
                           size="small"
                           sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
                         />
+                      </TableCell>
+                      <TableCell sx={{ borderColor: COLORS.line }}>
+                        <ChipPosicion posicion={resultado.posicion} />
                       </TableCell>
                       <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.club_nombre || 'Independiente'}</TableCell>
                       <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.ano_competitivo}</TableCell>
@@ -385,7 +519,7 @@ const Reportes = () => {
                         </Box>
                       </TableCell>
                       <TableCell sx={{ borderColor: COLORS.line }} align="center">
-                        <IconButton size="small" onClick={() => handleVerDetalles(resultado)} title="Ver detalles" sx={{ color: COLORS.burgundy }}>
+                        <IconButton size="small" onClick={() => manejarVerDetalles(resultado)} title="Ver detalles" sx={{ color: COLORS.burgundy }}>
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </TableCell>
@@ -398,8 +532,8 @@ const Reportes = () => {
         )}
       </Container>
 
-      {/* ── Modal de detalles ── */}
-      <Dialog open={modalDetallesOpen} onClose={() => setModalDetallesOpen(false)} maxWidth="md" fullWidth>
+      {/* Modal de detalles del resultado */}
+      <Dialog open={modalDetallesAbierto} onClose={() => setModalDetallesAbierto(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>Detalles del Resultado</Typography>
         </DialogTitle>
@@ -412,7 +546,7 @@ const Reportes = () => {
               </Box>
               <Box>
                 <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Atleta</Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{nombreCompleto(resultadoSeleccionado)}</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{obtenerNombreCompleto(resultadoSeleccionado)}</Typography>
               </Box>
               <Box>
                 <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
@@ -454,7 +588,48 @@ const Reportes = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setModalDetallesOpen(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
+          <Button onClick={() => setModalDetallesAbierto(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal: top candidatos de una disciplina/categoría/género */}
+      <Dialog open={!!comboSeleccionado} onClose={() => setComboSeleccionado(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {comboSeleccionado?.disciplina}
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.85 }}>
+            {comboSeleccionado?.categoria} · {comboSeleccionado?.genero}
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: COLORS.lineSoft }}>
+                <TableCell sx={{ fontWeight: 700, color: COLORS.ink, width: 50 }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Atleta</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Club</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Marca</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {comboSeleccionado?.atletas.slice(0, 5).map((a, i) => (
+                <TableRow key={`${a.atleta_id}-${i}`}>
+                  <TableCell sx={{ fontWeight: 700, color: i === 0 ? COLORS.burgundy : COLORS.ink }}>{i + 1}°</TableCell>
+                  <TableCell sx={{ color: COLORS.ink, fontWeight: i === 0 ? 700 : 400 }}>{a.nombre}</TableCell>
+                  <TableCell sx={{ color: COLORS.ink }}>{a.club_nombre}</TableCell>
+                  <TableCell>
+                    <Chip label={a.texto || '—'} size="small" sx={i === 0
+                      ? { bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }
+                      : { bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setComboSeleccionado(null)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
     </Box>

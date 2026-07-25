@@ -36,6 +36,9 @@ const EncabezadoEntrenador = () => {
       case 'gestionarAtletas':
         navigate('/entrenador/gestionar-atletas');
         break;
+      case 'buscarClubes':
+        navigate('/entrenador/buscar-clubes');
+        break;
 
       case 'eventos':
         navigate('/entrenador/eventos');
@@ -108,6 +111,7 @@ const EncabezadoEntrenador = () => {
   const menu = [
     { texto: 'Inicio', key: 'home' },
     { texto: 'Gestionar Atletas', key: 'gestionarAtletas' },
+    { texto: 'Buscar Clubes', key: 'buscarClubes' },
     { texto: 'Eventos', key: 'eventos' },
     { texto: 'Reportes', key: 'reportes' },
     { texto: 'Perfil', key: 'perfil' },
@@ -168,7 +172,6 @@ const EncabezadoEntrenador = () => {
         }
 
         .ivd-nav-container {
-          max-width: 1280px;
           margin: auto;
           display: flex;
           justify-content: center;

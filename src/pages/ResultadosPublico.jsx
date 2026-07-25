@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { eventosAPI, resultadosAPI } from '../api/index.js';
+import * as XLSX from 'xlsx';
 import {
-  Box, Container, Typography, Button,
-  CircularProgress, Chip,
-  FormControl, InputLabel, Select, MenuItem,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Table, TableBody, TableCell, TableHead, TableRow, TableContainer,
-  IconButton, Avatar,
+  Box, Typography,
+  Container, Button, CircularProgress, Avatar, Pagination, Chip,
+  FormControl, InputLabel, Select, MenuItem, Divider,
 } from '@mui/material';
 import {
-  Visibility as VisibilityIcon,
-  EmojiEvents as TrophyIcon, Person as PersonIcon, SportsScore as SportsIcon,
-  BarChart as BarChartIcon, Close as CloseIcon, FilterList as FilterIcon
+  CalendarToday as CalendarIcon, LocationOn as LocationIcon,
+  Event as EventIcon, DoneAll as DoneAllIcon,
+  ArrowBack as ArrowBackIcon, EmojiEvents as TrophyIcon,
+  HourglassEmpty as PendingIcon, Clear as ClearIcon,
+  TableChart as ExcelIcon,
 } from '@mui/icons-material';
-import { resultadosAPI } from "../api/index.js";
-import EncabezadoPublico from "../components/layout/EncabezadoPublico.jsx";
+import EncabezadoPublico from '../components/layout/EncabezadoPublico.jsx';
 
-// --- Paleta institucional IVD (misma que las páginas principales) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -27,118 +27,363 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
-const cardSx = {
-  bgcolor: COLORS.paper,
-  borderRadius: '10px',
-  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+
+// Devuelve el texto legible para el género
+const obtenerTextoGenero = (genero) => {
+  const valor = (genero || '').toLowerCase();
+  if (valor === 'masculino') return 'Masculino';
+  if (valor === 'femenino') return 'Femenino';
+  if (valor === 'mixto') return 'Mixto';
+  return genero || 'N/A';
 };
 
-const tableHeadSx = {
-  fontWeight: 700,
-  color: '#fff',
-  fontSize: '0.72rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  py: 2,
+// Disciplinas que se miden por distancia (marca) vs tiempo
+const DISCIPLINAS_DISTANCIA = new Set([
+  'Salto de longitud', 'Salto de altura',
+  'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
+]);
+
+const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
+
+// Genera un slug a partir de un texto (para nombres de archivo)
+const generarSlug = (texto) => (texto || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-zA-Z0-9]+/g, '_');
+
+// Obtiene el nombre completo de un participante
+const obtenerNombreCompleto = (registro) => 
+  [registro?.nombre, registro?.apellido_paterno, registro?.apellido_materno].filter(Boolean).join(' ');
+
+// Formatea fecha en formato largo
+const formatearFechaLarga = (fecha) => {
+  if (!fecha) return '—';
+  try {
+    return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch {
+    return '—';
+  }
 };
 
-const obtenerNombre = (item) => {
-  if (!item) return 'N/A';
-  if (typeof item === 'string') return item;
-  if (typeof item === 'object' && item.nombre) return item.nombre;
-  return 'N/A';
+// Formatea fecha en formato corto
+const formatearFechaCorta = (fecha) => {
+  if (!fecha) return '—';
+  return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const nombreCompleto = (obj, prefijo = '') => {
-  if (!obj) return 'N/A';
-  const n = obj[`${prefijo}nombre`];
-  const ap = obj[`${prefijo}apellido_paterno`] || obj[`${prefijo}apellido`];
-  const am = obj[`${prefijo}apellido_materno`];
-  return [n, ap, am].filter(Boolean).join(' ') || 'N/A';
-};
-
-const getDisciplinaPrincipal = (pruebas) => pruebas?.[0]?.nombre || 'Sin disciplina';
-
-/**
- * Versión PÚBLICA de "Resultados" — solo consulta.
- * No requiere sesión y no incluye crear/editar/eliminar.
- * Integra un panel de filtros similar al de Reportes, extrayendo
- * dinámicamente las opciones de la data cargada.
- */
+// Vista pública de resultados
 const ResultadosPublico = () => {
-  const [loading, setLoading] = useState(true);
-  const [resultados, setResultados] = useState([]);
-  const [modalVerResultadoOpen, setModalVerResultadoOpen] = useState(false);
-  const [resultadoSeleccionado, setResultadoSeleccionado] = useState(null);
+  const [eventos, setEventos] = useState([]);
+  const [cargando, setCargando] = useState(true);
 
-  // --- NUEVOS ESTADOS DE FILTROS ---
-  const [filtros, setFiltros] = useState({
-    evento: '',
-    categoria: '',
-    club: '',
-    ano_competitivo: '',
-    genero: ''
-  });
+  // Control de vista
+  const [vistaActual, setVistaActual] = useState('lista');
+  const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
+  const [convocatoriasDelEvento, setConvocatoriasDelEvento] = useState([]);
+  const [resultadosPorConvocatoria, setResultadosPorConvocatoria] = useState({});
+
+  // Filtros de convocatorias
+  const [filtroDisciplina, setFiltroDisciplina] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
+
+  const [cargandoConvocatorias, setCargandoConvocatorias] = useState(false);
+
+  // Paginación de la lista
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 6;
 
   useEffect(() => {
-    cargarResultados();
+    cargarEventosFinalizados();
   }, []);
 
-  const cargarResultados = async () => {
+  // Obtiene eventos finalizados
+  const cargarEventosFinalizados = async () => {
     try {
-      setLoading(true);
-      const response = await resultadosAPI.getAll();
-      setResultados(response.data.resultados || response.data || []);
+      setCargando(true);
+      const respuesta = await eventosAPI.getAll();
+      const todos = respuesta.data.eventos || respuesta.data || [];
+      const finalizados = todos
+        .filter((e) => !!e.finalizado || new Date(e.fecha) < new Date())
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+      setEventos(finalizados);
     } catch (error) {
-      console.error('Error al cargar resultados:', error);
-      setResultados([]);
+      console.error('Error al cargar eventos:', error);
+      setEventos([]);
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
-  const handleVerResultado = (resultado) => {
-    setResultadoSeleccionado(resultado);
-    setModalVerResultadoOpen(true);
+  // Navega al detalle de un evento y carga sus convocatorias con resultados
+  const manejarVerDetalle = async (evento) => {
+    setEventoSeleccionado(evento);
+    setVistaActual('detalle');
+    setConvocatoriasDelEvento([]);
+    setResultadosPorConvocatoria({});
+    setFiltroDisciplina('');
+    setFiltroCategoria('');
+
+    setCargandoConvocatorias(true);
+    try {
+      const respuesta = await eventosAPI.getConvocatoriasByEvento(evento.id);
+      const lista = respuesta.data.convocatorias || [];
+      setConvocatoriasDelEvento(lista);
+
+      // Carga resultados para cada convocatoria
+      if (lista.length > 0) {
+        const entradas = await Promise.all(
+          lista.map(async (conv) => {
+            try {
+              const res = await resultadosAPI.getByConvocatoria(conv.id);
+              return [conv.id, res.data.resultados || []];
+            } catch {
+              return [conv.id, []];
+            }
+          })
+        );
+        setResultadosPorConvocatoria(Object.fromEntries(entradas));
+      }
+    } catch (error) {
+      console.error('Error al cargar convocatorias del evento:', error);
+    } finally {
+      setCargandoConvocatorias(false);
+    }
   };
 
-  // --- EXTRACCIÓN DINÁMICA DE OPCIONES ---
-  const opcionesFiltro = useMemo(() => {
-    return {
-      eventos: Array.from(new Set(resultados.map(r => r.evento_titulo))).filter(Boolean).sort(),
-      categorias: Array.from(new Set(resultados.map(r => obtenerNombre(r.categoria)))).filter(Boolean).sort(),
-      clubes: Array.from(new Set(resultados.map(r => r.club_nombre))).filter(Boolean).sort(),
-      anos: Array.from(new Set(resultados.map(r => r.ano_competitivo))).filter(Boolean).sort((a, b) => b - a),
-      generos: Array.from(new Set(resultados.map(r => obtenerNombre(r.genero)))).filter(Boolean).sort()
-    };
-  }, [resultados]);
+  // Vuelve a la lista de eventos
+  const manejarVolverALista = () => {
+    setVistaActual('lista');
+    setEventoSeleccionado(null);
+    setConvocatoriasDelEvento([]);
+    setFiltroDisciplina('');
+    setFiltroCategoria('');
+  };
 
-  // --- LÓGICA DE FILTRADO ---
-  const resultadosFiltrados = useMemo(() => {
-    return resultados.filter((r) => {
-      const matchEvento = !filtros.evento || r.evento_titulo === filtros.evento;
-      const matchCategoria = !filtros.categoria || obtenerNombre(r.categoria) === filtros.categoria;
-      const matchClub = !filtros.club || r.club_nombre === filtros.club;
-      const matchAno = !filtros.ano_competitivo || String(r.ano_competitivo) === String(filtros.ano_competitivo);
-      const matchGenero = !filtros.genero || obtenerNombre(r.genero) === filtros.genero;
+  // Genera y descarga un archivo Excel con los resultados de una convocatoria
+  const descargarExcelResultados = (convocatoria) => {
+    const resultadosCategoria = resultadosPorConvocatoria[convocatoria.id] || [];
+    if (resultadosCategoria.length === 0) return;
 
-      return matchEvento && matchCategoria && matchClub && matchAno && matchGenero;
+    const esDistancia = esDisciplinaDeDistancia(convocatoria.disciplina);
+    const ordenados = [...resultadosCategoria].sort((a, b) => {
+      if (a.posicion === null) return 1;
+      if (b.posicion === null) return -1;
+      return (a.posicion ?? 999) - (b.posicion ?? 999);
     });
-  }, [resultados, filtros]);
 
-  const limpiarFiltros = () => {
-    setFiltros({ evento: '', categoria: '', club: '', ano_competitivo: '', genero: '' });
+    const filas = ordenados.map((registro) => {
+      const marca = registro.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
+      const chip = registro.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
+      const gun = registro.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
+      const base = {
+        'Pl.': registro.posicion ? `${registro.posicion}°` : '—',
+        Bib: registro.bib ? String(registro.bib).padStart(3, '0') : '—',
+        Nombre: obtenerNombreCompleto(registro),
+        Club: registro.club_nombre || 'Libre',
+      };
+      return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
+    });
+
+    const headers = esDistancia
+      ? ['Pl.', 'Bib', 'Nombre', 'Club', 'Marca']
+      : ['Pl.', 'Bib', 'Nombre', 'Club', 'ChipTime', 'GunTime'];
+
+    const hoja = XLSX.utils.json_to_sheet(filas, { header: headers });
+    hoja['!cols'] = esDistancia
+      ? [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 14 }]
+      : [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+
+    const libro = XLSX.utils.book_new();
+    const nombreHoja = `${convocatoria.disciplina || ''} ${convocatoria.categoria || ''}`.slice(0, 31);
+    XLSX.utils.book_append_sheet(libro, hoja, nombreHoja || 'Resultados');
+    XLSX.writeFile(libro, `Resultados_${generarSlug(convocatoria.disciplina)}_${generarSlug(convocatoria.categoria)}.xlsx`);
   };
 
-  const disciplinasDistintas = new Set(resultados.map(r => r.disciplina || getDisciplinaPrincipal(r.pruebas))).size;
-  const atletasDistintos = new Set(resultados.map(r => r.atleta_id)).size;
+  if (cargando) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
+      </Box>
+    );
+  }
+
+  // VISTA DE DETALLE DEL EVENTO
+  if (vistaActual === 'detalle' && eventoSeleccionado) {
+    const disciplinasUnicas = [...new Set(convocatoriasDelEvento.map((c) => c.disciplina).filter(Boolean))].sort();
+    const categoriasUnicas = [...new Set(convocatoriasDelEvento.map((c) => c.categoria).filter(Boolean))].sort();
+    const convocatoriasFiltradas = convocatoriasDelEvento.filter((c) =>
+      (!filtroDisciplina || c.disciplina === filtroDisciplina) &&
+      (!filtroCategoria || c.categoria === filtroCategoria)
+    );
+    const hayFiltrosActivos = !!(filtroDisciplina || filtroCategoria);
+
+    return (
+      <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
+        {/* Cabecera del detalle */}
+        <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
+          <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={manejarVolverALista}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              Volver a Resultados
+            </Button>
+            <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+              IVD · Consulta Pública
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+              {eventoSeleccionado.titulo}
+            </Typography>
+          </Container>
+        </Box>
+
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
+          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
+
+            {/* Columna izquierda: imagen y datos del evento */}
+            <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
+              {eventoSeleccionado.imagen_url && (
+                <Box component="img" src={eventoSeleccionado.imagen_url} alt={eventoSeleccionado.titulo}
+                  sx={{ width: '100%', height: { xs: 380, md: 460 }, objectFit: 'cover', borderRadius: '8px', mb: 2.5, filter: 'grayscale(35%)' }} />
+              )}
+
+              <Chip
+                icon={<DoneAllIcon sx={{ fontSize: 16 }} />}
+                label="Finalizado"
+                size="small"
+                sx={{ fontWeight: 700, fontSize: '.72rem', bgcolor: COLORS.lineSoft, color: COLORS.burgundy }}
+              />
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2.5 }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <CalendarIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatearFechaLarga(eventoSeleccionado.fecha)}</Typography>
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
+                    <LocationIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar</Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{eventoSeleccionado.lugar}</Typography>
+                </Box>
+                {eventoSeleccionado.descripcion && (
+                  <Box>
+                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Descripción</Typography>
+                    <Typography variant="body2" sx={{ mt: .3, lineHeight: 1.6, color: COLORS.ink, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                      {eventoSeleccionado.descripcion}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+
+            {/* Columna derecha: lista de convocatorias con resultados */}
+            <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3.5 } }}>
+              <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
+                Convocatorias y Resultados
+              </Typography>
+
+              {cargandoConvocatorias ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress size={32} sx={{ color: COLORS.burgundy }} />
+                </Box>
+              ) : convocatoriasDelEvento.length === 0 ? (
+                <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 3 }}>
+                  Este evento no tiene convocatorias registradas.
+                </Typography>
+              ) : (
+                <>
+                  {/* Filtros si hay más de una opción */}
+                  {(disciplinasUnicas.length > 1 || categoriasUnicas.length > 1) && (
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr auto' }, gap: 1.5, mb: 2.5, alignItems: 'end' }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Disciplina</InputLabel>
+                        <Select label="Disciplina" value={filtroDisciplina} onChange={(e) => setFiltroDisciplina(e.target.value)}>
+                          <MenuItem value="">Todas</MenuItem>
+                          {disciplinasUnicas.map((d) => (
+                            <MenuItem key={d} value={d}>{d}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Categoría</InputLabel>
+                        <Select label="Categoría" value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)}>
+                          <MenuItem value="">Todas</MenuItem>
+                          {categoriasUnicas.map((c) => (
+                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Button
+                        onClick={() => { setFiltroDisciplina(''); setFiltroCategoria(''); }}
+                        disabled={!hayFiltrosActivos}
+                        startIcon={<ClearIcon fontSize="small" />}
+                        sx={{ color: COLORS.purple, textTransform: 'none', fontWeight: 700, height: 40 }}
+                      >
+                        Limpiar
+                      </Button>
+                    </Box>
+                  )}
+
+                  {convocatoriasFiltradas.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 3 }}>
+                      Ninguna convocatoria coincide con el filtro.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {convocatoriasFiltradas.map((conv) => (
+                        <Box
+                          key={conv.id}
+                          sx={{
+                            p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}`,
+                            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
+                          }}
+                        >
+                          <Box>
+                            <Typography sx={{ fontWeight: 700, color: COLORS.ink }}>{conv.disciplina}</Typography>
+                            <Box sx={{ display: 'flex', gap: .75, mt: .5, flexWrap: 'wrap' }}>
+                              <Chip label={conv.categoria} size="small" sx={{ border: `1px solid ${COLORS.purple}`, bgcolor: 'transparent', color: COLORS.purple }} />
+                              <Chip label={obtenerTextoGenero(conv.genero)} size="small" sx={{ border: `1px solid ${COLORS.line}`, bgcolor: 'transparent', color: COLORS.ink }} />
+                            </Box>
+                          </Box>
+
+                          {(resultadosPorConvocatoria[conv.id] || []).length > 0 ? (
+                            <Button
+                              size="small" variant="contained" startIcon={<ExcelIcon />}
+                              onClick={() => descargarExcelResultados(conv)}
+                              sx={{ bgcolor: '#1D6F42', '&:hover': { bgcolor: '#155632' }, textTransform: 'none', fontWeight: 700 }}
+                            >
+                              Ver Excel
+                            </Button>
+                          ) : (
+                            <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Resultados pendientes" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </>
+              )}
+            </Box>
+          </Box>
+        </Container>
+      </Box>
+    );
+  }
+
+  // VISTA DE LISTA DE EVENTOS
+  const eventosPaginados = eventos.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera de lista */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
-        <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, md: 3 } }}>
+        <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Consulta Pública
           </Typography>
@@ -146,280 +391,98 @@ const ResultadosPublico = () => {
             Resultados
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
-            Marcas y resultados registrados en eventos del Instituto Veracruzano del Deporte
+            Eventos finalizados y sus resultados oficiales por convocatoria
           </Typography>
         </Container>
       </Box>
 
-      <Container maxWidth="xl" sx={{ px: { xs: 2, md: 3 }, pb: { xs: 5, md: 7 } }}>
-
-        {/* ── Stat-strip flotante ── */}
+      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
+        {/* Resumen de conteo */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 4,
-            bgcolor: '#fff', borderRadius: '10px',
+            bgcolor: COLORS.paper, borderRadius: '10px',
             boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
-            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+            display: 'grid', gridTemplateColumns: '1fr',
             overflow: 'hidden',
           }}
         >
-          {[
-            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: resultados.length, label: 'Resultados', accent: COLORS.burgundy },
-            { icon: <PersonIcon sx={{ fontSize: 24 }} />, value: atletasDistintos, label: 'Atletas', accent: COLORS.purple },
-            { icon: <SportsIcon sx={{ fontSize: 24 }} />, value: disciplinasDistintas, label: 'Disciplinas', accent: COLORS.burgundy },
-          ].map((s, i) => (
-            <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
-              <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
-              <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
-              <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
-            </Box>
-          ))}
-        </Box>
-
-        {/* ── Filtros (Estilo Reportes) ── */}
-        <Box sx={{ ...cardSx, p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FilterIcon /> Filtros de Búsqueda
-          </Typography>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(5, 1fr)' }, gap: 2, alignItems: 'end' }}>
-            
-            <FormControl fullWidth size="small">
-              <InputLabel>Evento</InputLabel>
-              <Select
-                value={filtros.evento}
-                onChange={(e) => setFiltros(prev => ({ ...prev, evento: e.target.value }))}
-                label="Evento"
-              >
-                <MenuItem value="">Todos los eventos</MenuItem>
-                {opcionesFiltro.eventos.map((evt, idx) => (
-                  <MenuItem key={idx} value={evt}>{evt}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Categoría</InputLabel>
-              <Select
-                value={filtros.categoria}
-                onChange={(e) => setFiltros(prev => ({ ...prev, categoria: e.target.value }))}
-                label="Categoría"
-              >
-                <MenuItem value="">Todas</MenuItem>
-                {opcionesFiltro.categorias.map((cat, idx) => (
-                  <MenuItem key={idx} value={cat}>{cat}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Club</InputLabel>
-              <Select
-                value={filtros.club}
-                onChange={(e) => setFiltros(prev => ({ ...prev, club: e.target.value }))}
-                label="Club"
-              >
-                <MenuItem value="">Todos los clubes</MenuItem>
-                {opcionesFiltro.clubes.map((club, idx) => (
-                  <MenuItem key={idx} value={club}>{club}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Año</InputLabel>
-              <Select
-                value={filtros.ano_competitivo}
-                onChange={(e) => setFiltros(prev => ({ ...prev, ano_competitivo: e.target.value }))}
-                label="Año"
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {opcionesFiltro.anos.map((ano, idx) => (
-                  <MenuItem key={idx} value={ano}>{ano}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Género</InputLabel>
-              <Select
-                value={filtros.genero}
-                onChange={(e) => setFiltros(prev => ({ ...prev, genero: e.target.value }))}
-                label="Género"
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {opcionesFiltro.generos.map((gen, idx) => (
-                  <MenuItem key={idx} value={gen}>{gen}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-          </Box>
-
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-            <Button variant="outlined" onClick={limpiarFiltros} size="small" sx={{ color: COLORS.purple, borderColor: COLORS.purple }}>
-              Limpiar filtros
-            </Button>
+          <Box sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center' }}>
+            <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}><TrophyIcon sx={{ fontSize: 24 }} /></Box>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.5rem', md: '1.8rem' } }}>{eventos.length}</Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>Eventos Finalizados</Typography>
           </Box>
         </Box>
 
-        {/* ── Tabla de resultados ── */}
-        {resultadosFiltrados.length === 0 ? (
+        {eventos.length === 0 ? (
           <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
             <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
               <TrophyIcon sx={{ fontSize: 32, color: COLORS.purple }} />
             </Avatar>
-            <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
-              {resultados.length === 0 ? 'Aún no hay resultados registrados' : 'No se encontraron resultados'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: COLORS.purple, opacity: .8 }}>
-              {resultados.length === 0 ? 'Los resultados aparecerán aquí conforme se registren.' : 'Intenta con otros filtros.'}
+            <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>Aún no hay eventos finalizados</Typography>
+            <Typography variant="body2" sx={{ color: COLORS.purple, opacity: .8, mt: .5 }}>
+              Los resultados aparecerán aquí en cuanto un evento concluya.
             </Typography>
           </Box>
         ) : (
-          <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    <TableCell sx={tableHeadSx}>Evento</TableCell>
-                    <TableCell sx={tableHeadSx}>Atleta</TableCell>
-                    <TableCell sx={tableHeadSx}>Categoría</TableCell>
-                    <TableCell sx={tableHeadSx}>Club</TableCell>
-                    <TableCell sx={tableHeadSx}>Año</TableCell>
-                    <TableCell sx={tableHeadSx} align="center">Detalle</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {resultadosFiltrados.map((resultado) => (
-                    <TableRow key={resultado.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
-                          {resultado.evento_titulo || 'Evento no encontrado'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{nombreCompleto(resultado)}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Chip
-                          label={obtenerNombre(resultado.categoria)}
-                          size="small"
-                          sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.club_nombre || 'Independiente'}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.ano_competitivo}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }} align="center">
-                        <IconButton size="small" onClick={() => handleVerResultado(resultado)} title="Ver detalles" sx={{ color: COLORS.burgundy }}>
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
+          <>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+              {eventosPaginados.map((evento) => (
+                <Box
+                  key={evento.id}
+                  sx={{
+                    ...cardSx, overflow: 'hidden', cursor: 'pointer',
+                    transition: 'transform .15s, box-shadow .15s',
+                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                  }}
+                  onClick={() => manejarVerDetalle(evento)}
+                >
+                  {evento.imagen_url ? (
+                    <Box component="img" src={evento.imagen_url} alt={evento.titulo}
+                      sx={{ width: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
+                  ) : (
+                    <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
+                      <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
+                    </Box>
+                  )}
+                  <Box sx={{ p: 2.25 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                      <Typography sx={{ fontWeight: 800, color: '#6a6a6a', lineHeight: 1.25 }}>{evento.titulo}</Typography>
+                      <Chip icon={<DoneAllIcon sx={{ fontSize: 14 }} />} label="Finalizado" size="small" sx={{ fontWeight: 700, fontSize: '.68rem', bgcolor: COLORS.lineSoft, color: COLORS.burgundy, flexShrink: 0 }} />
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .5 }}>
+                      <CalendarIcon sx={{ fontSize: 14, color: '#8a8a8a' }} />
+                      <Typography variant="body2" sx={{ color: '#8a8a8a', fontWeight: 600 }}>{formatearFechaCorta(evento.fecha)}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: 1.75 }}>
+                      <LocationIcon sx={{ fontSize: 14, color: '#8a8a8a' }} />
+                      <Typography variant="body2" sx={{ color: '#8a8a8a' }}>{evento.lugar}</Typography>
+                    </Box>
+                    <Button
+                      fullWidth variant="outlined" size="small" startIcon={<TrophyIcon />}
+                      onClick={(e) => { e.stopPropagation(); manejarVerDetalle(evento); }}
+                      sx={{ color: COLORS.purple, borderColor: COLORS.purple, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                    >
+                      Ver resultados
+                    </Button>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+
+            {eventos.length > POR_PAGINA && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                <Pagination
+                  count={Math.ceil(eventos.length / POR_PAGINA)}
+                  page={pagina}
+                  onChange={(e, valor) => setPagina(valor)}
+                  sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }}
+                />
+              </Box>
+            )}
+          </>
         )}
       </Container>
-
-      {/* ── Modal ver resultado (solo lectura) ── */}
-      <Dialog open={modalVerResultadoOpen} onClose={() => setModalVerResultadoOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TrophyIcon sx={{ color: '#fff' }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Detalles del Resultado</Typography>
-            </Box>
-            <IconButton onClick={() => setModalVerResultadoOpen(false)} size="small" sx={{ color: '#fff' }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {resultadoSeleccionado && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-
-              <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}` }}>
-                <Typography variant="subtitle2" sx={{ color: COLORS.burgundy, fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PersonIcon fontSize="small" /> Información del Atleta
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Nombre</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{nombreCompleto(resultadoSeleccionado)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{obtenerNombre(resultadoSeleccionado.categoria)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Género</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{obtenerNombre(resultadoSeleccionado.genero)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Municipio</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.municipio || 'N/A'}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Club</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.club_nombre || 'Independiente'}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Entrenador</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {resultadoSeleccionado.entrenador_nombre
-                        ? `${resultadoSeleccionado.entrenador_nombre} ${resultadoSeleccionado.entrenador_apellido || ''}`.trim()
-                        : 'Independiente'}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-
-              <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}` }}>
-                <Typography variant="subtitle2" sx={{ color: COLORS.burgundy, fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TrophyIcon fontSize="small" /> Información del Evento
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Evento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.evento_titulo}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Año Competitivo</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.ano_competitivo || 'N/A'}</Typography>
-                  </Box>
-                  <Box sx={{ gridColumn: '1 / -1' }}>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar de Entrenamiento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.lugar_entrenamiento || 'No especificado'}</Typography>
-                  </Box>
-                </Box>
-              </Box>
-
-              <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}` }}>
-                <Typography variant="subtitle2" sx={{ color: COLORS.burgundy, fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BarChartIcon fontSize="small" /> Pruebas y Marcas
-                </Typography>
-                {resultadoSeleccionado.pruebas?.length > 0 ? (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-                    {resultadoSeleccionado.pruebas.map((prueba, index) => (
-                      <Box key={index} sx={{ p: 1.5, borderRadius: '8px', border: `1px solid ${COLORS.line}`, textAlign: 'center' }}>
-                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Prueba {index + 1}</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{prueba.nombre}</Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 800, color: COLORS.burgundy }}>{prueba.marca} {prueba.unidad}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                ) : (
-                  <Typography variant="body2" sx={{ color: COLORS.purple }}>No hay pruebas registradas</Typography>
-                )}
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setModalVerResultadoOpen(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

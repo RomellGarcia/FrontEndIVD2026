@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
+  Box, Typography,
   Container, Button, CircularProgress, Avatar, Pagination, Chip,
   Tabs, Tab, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
   List, ListItem, ListItemAvatar, ListItemText,
+  FormControl, InputLabel, Select, MenuItem,
   useMediaQuery, useTheme,
 } from '@mui/material';
 import {
@@ -17,11 +18,12 @@ import {
   People as PeopleIcon, PersonAdd as PersonAddIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { eventosAPI, clubesAPI } from '../../api/index.js';
+import { eventosAPI, clubesAPI, resultadosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 
-// --- Paleta institucional IVD (misma que EventosAtleta.jsx / páginas principales) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -35,15 +37,7 @@ const COLORS = {
 
 const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
 
-const tableHeadSx = {
-  fontWeight: 700,
-  color: '#fff',
-  fontSize: '0.72rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  py: 2,
-};
-
+// Chip de estado (abierto/cerrado/finalizado)
 const EstadoChip = ({ label, positivo = true }) => (
   <Chip
     label={label}
@@ -57,8 +51,7 @@ const EstadoChip = ({ label, positivo = true }) => (
   />
 );
 
-// Nombre puede venir como string plano o como objeto { nombre } según el
-// endpoint — se maneja aquí una sola vez en vez de repetir el chequeo.
+// Obtiene el nombre de forma segura (puede ser string o objeto)
 const obtenerNombre = (valor) => {
   if (!valor) return 'N/A';
   if (typeof valor === 'string') return valor;
@@ -66,65 +59,105 @@ const obtenerNombre = (valor) => {
   return 'N/A';
 };
 
-// Comparación normalizada (mayúsculas/espacios) en vez de === exacto, para
-// no repetir el bug de "género equivocado" que ya salió en el panel admin.
-const textoGenero = (g) => {
-  const v = (g || '').toLowerCase().trim();
+// Devuelve el texto legible para el género
+const textoGenero = (genero) => {
+  const v = (genero || '').toLowerCase().trim();
   if (v === 'masculino') return 'Masculino';
   if (v === 'femenino') return 'Femenino';
   if (v === 'mixto') return 'Mixto';
-  return obtenerNombre(g);
+  return obtenerNombre(genero);
 };
 
-const Eventos = () => {
+// Disciplinas de campo (salto/lanzamiento) vs tiempo
+const DISCIPLINAS_DISTANCIA = new Set([
+  'Salto de longitud', 'Salto de altura',
+  'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
+]);
+const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
+
+// Genera un slug para nombres de archivo
+const generarSlug = (texto) => (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
+
+// Obtiene el nombre completo de un registro
+const nombreCompleto = (registro) => [registro?.nombre, registro?.apellido_paterno, registro?.apellido_materno].filter(Boolean).join(' ');
+
+// Formatea fecha en formato largo
+const formatearFechaLarga = (fecha) => {
+  if (!fecha) return '—';
+  try {
+    return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch { return '—'; }
+};
+
+// Formatea fecha en formato corto
+const formatearFechaCorta = (fecha) => {
+  if (!fecha) return '—';
+  return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+// Extrae la hora (HH:MM)
+const formatearHora = (hora) => (hora ? String(hora).slice(0, 5) : '');
+
+// Abre un documento en el visor correspondiente
+const abrirDocumentoParaVer = (url) => {
+  if (!url) return;
+  const esPdf = /\.pdf(\?|$)/i.test(url);
+  const urlFinal = esPdf ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  window.open(urlFinal, '_blank', 'noopener,noreferrer');
+};
+
+const EventosClub = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [eventos, setEventos] = useState([]);
-  const [clubId, setClubId] = useState(null);
+  const [idClub, setIdClub] = useState(null);
 
   const [vista, setVista] = useState('lista');
-  const [tabLista, setTabLista] = useState('disponibles');
+  const [pestaniaLista, setPestaniaLista] = useState('disponibles');
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [convocatoriasDelEvento, setConvocatoriasDelEvento] = useState([]);
+  const [resultadosPorConvocatoria, setResultadosPorConvocatoria] = useState({});
   const [filtroDisciplina, setFiltroDisciplina] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [cargandoConvocatorias, setCargandoConvocatorias] = useState(false);
 
-  const [pageDisponibles, setPageDisponibles] = useState(1);
-  const [pageTerminados, setPageTerminados] = useState(1);
-  const porPagina = 6;
+  const [paginaDisponibles, setPaginaDisponibles] = useState(1);
+  const [paginaTerminados, setPaginaTerminados] = useState(1);
+  const registrosPorPagina = 6;
 
-  const [modalParticipantesOpen, setModalParticipantesOpen] = useState(false);
+  const [modalParticipantesAbierto, setModalParticipantesAbierto] = useState(false);
   const [convocatoriaParticipantes, setConvocatoriaParticipantes] = useState(null);
   const [participantesClub, setParticipantesClub] = useState([]);
-  const [loadingParticipantes, setLoadingParticipantes] = useState(false);
+  const [cargandoParticipantes, setCargandoParticipantes] = useState(false);
 
   useEffect(() => {
     if (!user?.id) { navigate('/login'); return; }
     cargarEventos();
-    cargarClubId();
+    cargarIdClub();
   }, [user, navigate]);
 
-  const cargarClubId = async () => {
+  // Obtiene el ID del club del usuario
+  const cargarIdClub = async () => {
     try {
       const clubRes = await clubesAPI.getAll();
       let clubes = clubRes.data.clubes || clubRes.data || [];
       if (!Array.isArray(clubes)) clubes = [clubes];
       const club = clubes.find((c) => c.email === user.email);
-      setClubId(club?.id || club?._id || null);
+      setIdClub(club?.id || club?._id || null);
     } catch {
-      setClubId(null);
+      setIdClub(null);
     }
   };
 
+  // Carga todos los eventos desde el backend
   const cargarEventos = async () => {
     try {
-      setLoading(true);
+      setCargando(true);
       const response = await eventosAPI.getAll();
       let eventosData = response.data.eventos || response.data || [];
       if (!Array.isArray(eventosData)) eventosData = [eventosData];
@@ -134,49 +167,52 @@ const Eventos = () => {
       console.error('Error al cargar eventos:', error);
       setError('Error al cargar los eventos. Intente de nuevo.');
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
-  const fmt = (fecha) => {
-    if (!fecha) return '—';
-    try {
-      return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
-    } catch { return '—'; }
-  };
-
-  const fmtCorta = (fecha) => {
-    if (!fecha) return '—';
-    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
-  const fmtHora = (hora) => (hora ? String(hora).slice(0, 5) : '');
-
+  // Verifica si la inscripción al evento está abierta
   const inscripcionAbierta = (evento) => {
     if (!evento.fecha_cierre) return true;
     return new Date(evento.fecha_cierre) > new Date();
   };
 
-  const yaTermino = (evento) => new Date(evento.fecha) < new Date();
+  // Verifica si el evento ya finalizó (manual o por fecha)
+  const yaTermino = (evento) => !!evento?.finalizado || new Date(evento.fecha) < new Date();
 
   const eventosDisponibles = eventos.filter((e) => !yaTermino(e));
   const eventosTerminados = eventos.filter((e) => yaTermino(e));
 
-  const disponiblesPaginados = eventosDisponibles.slice((pageDisponibles - 1) * porPagina, pageDisponibles * porPagina);
-  const terminadosPaginados = eventosTerminados.slice((pageTerminados - 1) * porPagina, pageTerminados * porPagina);
+  const disponiblesPaginados = eventosDisponibles.slice((paginaDisponibles - 1) * registrosPorPagina, paginaDisponibles * registrosPorPagina);
+  const terminadosPaginados = eventosTerminados.slice((paginaTerminados - 1) * registrosPorPagina, paginaTerminados * registrosPorPagina);
   const totalAbiertos = eventosDisponibles.filter(inscripcionAbierta).length;
 
-  const handleVerDetalle = async (evento) => {
+  // Navega al detalle de un evento y carga sus convocatorias/resultados
+  const manejarVerDetalle = async (evento) => {
     setEventoSeleccionado(evento);
     setVista('detalle');
     setConvocatoriasDelEvento([]);
+    setResultadosPorConvocatoria({});
     setFiltroDisciplina('');
     setFiltroCategoria('');
 
     setCargandoConvocatorias(true);
     try {
       const res = await eventosAPI.getConvocatoriasByEvento(evento.id || evento._id);
-      setConvocatoriasDelEvento(res.data.convocatorias || []);
+      const lista = res.data.convocatorias || [];
+      setConvocatoriasDelEvento(lista);
+
+      if (yaTermino(evento) && lista.length > 0) {
+        const entradas = await Promise.all(
+          lista.map(async (c) => {
+            try {
+              const r = await resultadosAPI.getByConvocatoria(c.id);
+              return [c.id, r.data.resultados || []];
+            } catch { return [c.id, []]; }
+          })
+        );
+        setResultadosPorConvocatoria(Object.fromEntries(entradas));
+      }
     } catch (error) {
       console.error('Error al cargar convocatorias del evento:', error);
     } finally {
@@ -184,7 +220,8 @@ const Eventos = () => {
     }
   };
 
-  const handleVolver = () => {
+  // Vuelve a la lista de eventos
+  const manejarVolver = () => {
     setVista('lista');
     setEventoSeleccionado(null);
     setConvocatoriasDelEvento([]);
@@ -192,42 +229,79 @@ const Eventos = () => {
     setFiltroCategoria('');
   };
 
-  const handleInscribirAtletas = (conv) => {
-    navigate(`/club/convocatoria?eventoId=${eventoSeleccionado.id || eventoSeleccionado._id}&convocatoriaId=${conv.id}`);
+  // Navega a la página de inscripción de atletas para una convocatoria
+  const manejarInscribirAtletas = (convocatoria) => {
+    navigate(`/club/convocatoria?eventoId=${eventoSeleccionado.id || eventoSeleccionado._id}&convocatoriaId=${convocatoria.id}`);
   };
 
-  const handleVerParticipantesClub = async (conv) => {
-    setConvocatoriaParticipantes(conv);
-    setModalParticipantesOpen(true);
-    setLoadingParticipantes(true);
+  // Abre el modal para ver los participantes del club en una convocatoria
+  const manejarVerParticipantesClub = async (convocatoria) => {
+    setConvocatoriaParticipantes(convocatoria);
+    setModalParticipantesAbierto(true);
+    setCargandoParticipantes(true);
     try {
-      if (!clubId) { setParticipantesClub([]); return; }
-      const response = await eventosAPI.getParticipantesPorConvocatoria(conv.id, { clubId });
+      if (!idClub) { setParticipantesClub([]); return; }
+      const response = await eventosAPI.getParticipantesPorConvocatoria(convocatoria.id);
       let participantes = response.data.participantes || response.data || [];
       if (!Array.isArray(participantes)) participantes = [];
-      setParticipantesClub(participantes.filter((p) => !clubId || p.club_id === clubId || p.atleta?.club_id === clubId));
+      setParticipantesClub(participantes.filter((p) => p.club_id === idClub));
     } catch (error) {
       console.error('Error al cargar participantes:', error);
       setParticipantesClub([]);
     } finally {
-      setLoadingParticipantes(false);
+      setCargandoParticipantes(false);
     }
   };
 
-  const handleCerrarParticipantes = () => {
-    setModalParticipantesOpen(false);
+  const manejarCerrarParticipantes = () => {
+    setModalParticipantesAbierto(false);
     setConvocatoriaParticipantes(null);
     setParticipantesClub([]);
   };
 
-  const abrirDocumentoParaVer = (url) => {
-    if (!url) return;
-    const esPdf = /\.pdf(\?|$)/i.test(url);
-    const urlFinal = esPdf ? url : `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    window.open(urlFinal, '_blank', 'noopener,noreferrer');
+  // Descarga un Excel con los resultados de una convocatoria
+  const manejarDescargarExcelResultados = (convocatoria) => {
+    const resultadosCategoria = resultadosPorConvocatoria[convocatoria.id] || [];
+    if (resultadosCategoria.length === 0) return;
+
+    const disciplinaNombre = obtenerNombre(convocatoria.disciplina);
+    const categoriaNombre = obtenerNombre(convocatoria.categoria);
+    const esDistancia = esDisciplinaDeDistancia(disciplinaNombre);
+    const ordenados = [...resultadosCategoria].sort((a, b) => {
+      if (a.posicion === null) return 1;
+      if (b.posicion === null) return -1;
+      return (a.posicion ?? 999) - (b.posicion ?? 999);
+    });
+
+    const filas = ordenados.map((r) => {
+      const marca = r.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
+      const chip = r.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
+      const gun = r.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
+      const base = {
+        'Pl.': r.posicion ? `${r.posicion}°` : '—',
+        Bib: r.bib ? String(r.bib).padStart(3, '0') : '—',
+        Nombre: nombreCompleto(r),
+        Club: r.club_nombre || 'Libre',
+      };
+      return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
+    });
+
+    const headers = esDistancia
+      ? ['Pl.', 'Bib', 'Nombre', 'Club', 'Marca']
+      : ['Pl.', 'Bib', 'Nombre', 'Club', 'ChipTime', 'GunTime'];
+
+    const ws = XLSX.utils.json_to_sheet(filas, { header: headers });
+    ws['!cols'] = esDistancia
+      ? [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 14 }]
+      : [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+
+    const wb = XLSX.utils.book_new();
+    const nombreHoja = `${disciplinaNombre} ${categoriaNombre}`.slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, nombreHoja || 'Resultados');
+    XLSX.writeFile(wb, `Resultados_${generarSlug(disciplinaNombre)}_${generarSlug(categoriaNombre)}.xlsx`);
   };
 
-  if (loading) {
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -235,6 +309,7 @@ const Eventos = () => {
     );
   }
 
+  // Vista de detalle de un evento
   if (vista === 'detalle' && eventoSeleccionado) {
     const terminado = yaTermino(eventoSeleccionado);
     const abierta = inscripcionAbierta(eventoSeleccionado);
@@ -253,7 +328,7 @@ const Eventos = () => {
           <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
             <Button
               startIcon={<ArrowBackIcon />}
-              onClick={handleVolver}
+              onClick={manejarVolver}
               sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
             >
               Volver a Eventos
@@ -269,7 +344,7 @@ const Eventos = () => {
 
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
           <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
-
+            {/* Columna izquierda: imagen y datos del evento */}
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
               {eventoSeleccionado.imagen_url && (
                 <Box component="img" src={eventoSeleccionado.imagen_url} alt={eventoSeleccionado.titulo}
@@ -287,14 +362,14 @@ const Eventos = () => {
                     <CalendarIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
                   </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmt(eventoSeleccionado.fecha)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatearFechaLarga(eventoSeleccionado.fecha)}</Typography>
                 </Box>
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
                     <TimeIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Hora</Typography>
                   </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmtHora(eventoSeleccionado.hora) || '—'}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatearHora(eventoSeleccionado.hora) || '—'}</Typography>
                 </Box>
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
@@ -314,6 +389,7 @@ const Eventos = () => {
               </Box>
             </Box>
 
+            {/* Columna derecha: convocatorias */}
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3.5 } }}>
               <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
                 {terminado ? 'Convocatorias y Resultados' : 'Convocatorias de este Evento'}
@@ -330,12 +406,38 @@ const Eventos = () => {
               ) : (
                 <>
                   {(disciplinasUnicas.length > 1 || categoriasUnicas.length > 1) && (
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr auto' }, gap: 1.5, mb: 2.5, alignItems: 'end' }}>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>Disciplina</InputLabel>
+                        <Select
+                          value={filtroDisciplina}
+                          label="Disciplina"
+                          onChange={(e) => setFiltroDisciplina(e.target.value)}
+                        >
+                          <MenuItem value="">Todas</MenuItem>
+                          {disciplinasUnicas.map((d) => (
+                            <MenuItem key={d} value={d}>{d}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>Categoría</InputLabel>
+                        <Select
+                          value={filtroCategoria}
+                          label="Categoría"
+                          onChange={(e) => setFiltroCategoria(e.target.value)}
+                        >
+                          <MenuItem value="">Todas</MenuItem>
+                          {categoriasUnicas.map((c) => (
+                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                       <Button
                         onClick={() => { setFiltroDisciplina(''); setFiltroCategoria(''); }}
                         disabled={!hayFiltrosActivos}
                         startIcon={<ClearIcon fontSize="small" />}
-                        sx={{ color: COLORS.purple, textTransform: 'none', fontWeight: 700 }}
+                        sx={{ color: COLORS.purple, textTransform: 'none', fontWeight: 700, height: 40 }}
                       >
                         Limpiar filtros
                       </Button>
@@ -369,21 +471,21 @@ const Eventos = () => {
 
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                             {terminado ? (
-                              conv.documentoResultado ? (
+                              (resultadosPorConvocatoria[conv.id] || []).length > 0 ? (
                                 <Button
                                   size="small" variant="contained" startIcon={<TrophyIcon />}
-                                  onClick={() => abrirDocumentoParaVer(conv.documentoResultado)}
+                                  onClick={() => manejarDescargarExcelResultados(conv)}
                                   sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
                                 >
-                                  Ver resultados
+                                  Ver Excel
                                 </Button>
                               ) : (
-                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Resultados aún no publicados" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Excel de resultados pendiente" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
                               )
                             ) : (
                               <Button
                                 size="small" variant="contained" startIcon={<PersonAddIcon />}
-                                onClick={() => handleInscribirAtletas(conv)}
+                                onClick={() => manejarInscribirAtletas(conv)}
                                 sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
                               >
                                 Inscribir atletas
@@ -391,7 +493,7 @@ const Eventos = () => {
                             )}
                             <Button
                               size="small" variant="outlined" startIcon={<PeopleIcon />}
-                              onClick={() => handleVerParticipantesClub(conv)}
+                              onClick={() => manejarVerParticipantesClub(conv)}
                               sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
                             >
                               Mis atletas
@@ -407,12 +509,12 @@ const Eventos = () => {
           </Box>
         </Container>
 
-        {/* ── Modal de Participantes del Club (de una convocatoria específica) ── */}
-        <Dialog open={modalParticipantesOpen} onClose={handleCerrarParticipantes} maxWidth="sm" fullWidth fullScreen={isMobile}>
+        {/* Modal de participantes del club en una convocatoria */}
+        <Dialog open={modalParticipantesAbierto} onClose={manejarCerrarParticipantes} maxWidth="sm" fullWidth fullScreen={isMobile}>
           <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Atletas de mi Club Inscritos</Typography>
-              <IconButton onClick={handleCerrarParticipantes} sx={{ color: '#fff' }}>
+              <IconButton onClick={manejarCerrarParticipantes} sx={{ color: '#fff' }}>
                 <CloseIcon />
               </IconButton>
             </Box>
@@ -423,7 +525,7 @@ const Eventos = () => {
             )}
           </DialogTitle>
           <DialogContent dividers>
-            {loadingParticipantes ? (
+            {cargandoParticipantes ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                 <CircularProgress size={40} sx={{ color: COLORS.burgundy }} />
               </Box>
@@ -455,7 +557,7 @@ const Eventos = () => {
                             <strong>Género:</strong> {textoGenero(p.atleta?.genero || p.genero)}
                           </Typography>
                           <Typography variant="caption" component="span" display="block" sx={{ color: COLORS.ink }}>
-                            <strong>Inscripción:</strong> {fmtCorta(p.fechaInscripcion || p.fecha_inscripcion)}
+                            <strong>Inscripción:</strong> {formatearFechaCorta(p.fechaInscripcion || p.fecha_inscripcion)}
                           </Typography>
                           <Box sx={{ mt: 0.5 }}>
                             <EstadoChip label={p.validado ? 'Validado' : 'Pendiente'} positivo={p.validado} />
@@ -470,7 +572,7 @@ const Eventos = () => {
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCerrarParticipantes} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+            <Button onClick={manejarCerrarParticipantes} sx={{ color: COLORS.purple, fontWeight: 600 }}>
               Cerrar
             </Button>
           </DialogActions>
@@ -479,6 +581,7 @@ const Eventos = () => {
     );
   }
 
+  // Vista de lista de eventos
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 6 }, pb: { xs: 7, md: 9 } }}>
@@ -496,14 +599,13 @@ const Eventos = () => {
       </Box>
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
         {error && (
           <Alert severity="error" sx={{ mb: 3, mt: { xs: -5, md: -6 }, borderRadius: '8px' }}>
             {error}
           </Alert>
         )}
 
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 5,
@@ -527,8 +629,8 @@ const Eventos = () => {
 
         <Box sx={{ mb: 3, borderBottom: `1px solid ${COLORS.line}` }}>
           <Tabs
-            value={tabLista}
-            onChange={(e, v) => setTabLista(v)}
+            value={pestaniaLista}
+            onChange={(e, v) => setPestaniaLista(v)}
             sx={{ '& .MuiTabs-indicator': { backgroundColor: COLORS.burgundy, height: 3 } }}
           >
             <Tab icon={<EventIcon />} iconPosition="start" label="Eventos Disponibles" value="disponibles"
@@ -538,7 +640,8 @@ const Eventos = () => {
           </Tabs>
         </Box>
 
-        {tabLista === 'disponibles' && (
+        {/* Lista de disponibles */}
+        {pestaniaLista === 'disponibles' && (
           eventosDisponibles.length === 0 ? (
             <Box sx={{ ...cardSx, textAlign: 'center', py: 5 }}>
               <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
@@ -547,66 +650,67 @@ const Eventos = () => {
               <Typography sx={{ color: COLORS.purple, fontWeight: 700 }}>No hay eventos próximos por ahora</Typography>
             </Box>
           ) : (
-            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    {['Imagen', 'Fecha', 'Título', 'Lugar', 'Estado', 'Detalles'].map((h) => (
-                      <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {disponiblesPaginados.map((evento) => {
-                    const abierta = inscripcionAbierta(evento);
-                    return (
-                      <TableRow key={evento.id || evento._id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                        <TableCell sx={{ py: 1.5, borderColor: COLORS.line }}>
-                          <Avatar src={evento.imagen_url} variant="rounded" sx={{ width: 100, height: 100, bgcolor: COLORS.lineSoft, border: `1px solid ${COLORS.line}` }}>
-                            <EventIcon sx={{ color: COLORS.purple, fontSize: 36 }} />
-                          </Avatar>
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{fmtCorta(evento.fecha)}</Typography>
-                          {evento.hora && <Typography variant="caption" sx={{ color: COLORS.purple }}>{fmtHora(evento.hora)} hrs</Typography>}
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{evento.titulo}</Typography>
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ color: COLORS.ink, display: 'flex', alignItems: 'center', gap: .5 }}>
-                            <LocationIcon sx={{ fontSize: 14, color: COLORS.burgundy }} />
-                            {evento.lugar}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
+            <>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+                {disponiblesPaginados.map((evento) => {
+                  const abierta = inscripcionAbierta(evento);
+                  return (
+                    <Box
+                      key={evento.id || evento._id}
+                      sx={{
+                        ...cardSx, overflow: 'hidden', cursor: 'pointer',
+                        transition: 'transform .15s, box-shadow .15s',
+                        '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                      }}
+                      onClick={() => manejarVerDetalle(evento)}
+                    >
+                      {evento.imagen_url ? (
+                        <Box component="img" src={evento.imagen_url} alt={evento.titulo}
+                          sx={{ width: '100%', height: 520, objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
+                          <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
+                        </Box>
+                      )}
+                      <Box sx={{ p: 2.25 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                          <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.25 }}>{evento.titulo}</Typography>
                           <EstadoChip label={abierta ? 'Abierto' : 'Cerrado'} positivo={abierta} />
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Button
-                            variant="outlined" size="small" startIcon={<InfoIcon />}
-                            onClick={() => handleVerDetalle(evento)}
-                            sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
-                          >
-                            Ver detalles
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              {eventosDisponibles.length > porPagina && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
-                  <Pagination count={Math.ceil(eventosDisponibles.length / porPagina)} page={pageDisponibles} onChange={(e, v) => setPageDisponibles(v)}
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .5 }}>
+                          <CalendarIcon sx={{ fontSize: 14, color: COLORS.burgundy }} />
+                          <Typography variant="body2" sx={{ color: COLORS.ink, fontWeight: 600 }}>
+                            {formatearFechaCorta(evento.fecha)}{evento.hora && ` · ${formatearHora(evento.hora)} hrs`}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: 1.75 }}>
+                          <LocationIcon sx={{ fontSize: 14, color: COLORS.burgundy }} />
+                          <Typography variant="body2" sx={{ color: COLORS.ink }}>{evento.lugar}</Typography>
+                        </Box>
+                        <Button
+                          fullWidth variant="outlined" size="small" startIcon={<InfoIcon />}
+                          onClick={(e) => { e.stopPropagation(); manejarVerDetalle(evento); }}
+                          sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
+                        >
+                          Ver detalles
+                        </Button>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+              {eventosDisponibles.length > registrosPorPagina && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                  <Pagination count={Math.ceil(eventosDisponibles.length / registrosPorPagina)} page={paginaDisponibles} onChange={(e, v) => setPaginaDisponibles(v)}
                     sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }} />
                 </Box>
               )}
-            </Box>
+            </>
           )
         )}
 
-        {tabLista === 'terminados' && (
+        {/* Lista de terminados */}
+        {pestaniaLista === 'terminados' && (
           eventosTerminados.length === 0 ? (
             <Box sx={{ ...cardSx, textAlign: 'center', py: 5 }}>
               <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
@@ -615,55 +719,57 @@ const Eventos = () => {
               <Typography sx={{ color: COLORS.purple, fontWeight: 700 }}>Todavía no hay eventos finalizados</Typography>
             </Box>
           ) : (
-            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    {['Imagen', 'Fecha', 'Título', 'Lugar', 'Convocatorias y Resultados'].map((h) => (
-                      <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {terminadosPaginados.map((evento) => (
-                    <TableRow key={evento.id || evento._id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                      <TableCell sx={{ py: 1.5, borderColor: COLORS.line }}>
-                        <Avatar src={evento.imagen_url} variant="rounded" sx={{ width: 100, height: 100, bgcolor: COLORS.lineSoft, border: `1px solid ${COLORS.line}`, filter: 'grayscale(60%)', opacity: 0.85 }}>
-                          <EventIcon sx={{ color: COLORS.purple, fontSize: 36 }} />
-                        </Avatar>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#8a8a8a' }}>{fmtCorta(evento.fecha)}</Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#8a8a8a' }}>{evento.titulo}</Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ color: '#8a8a8a', display: 'flex', alignItems: 'center', gap: .5 }}>
-                          <LocationIcon sx={{ fontSize: 14 }} />
-                          {evento.lugar}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Button
-                          variant="outlined" size="small" startIcon={<VisibilityIcon />}
-                          onClick={() => handleVerDetalle(evento)}
-                          sx={{ color: COLORS.purple, borderColor: COLORS.purple, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
-                        >
-                          Ver convocatorias y resultados
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {eventosTerminados.length > porPagina && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
-                  <Pagination count={Math.ceil(eventosTerminados.length / porPagina)} page={pageTerminados} onChange={(e, v) => setPageTerminados(v)}
+            <>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+                {terminadosPaginados.map((evento) => (
+                  <Box
+                    key={evento.id || evento._id}
+                    sx={{
+                      ...cardSx, overflow: 'hidden', cursor: 'pointer',
+                      transition: 'transform .15s, box-shadow .15s',
+                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                    }}
+                    onClick={() => manejarVerDetalle(evento)}
+                  >
+                    {evento.imagen_url ? (
+                      <Box component="img" src={evento.imagen_url} alt={evento.titulo}
+                        sx={{ width: '100%', height: 520, objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
+                    ) : (
+                      <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
+                        <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
+                      </Box>
+                    )}
+                    <Box sx={{ p: 2.25 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                        <Typography sx={{ fontWeight: 800, color: '#6a6a6a', lineHeight: 1.25 }}>{evento.titulo}</Typography>
+                        <Chip icon={<DoneAllIcon sx={{ fontSize: 14 }} />} label="Finalizado" size="small" sx={{ fontWeight: 700, fontSize: '.68rem', bgcolor: COLORS.lineSoft, color: COLORS.burgundy, flexShrink: 0 }} />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .5 }}>
+                        <CalendarIcon sx={{ fontSize: 14, color: '#8a8a8a' }} />
+                        <Typography variant="body2" sx={{ color: '#8a8a8a', fontWeight: 600 }}>{formatearFechaCorta(evento.fecha)}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: 1.75 }}>
+                        <LocationIcon sx={{ fontSize: 14, color: '#8a8a8a' }} />
+                        <Typography variant="body2" sx={{ color: '#8a8a8a' }}>{evento.lugar}</Typography>
+                      </Box>
+                      <Button
+                        fullWidth variant="outlined" size="small" startIcon={<VisibilityIcon />}
+                        onClick={(e) => { e.stopPropagation(); manejarVerDetalle(evento); }}
+                        sx={{ color: COLORS.purple, borderColor: COLORS.purple, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                      >
+                        Ver resultados
+                      </Button>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+              {eventosTerminados.length > registrosPorPagina && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                  <Pagination count={Math.ceil(eventosTerminados.length / registrosPorPagina)} page={paginaTerminados} onChange={(e, v) => setPaginaTerminados(v)}
                     sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }} />
                 </Box>
               )}
-            </Box>
+            </>
           )
         )}
       </Container>
@@ -671,4 +777,4 @@ const Eventos = () => {
   );
 };
 
-export default Eventos;
+export default EventosClub;

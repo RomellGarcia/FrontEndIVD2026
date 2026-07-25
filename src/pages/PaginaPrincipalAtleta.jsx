@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { atletasAPI, eventosAPI, notificacionesAPI } from '../api/index.js';
+import { atletasAPI, eventosAPI, notificacionesAPI, resultadosAPI } from '../api/index.js';
 import { useAuth } from '../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -19,7 +19,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 
-// --- Paleta institucional IVD (misma que ClubAtleta.jsx / GestionAtletas.jsx) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -31,6 +31,7 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
+// Componente base para secciones (tarjetas) del panel
 const SectionCard = ({ icon, eyebrow, title, action, children, filled }) => (
   <Box
     sx={{
@@ -76,7 +77,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children, filled }) => (
   </Box>
 );
 
-/** Franja de notificaciones no leídas (eventos/convocatorias cancelados, etc). */
+// Banner de notificaciones no leídas
 const BannerNotificaciones = ({ notificaciones, onDescartar, onDescartarTodas }) => {
   if (!notificaciones.length) return null;
   return (
@@ -119,6 +120,7 @@ const BannerNotificaciones = ({ notificaciones, onDescartar, onDescartarTodas })
   );
 };
 
+// Muestra un dato con ícono
 const DatoCampo = ({ icon, valor }) => (
   <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, display: 'flex', alignItems: 'center', gap: 0.5 }}>
     {icon}
@@ -126,8 +128,8 @@ const DatoCampo = ({ icon, valor }) => (
   </Typography>
 );
 
-/** Tarjeta de evento próximo, estilo expediente. */
-const EventoCard = ({ evento, fmt }) => {
+// Tarjeta de evento próximo
+const EventoCard = ({ evento, formatearFecha }) => {
   const cerrada = evento.fecha_cierre && new Date(evento.fecha_cierre) < new Date();
   return (
     <Box sx={{ border: `1px solid ${COLORS.line}`, borderLeft: `4px solid ${COLORS.burgundy}`, borderRadius: '6px', mb: 1.5, '&:last-of-type': { mb: 0 } }}>
@@ -149,7 +151,7 @@ const EventoCard = ({ evento, fmt }) => {
           />
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
-          <DatoCampo icon={<CalendarIcon sx={{ fontSize: 13 }} />} valor={fmt(evento.fecha)} />
+          <DatoCampo icon={<CalendarIcon sx={{ fontSize: 13 }} />} valor={formatearFecha(evento.fecha)} />
           {evento.lugar && <DatoCampo icon={<LocationIcon sx={{ fontSize: 13 }} />} valor={evento.lugar} />}
           {(evento.disciplina || evento.categoria) && (
             <DatoCampo icon={<SportsIcon sx={{ fontSize: 13 }} />} valor={`${evento.disciplina || ''}${evento.disciplina && evento.categoria ? ' — ' : ''}${evento.categoria || ''}`} />
@@ -160,8 +162,8 @@ const EventoCard = ({ evento, fmt }) => {
   );
 };
 
-/** Tarjeta de participación, estilo expediente. */
-const ParticipacionCard = ({ participacion, fmt }) => (
+// Tarjeta de participación
+const ParticipacionCard = ({ participacion, formatearFecha }) => (
   <Box sx={{ border: `1px solid ${COLORS.line}`, borderLeft: `4px solid ${COLORS.purple}`, borderRadius: '6px', mb: 1.5, '&:last-of-type': { mb: 0 } }}>
     <Box sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
@@ -183,7 +185,7 @@ const ParticipacionCard = ({ participacion, fmt }) => (
         />
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
-        <DatoCampo icon={<CalendarIcon sx={{ fontSize: 13 }} />} valor={fmt(participacion.fecha || participacion.fechaInscripcion)} />
+        <DatoCampo icon={<CalendarIcon sx={{ fontSize: 13 }} />} valor={formatearFecha(participacion.fecha || participacion.fechaInscripcion)} />
         {(participacion.evento?.disciplina || participacion.disciplina) && (
           <DatoCampo icon={<SportsIcon sx={{ fontSize: 13 }} />} valor={participacion.evento?.disciplina || participacion.disciplina} />
         )}
@@ -201,84 +203,148 @@ const PaginaPrincipalAtleta = () => {
   const [atletaData, setAtletaData] = useState(null);
   const [eventosProximos, setEventosProximos] = useState([]);
   const [eventosParticipacion, setEventosParticipacion] = useState([]);
+  const [resultadosAtleta, setResultadosAtleta] = useState([]);
   const [estadisticas, setEstadisticas] = useState({
     totalEventos: 0, eventosGanados: 0, sesionesCompletadas: 0, clubActual: null,
   });
   const [notificaciones, setNotificaciones] = useState([]);
 
-  useEffect(() => { if (user) { cargarDatosAtleta(); cargarNotificaciones(); } }, [user]);
-  useEffect(() => { if (atletaData) calcularEstadisticas(atletaData, eventosParticipacion); }, [atletaData, eventosParticipacion]);
+  // Carga inicial
+  useEffect(() => {
+    if (user) {
+      cargarDatosCompletos();
+      cargarNotificaciones();
+    }
+  }, [user]);
 
+  // Actualiza estadísticas cuando cambian los datos relevantes
+  useEffect(() => {
+    if (atletaData) {
+      actualizarEstadisticas(atletaData, eventosParticipacion, resultadosAtleta);
+    }
+  }, [atletaData, eventosParticipacion, resultadosAtleta]);
+
+  // Obtiene notificaciones del atleta
   const cargarNotificaciones = async () => {
     try {
       const res = await notificacionesAPI.getMias();
       setNotificaciones(res.data.notificaciones || []);
-    } catch { setNotificaciones([]); }
+    } catch (err) {
+      console.error('Error al cargar notificaciones del atleta:', err.response?.status, err.response?.data || err.message);
+      setNotificaciones([]);
+    }
   };
 
-  const handleDescartarNotificacion = async (id) => {
+  // Marca una notificación como leída
+  const marcarNotificacionLeida = async (id) => {
     setNotificaciones((prev) => prev.filter((n) => n.id !== id));
-    try { await notificacionesAPI.marcarLeidas([id]); } catch { /* silencioso, no bloquea la UI */ }
-  };
-
-  const handleDescartarTodasNotificaciones = async () => {
-    const idsPrevios = notificaciones.map((n) => n.id);
-    setNotificaciones([]);
-    try { await notificacionesAPI.marcarLeidas(idsPrevios); } catch { /* silencioso */ }
-  };
-
-  const cargarDatosAtleta = async () => {
     try {
-      setLoading(true); setError('');
+      await notificacionesAPI.marcarLeidas([id]);
+    } catch {
+    }
+  };
+
+  // Marca todas las notificaciones como leídas
+  const marcarTodasNotificacionesLeidas = async () => {
+    const ids = notificaciones.map((n) => n.id);
+    setNotificaciones([]);
+    try {
+      await notificacionesAPI.marcarLeidas(ids);
+    } catch {
+    }
+  };
+
+  // Carga todos los datos del atleta: perfil, eventos, inscripciones y resultados
+  const cargarDatosCompletos = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
       const atletaResponse = await atletasAPI.getPerfil();
       const atleta = atletaResponse.data.atleta;
       setAtletaData(atleta);
 
+      // Carga eventos próximos según edad/género
       try {
         const edad = calcularEdad(atleta.fecha_nacimiento);
         const genero = atleta.genero?.toLowerCase();
         if (edad && genero) {
           const eventosRes = await eventosAPI.getMisConvocatorias();
           const convocatorias = eventosRes.data.convocatorias || [];
-          const soloFuturos = convocatorias.filter(e => new Date(e.fecha) >= new Date());
-          setEventosProximos(soloFuturos.slice(0, 5));
-        } else { setEventosProximos([]); }
-      } catch { setEventosProximos([]); }
+          const futuros = convocatorias.filter(e => new Date(e.fecha) >= new Date());
+          setEventosProximos(futuros.slice(0, 5));
+        } else {
+          setEventosProximos([]);
+        }
+      } catch {
+        setEventosProximos([]);
+      }
 
+      // Carga inscripciones del atleta
       try {
         const partRes = await eventosAPI.getMisInscripciones();
         setEventosParticipacion((partRes.data.inscripciones || []).slice(0, 5));
-      } catch { setEventosParticipacion([]); }
+      } catch {
+        setEventosParticipacion([]);
+      }
+
+      // Carga resultados para calcular victorias
+      try {
+        if (atleta?.id) {
+          const resRes = await resultadosAPI.getByAtleta(atleta.id);
+          setResultadosAtleta(resRes.data.resultados || []);
+        }
+      } catch {
+        setResultadosAtleta([]);
+      }
     } catch (err) {
       setError(`Error al cargar los datos: ${err.response?.data?.error || err.message}`);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Calcula edad a partir de fecha de nacimiento
   const calcularEdad = (fechaNacimiento) => {
     if (!fechaNacimiento) return null;
-    const hoy = new Date(); const nac = new Date(fechaNacimiento);
+    const hoy = new Date();
+    const nac = new Date(fechaNacimiento);
     let edad = hoy.getFullYear() - nac.getFullYear();
-    const m = hoy.getMonth() - nac.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+    const mes = hoy.getMonth() - nac.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nac.getDate())) edad--;
     return edad;
   };
 
-  const calcularEstadisticas = (atleta, participaciones = []) => {
+  // Actualiza el estado de estadísticas (eventos, victorias, club)
+  const actualizarEstadisticas = (atleta, participaciones = [], resultados = []) => {
+    const mejorPosPorEvento = new Map();
+    resultados.forEach((r) => {
+      if (!r.posicion) return;
+      const actual = mejorPosPorEvento.get(r.evento_id);
+      if (actual === undefined || r.posicion < actual) {
+        mejorPosPorEvento.set(r.evento_id, r.posicion);
+      }
+    });
+    const eventosGanados = [...mejorPosPorEvento.values()].filter((p) => p === 1).length;
+
     setEstadisticas({
       totalEventos: participaciones.length,
-      eventosGanados: participaciones.filter(p => p.resultado === 'ganador').length,
+      eventosGanados,
       sesionesCompletadas: 0,
       clubActual: atleta.club_nombre || 'Sin club',
     });
   };
 
-  const fmt = (fecha) => {
+  // Formatea fecha para mostrar en las tarjetas
+  const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
     try {
       return new Date(fecha).toLocaleDateString('es-MX', {
         weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
       });
-    } catch { return 'Fecha inválida'; }
+    } catch {
+      return 'Fecha inválida';
+    }
   };
 
   if (loading) {
@@ -297,7 +363,7 @@ const PaginaPrincipalAtleta = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Button
               variant="contained"
-              onClick={cargarDatosAtleta}
+              onClick={cargarDatosCompletos}
               sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
             >
               Intentar de Nuevo
@@ -310,8 +376,7 @@ const PaginaPrincipalAtleta = () => {
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera de bienvenida */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 6 }, pb: { xs: 7, md: 9 } }}>
         <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -336,16 +401,15 @@ const PaginaPrincipalAtleta = () => {
       </Box>
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
         <Box sx={{ mt: { xs: -5, md: -6 } }}>
           <BannerNotificaciones
             notificaciones={notificaciones}
-            onDescartar={handleDescartarNotificacion}
-            onDescartarTodas={handleDescartarTodasNotificaciones}
+            onDescartar={marcarNotificacionLeida}
+            onDescartarTodas={marcarTodasNotificacionesLeidas}
           />
         </Box>
 
-        {/* ── Stat-strip: una sola tarjeta dividida, flotando sobre la franja ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: notificaciones.length ? 0 : { xs: -5, md: -6 },
@@ -390,10 +454,9 @@ const PaginaPrincipalAtleta = () => {
           ))}
         </Box>
 
-        {/* ── Contenido principal ── */}
+        {/* Secciones principales */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
-
-          {/* ── Mi Club (destacada, enlaza a /atleta/club) ── */}
+          {/* Mi Club */}
           <SectionCard filled icon={<GroupIcon sx={{ fontSize: 16 }} />} eyebrow="Membresía" title="Mi Club">
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 1.5, py: 2 }}>
               {atletaData?.club_id ? (
@@ -429,7 +492,7 @@ const PaginaPrincipalAtleta = () => {
             </Box>
           </SectionCard>
 
-          {/* ── Próximos Eventos ── */}
+          {/* Próximos Eventos */}
           <SectionCard icon={<CalendarIcon sx={{ fontSize: 16 }} />} eyebrow="Agenda" title="Próximos Eventos">
             {eventosProximos.length === 0 ? (
               <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
@@ -437,12 +500,12 @@ const PaginaPrincipalAtleta = () => {
               </Typography>
             ) : (
               eventosProximos.slice(0, 4).map((evento, i) => (
-                <EventoCard key={evento.id || i} evento={evento} fmt={fmt} />
+                <EventoCard key={evento.id || i} evento={evento} formatearFecha={formatearFecha} />
               ))
             )}
           </SectionCard>
 
-          {/* ── Mis Participaciones ── */}
+          {/* Mis Participaciones */}
           <SectionCard icon={<CheckIcon sx={{ fontSize: 16 }} />} eyebrow="Historial" title="Mis Participaciones">
             {eventosParticipacion.length === 0 ? (
               <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
@@ -450,7 +513,7 @@ const PaginaPrincipalAtleta = () => {
               </Typography>
             ) : (
               eventosParticipacion.map((p, i) => (
-                <ParticipacionCard key={p.id || i} participacion={p} fmt={fmt} />
+                <ParticipacionCard key={p.id || i} participacion={p} formatearFecha={formatearFecha} />
               ))
             )}
           </SectionCard>

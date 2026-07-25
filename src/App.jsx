@@ -7,7 +7,6 @@ import { AuthProvider } from './components/common/AuthContext.jsx'
 
 // Layout
 import LayoutConEncabezado from './components/layout/LayoutConEncabezado.jsx'
-import LayoutEntrenador from './features/entrenador/LayoutEntrenador.jsx'
 
 // Páginas públicas
 import PaginaPrincipal from './pages/PaginaPrincipal.jsx'
@@ -35,17 +34,13 @@ import PaginaPrincipalClub from './pages/PaginaPrincipalClub.jsx'
 import PaginaPrincipalEntrenador from './pages/PaginaPrincipalEntrenador.jsx'
 
 // Módulos Administrativos
-import Perfil from './features/admin/Perfil.jsx'
-import ClubAdmin from './features/admin/Club.jsx'
-import Atleta from './features/admin/Atleta.jsx'
-import Eventos from './features/admin/Eventos.jsx'
-import GestionResultados from './features/admin/GestionResultados.jsx'
+import Perfil from './features/admin/PerfilAdministrador.jsx'
+import Eventos from "./features/admin/GestionarEventos.jsx";
+import GestionResultados from './features/admin/GestionarResultados.jsx'
 import Reportes from './features/admin/Reportes.jsx'
-import ValidacionCategoriaAutomatica from './features/admin/ValidacionCategoriaAutomatica.jsx'
-import GestionClubes from './features/admin/GestionClubes.jsx'
-import GestionarAtletasAdmin from './features/admin/GestionarAtletas.jsx'
-import PromocionarAtleta from './features/admin/PromocionarAtleta.jsx'
-import GestionContenido from './features/admin/GestionContenido.jsx'
+import GestionClubes from './features/admin/GestionarClubes.jsx'
+import GestionarAtletasAdmin from './features/admin/GestionarUsuarios.jsx'
+import GestionContenido from './features/admin/GestionarContenido.jsx'
 
 // Módulos Atleta
 import PerfilAtleta from './features/atleta/PerfilAtleta.jsx'
@@ -53,15 +48,14 @@ import EventosAtleta from './features/atleta/EventosAtleta.jsx'
 import ConvocatoriaAtleta from './features/atleta/ConvocatoriaAtleta.jsx'
 import MisConvocatoriasAtleta from './features/atleta/MisConvocatoriasAtleta.jsx'
 import ResultadosAtleta from './features/atleta/ResultadosAtleta.jsx'
-import EstadisticasAtleta from './features/atleta/EstadisticasAtleta.jsx'
 import ClubAtleta from './features/atleta/ClubAtleta.jsx'
 
 // Módulos Club
-import EventosClub from './features/club/Eventos.jsx'
-import GestionAtletas from './features/club/GestionAtletas.jsx'
+import EventosClub from './features/club/EventosClub.jsx'
+import GestionAtletas from './features/club/GestionarAtletas.jsx'
 import PerfilClub from './features/club/PerfilClub.jsx'
-import ResultadosClub from './features/club/Resultados.jsx'
-import Convocatoria from './features/club/Convocatoria.jsx'
+import ResultadosClub from './features/club/ResultadosClub.jsx'
+import Convocatoria from './features/club/ConvocatoriaClub.jsx'
 import MisConvocatoriasClub from './features/club/MisConvocatoriasClub.jsx'
 
 // Módulos Entrenador
@@ -94,15 +88,11 @@ const App = () => {
           {/* Rutas Administrador */}
           <Route path="/administrador" element={<LayoutConEncabezado><PaginaPrincipalAdministrativa /></LayoutConEncabezado>} />
           <Route path="/administrador/perfil" element={<LayoutConEncabezado><Perfil /></LayoutConEncabezado>} />
-          <Route path="/administrador/club" element={<LayoutConEncabezado><ClubAdmin /></LayoutConEncabezado>} />
-          <Route path="/administrador/atleta" element={<LayoutConEncabezado><Atleta /></LayoutConEncabezado>} />
           <Route path="/administrador/evento" element={<LayoutConEncabezado><Eventos /></LayoutConEncabezado>} />
           <Route path="/administrador/resultados" element={<LayoutConEncabezado><GestionResultados /></LayoutConEncabezado>} />
           <Route path="/administrador/reportes" element={<LayoutConEncabezado><Reportes /></LayoutConEncabezado>} />
-          <Route path="/administrador/validacion-categoria" element={<LayoutConEncabezado><ValidacionCategoriaAutomatica /></LayoutConEncabezado>} />
           <Route path="/administrador/gestion-clubes" element={<LayoutConEncabezado><GestionClubes /></LayoutConEncabezado>} />
           <Route path="/administrador/gestionar-atletas" element={<LayoutConEncabezado><GestionarAtletasAdmin /></LayoutConEncabezado>} />
-          <Route path="/administrador/promocionar-atleta" element={<LayoutConEncabezado><PromocionarAtleta /></LayoutConEncabezado>} />
           <Route path="/administrador/politicaspca" element={<LayoutConEncabezado><PoliticasPCA /></LayoutConEncabezado>} />
           <Route path="/administrador/terminospca" element={<LayoutConEncabezado><TerminosPCA /></LayoutConEncabezado>} />
           <Route path="/administrador/visionpca" element={<LayoutConEncabezado><VisionPCA /></LayoutConEncabezado>} />
@@ -116,7 +106,6 @@ const App = () => {
           <Route path="/atleta/convocatoria" element={<LayoutConEncabezado><ConvocatoriaAtleta /></LayoutConEncabezado>} />
           <Route path="/atleta/mis-convocatorias" element={<LayoutConEncabezado><MisConvocatoriasAtleta /></LayoutConEncabezado>} />
           <Route path="/atleta/resultados" element={<LayoutConEncabezado><ResultadosAtleta /></LayoutConEncabezado>} />
-          <Route path="/atleta/estadisticas" element={<LayoutConEncabezado><EstadisticasAtleta /></LayoutConEncabezado>} />
           <Route path="/atleta/politicaspca" element={<LayoutConEncabezado><PoliticasPCA /></LayoutConEncabezado>} />
           <Route path="/atleta/terminospca" element={<LayoutConEncabezado><TerminosPCA /></LayoutConEncabezado>} />
           <Route path="/atleta/visionpca" element={<LayoutConEncabezado><VisionPCA /></LayoutConEncabezado>} />
@@ -137,16 +126,16 @@ const App = () => {
           <Route path="/club/misionpca" element={<LayoutConEncabezado><MisionPCA /></LayoutConEncabezado>} />
 
           {/* Rutas Entrenador */}
-          <Route path="/entrenador" element={<LayoutEntrenador><PaginaPrincipalEntrenador /></LayoutEntrenador>} />
-          <Route path="/entrenador/gestionar-atletas" element={<LayoutEntrenador><GestionarAtletasEntrenador /></LayoutEntrenador>} />
-          <Route path="/entrenador/eventos" element={<LayoutEntrenador><EventosEntrenador /></LayoutEntrenador>} />
-          <Route path="/entrenador/reportes" element={<LayoutEntrenador><ReportesEntrenador /></LayoutEntrenador>} />
-          <Route path="/entrenador/buscar-clubes" element={<LayoutEntrenador><BuscarClubes /></LayoutEntrenador>} />
-          <Route path="/entrenador/perfil" element={<LayoutEntrenador><PerfilEntrenador /></LayoutEntrenador>} />
-          <Route path="/entrenador/politicaspca" element={<LayoutEntrenador><PoliticasPCA /></LayoutEntrenador>} />
-          <Route path="/entrenador/terminospca" element={<LayoutEntrenador><TerminosPCA /></LayoutEntrenador>} />
-          <Route path="/entrenador/visionpca" element={<LayoutEntrenador><VisionPCA /></LayoutEntrenador>} />
-          <Route path="/entrenador/misionpca" element={<LayoutEntrenador><MisionPCA /></LayoutEntrenador>} />
+          <Route path="/entrenador" element={<LayoutConEncabezado><PaginaPrincipalEntrenador /></LayoutConEncabezado>} />
+          <Route path="/entrenador/gestionar-atletas" element={<LayoutConEncabezado><GestionarAtletasEntrenador /></LayoutConEncabezado>} />
+          <Route path="/entrenador/eventos" element={<LayoutConEncabezado><EventosEntrenador /></LayoutConEncabezado>} />
+          <Route path="/entrenador/reportes" element={<LayoutConEncabezado><ReportesEntrenador /></LayoutConEncabezado>} />
+          <Route path="/entrenador/buscar-clubes" element={<LayoutConEncabezado><BuscarClubes /></LayoutConEncabezado>} />
+          <Route path="/entrenador/perfil" element={<LayoutConEncabezado><PerfilEntrenador /></LayoutConEncabezado>} />
+          <Route path="/entrenador/politicaspca" element={<LayoutConEncabezado><PoliticasPCA /></LayoutConEncabezado>} />
+          <Route path="/entrenador/terminospca" element={<LayoutConEncabezado><TerminosPCA /></LayoutConEncabezado>} />
+          <Route path="/entrenador/visionpca" element={<LayoutConEncabezado><VisionPCA /></LayoutConEncabezado>} />
+          <Route path="/entrenador/misionpca" element={<LayoutConEncabezado><MisionPCA /></LayoutConEncabezado>} />
         </Routes>
       </ThemeProvider>
     </AuthProvider>

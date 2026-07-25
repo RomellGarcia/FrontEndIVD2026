@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../common/AuthContext.jsx'; // Ajusta la ruta
 import Swal from 'sweetalert2';
 
@@ -11,21 +11,32 @@ const LOGO_IVD =
 
 const EncabezadoClub = () => {
   const { logout } = useAuth(); // Integración con autenticación
-  const [active, setActive] = useState('inicio');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const menuRef = useRef(null);
 
-  const handleClick = (option) => {
-    setActive(option);
-    setIsMobileMenuOpen(false);
+  // La pestaña activa se calcula de la URL real (no de un clic que se
+  // "recuerda") — así, si te mandan a otra pantalla con navigate() en vez
+  // de un clic en el menú (como al darle "Inscribir atletas" desde
+  // Eventos.jsx), el menú igual se entera y resalta la pestaña correcta.
+  const rutaAActiva = (pathname) => {
+    if (pathname.startsWith('/club/gestionAtletas')) return 'gestionAtletas';
+    if (pathname.startsWith('/club/eventos')) return 'eventos';
+    if (pathname.startsWith('/club/mis-convocatorias')) return 'misConvocatorias';
+    if (pathname.startsWith('/club/convocatoria')) return 'convocatorias';
+    if (pathname.startsWith('/club/resultados')) return 'resultados';
+    if (pathname.startsWith('/club/perfil')) return 'perfil';
+    return 'inicio';
   };
+  const active = rutaAActiva(location.pathname);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   const handleMenuClick = async (key) => {
+    setIsMobileMenuOpen(false);
     switch (key) {
       case 'inicio':
         navigate('/club');
@@ -38,6 +49,9 @@ const EncabezadoClub = () => {
         break;
       case 'convocatorias':
         navigate('/club/convocatoria');
+        break;
+      case 'misConvocatorias':
+        navigate('/club/mis-convocatorias');
         break;
       case 'resultados':
         navigate('/club/resultados');
@@ -113,6 +127,7 @@ const EncabezadoClub = () => {
     { texto: 'Gestionar', key: 'gestionAtletas' },
     { texto: 'Eventos', key: 'eventos' },
     { texto: 'Convocatorias', key: 'convocatorias' },
+    { texto: 'Mis Convocatorias', key: 'misConvocatorias' },
     { texto: 'Resultados', key: 'resultados' },
     { texto: 'Perfil', key: 'perfil' },
   ];
@@ -172,7 +187,6 @@ const EncabezadoClub = () => {
         }
 
         .ivd-nav-container {
-          max-width: 1280px;
           margin: auto;
           display: flex;
           justify-content: center;
@@ -290,10 +304,7 @@ const EncabezadoClub = () => {
         <div className="ivd-brand">
           <div
             className="ivd-logo-link"
-            onClick={() => {
-              handleClick('inicio');
-              handleMenuClick('inicio');
-            }}
+            onClick={() => handleMenuClick('inicio')}
           >
             <img
               src={LOGO_IVD}
@@ -311,21 +322,15 @@ const EncabezadoClub = () => {
                 <li
                   key={item.key}
                   className={`ivd-item ${active === item.key ? "active" : ""}`}
-                  onClick={() => {
-                    handleClick(item.key);
-                    handleMenuClick(item.key);
-                  }}
+                  onClick={() => handleMenuClick(item.key)}
                 >
                   <span className="ivd-link">{item.texto}</span>
                 </li>
               ))}
 
               <li
-                className={`ivd-item ivd-login-item ${active === cerrarSesionItem.key ? "active" : ""}`}
-                onClick={() => {
-                  handleClick(cerrarSesionItem.key);
-                  handleMenuClick(cerrarSesionItem.key);
-                }}
+                className="ivd-item ivd-login-item"
+                onClick={() => handleMenuClick(cerrarSesionItem.key)}
               >
                 <span className="ivd-login-btn">{cerrarSesionItem.texto}</span>
               </li>

@@ -37,14 +37,14 @@ import {
   OpenInNew as OpenInNewIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
-import { resultadosAPI, entrenadorAPI, perfilEmpresaAPI, catalogosAPI } from '../../api/index.js';
+import { resultadosAPI, clubesAPI, perfilEmpresaAPI, catalogosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 
-// --- Paleta institucional IVD (misma que las páginas principales) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -62,7 +62,7 @@ const cardSx = {
   boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
 };
 
-const tableHeadSx = {
+const estilosCabeceraTabla = {
   fontWeight: 700,
   color: '#fff',
   fontSize: '0.72rem',
@@ -71,18 +71,22 @@ const tableHeadSx = {
   py: 2,
 };
 
-const nombreAtleta = (r) => [r?.nombre, r?.apellido_paterno, r?.apellido_materno].filter(Boolean).join(' ');
+// Obtiene el nombre completo de un atleta
+const obtenerNombreAtleta = (registro) =>
+  [registro?.nombre, registro?.apellido_paterno, registro?.apellido_materno].filter(Boolean).join(' ');
 
-// Misma regla que en GestionResultados/ResultadosAtleta: en campo
-// (salto/lanzamiento) se compite por Marca; el resto por ChipTime/GunTime.
+// Disciplinas de campo (salto/lanzamiento) vs tiempo
 const DISCIPLINAS_DISTANCIA = new Set([
   'Salto de longitud', 'Salto de altura',
   'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
 ]);
 const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
-const slug = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
 
-const LugarChip = ({ posicion }) => {
+// Genera un slug para nombres de archivo
+const generarSlug = (texto) => (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
+
+// Chip que muestra la posición con colores según medalla
+const ChipPosicion = ({ posicion }) => {
   if (!posicion) return <Typography variant="body2" sx={{ color: COLORS.purple }}>—</Typography>;
   const estilos = {
     1: { bgcolor: '#B8860B', color: '#fff' },
@@ -100,21 +104,18 @@ const LugarChip = ({ posicion }) => {
   );
 };
 
-const ReportesEntrenador = () => {
+const ResultadosClub = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [resultados, setResultados] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [modalDetallesOpen, setModalDetallesOpen] = useState(false);
+  const [modalDetallesAbierto, setModalDetallesAbierto] = useState(false);
   const [resultadoSeleccionado, setResultadoSeleccionado] = useState(null);
-  const [logoUrl, setLogoUrl] = useState('');
+  const [urlLogo, setUrlLogo] = useState('');
   const [filtroAtleta, setFiltroAtleta] = useState('');
   const [filtroDisciplina, setFiltroDisciplina] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
-  // Listas completas para los filtros — no derivadas solo de `resultados`,
-  // para poder elegir un atleta/disciplina/categoría sin resultados todavía
-  // y que se vea "no hay nada que mostrar" en vez de no aparecer en el combo.
   const [atletasClub, setAtletasClub] = useState([]);
   const [disciplinasCatalogo, setDisciplinasCatalogo] = useState([]);
   const [categoriasCatalogo, setCategoriasCatalogo] = useState([]);
@@ -124,39 +125,38 @@ const ReportesEntrenador = () => {
       navigate('/login');
       return;
     }
-    fetchResultados();
-    fetchLogo();
+    cargarResultados();
+    cargarLogo();
   }, [user, navigate]);
 
-  const fetchResultados = async () => {
+  // Carga los resultados del club desde el backend
+  const cargarResultados = async () => {
     try {
-      setLoading(true);
+      setCargando(true);
       setError('');
 
-      // findByEntrenador espera el id de la tabla `entrenadores`, no el id
-      // de usuario — hay que sacarlo del perfil primero (el código viejo
-      // pasaba user.id directo, que era el bug real de esta pantalla).
-      const perfilRes = await entrenadorAPI.getPerfil();
-      const entrenadorId = perfilRes.data.entrenador?.id;
-      if (!entrenadorId) {
-        setError('No se encontró tu perfil de entrenador.');
-        setLoading(false);
+      const clubRes = await clubesAPI.getAll();
+      let clubes = clubRes.data.clubes || clubRes.data || [];
+      if (!Array.isArray(clubes)) clubes = [clubes];
+      const club = clubes.find(c => c.email === user.email);
+      const idClub = club?.id || club?._id;
+      if (!idClub) {
+        setError('No se encontró un club asociado a este usuario.');
+        setCargando(false);
         return;
       }
 
-      // El backend ya regresa cada resultado con su lugar (posicion) y su
-      // Bib calculados — no hace falta ninguna llamada ni cálculo extra aquí.
       const [resultadosRes, atletasRes, discRes, catRes] = await Promise.all([
-        resultadosAPI.getByEntrenador(entrenadorId),
-        entrenadorAPI.getAtletas().catch(() => ({ data: { atletas: [] } })),
+        resultadosAPI.getByClub(idClub),
+        clubesAPI.getAtletas(idClub).catch(() => ({ data: { atletas: [] } })),
         catalogosAPI.getDisciplinas().catch(() => ({ data: { disciplinas: [] } })),
         catalogosAPI.getCategorias().catch(() => ({ data: { categorias: [] } })),
       ]);
 
       let data = resultadosRes.data.resultados || resultadosRes.data || [];
       if (!Array.isArray(data)) data = [data];
-      const sorted = data.sort((a, b) => new Date(b.evento_fecha || 0) - new Date(a.evento_fecha || 0));
-      setResultados(sorted);
+      const ordenados = data.sort((a, b) => new Date(b.evento_fecha || 0) - new Date(a.evento_fecha || 0));
+      setResultados(ordenados);
 
       let atletas = atletasRes.data.atletas || atletasRes.data || [];
       if (!Array.isArray(atletas)) atletas = [];
@@ -167,37 +167,39 @@ const ReportesEntrenador = () => {
     } catch (error) {
       console.error('Error al obtener resultados:', error);
       if (error.response?.status === 404) {
-        setError('Entrenador no encontrado. Verifique su información.');
+        setError('Club no encontrado. Verifique su información.');
       } else if (error.response?.status === 500) {
         setError('Error del servidor. Intente de nuevo más tarde.');
       } else {
         setError(`Error al cargar los resultados: ${error.response?.data?.error || error.message}`);
       }
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
-  const fetchLogo = async () => {
+  // Carga el logo de la empresa para el PDF
+  const cargarLogo = async () => {
     try {
       const response = await perfilEmpresaAPI.get();
-      setLogoUrl(response.data.perfil?.logo || '');
+      setUrlLogo(response.data.perfil?.logo || '');
     } catch (error) {
       console.warn('No se pudo cargar el logo:', error.message);
     }
   };
 
-  const handleViewDetails = (resultado) => {
+  const manejarVerDetalles = (resultado) => {
     setResultadoSeleccionado(resultado);
-    setModalDetallesOpen(true);
+    setModalDetallesAbierto(true);
   };
 
-  const handleCloseModal = () => {
-    setModalDetallesOpen(false);
+  const manejarCerrarModal = () => {
+    setModalDetallesAbierto(false);
     setResultadoSeleccionado(null);
   };
 
-  const handleDownloadPDF = async (resultado) => {
+  // Descarga un PDF con el reporte de un resultado individual
+  const manejarDescargarPDF = async (resultado) => {
     try {
       const doc = new jsPDF();
       let y = 15;
@@ -205,13 +207,13 @@ const ReportesEntrenador = () => {
       const pageWidth = doc.internal.pageSize.width;
       const contentWidth = pageWidth - 2 * margin;
 
-      const addText = (text, x, y, maxWidth) => {
+      const agregarTexto = (text, x, y, maxWidth) => {
         const lines = doc.splitTextToSize(text, maxWidth);
         doc.text(lines, x, y);
         return y + lines.length * 5;
       };
 
-      const addCenteredTitle = (text, y, fontSize = 16) => {
+      const agregarTituloCentrado = (text, y, fontSize = 16) => {
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', 'bold');
         const textWidth = doc.getTextWidth(text);
@@ -222,7 +224,7 @@ const ReportesEntrenador = () => {
         return y + 8;
       };
 
-      const addSubtitle = (text, y, fontSize = 12) => {
+      const agregarSubtitulo = (text, y, fontSize = 12) => {
         doc.setFontSize(fontSize);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(128, 0, 32);
@@ -233,16 +235,16 @@ const ReportesEntrenador = () => {
         return y + 6;
       };
 
-      if (logoUrl) {
+      if (urlLogo) {
         try {
-          doc.addImage(logoUrl, 'JPEG', margin, y, 20, 20);
+          doc.addImage(urlLogo, 'JPEG', margin, y, 20, 20);
           y += 25;
         } catch (e) { /* continuar sin logo */ }
       }
 
-      y = addCenteredTitle('INSTITUTO VERACRUZANO DEL DEPORTE', y, 16);
-      y = addCenteredTitle('Gobierno del Estado de Veracruz', y, 10);
-      y = addCenteredTitle('REPORTE DE RESULTADOS DEL CLUB', y, 14);
+      y = agregarTituloCentrado('INSTITUTO VERACRUZANO DEL DEPORTE', y, 16);
+      y = agregarTituloCentrado('Gobierno del Estado de Veracruz', y, 10);
+      y = agregarTituloCentrado('REPORTE DE RESULTADOS DEL CLUB', y, 14);
       y += 10;
 
       doc.setDrawColor(128, 0, 32);
@@ -258,17 +260,17 @@ const ReportesEntrenador = () => {
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(128, 0, 32);
-      const eventTitle = resultado.evento_titulo || 'Evento Deportivo';
-      const eventTitleWidth = doc.getTextWidth(eventTitle);
-      doc.text(eventTitle, (pageWidth - eventTitleWidth) / 2, y);
+      const tituloEvento = resultado.evento_titulo || 'Evento Deportivo';
+      const anchoTitulo = doc.getTextWidth(tituloEvento);
+      doc.text(tituloEvento, (pageWidth - anchoTitulo) / 2, y);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
       y += 10;
 
-      y = addSubtitle('INFORMACIÓN DEL ATLETA:', y, 12);
+      y = agregarSubtitulo('INFORMACIÓN DEL ATLETA:', y, 12);
       const infoAtleta = [
-        { label: 'Nombre:', value: nombreAtleta(resultado) || 'No especificado' },
+        { label: 'Nombre:', value: obtenerNombreAtleta(resultado) || 'No especificado' },
         { label: 'Categoría:', value: resultado.categoria || 'No especificada' },
         { label: 'Género:', value: resultado.genero || 'No especificado' },
         { label: 'Municipio:', value: resultado.municipio || 'No especificado' },
@@ -276,19 +278,19 @@ const ReportesEntrenador = () => {
         { label: 'Año Competitivo:', value: resultado.ano_competitivo || 'No especificado' },
       ];
       infoAtleta.forEach((detalle) => {
-        const labelText = `• ${detalle.label}`;
+        const textoLabel = `• ${detalle.label}`;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
-        doc.text(labelText, margin, y);
+        doc.text(textoLabel, margin, y);
         doc.setFont('helvetica', 'normal');
-        const labelWidth = doc.getTextWidth(labelText);
-        const valueX = margin + labelWidth + 3;
-        y = addText(String(detalle.value), valueX, y, contentWidth - labelWidth - 3);
+        const anchoLabel = doc.getTextWidth(textoLabel);
+        const valorX = margin + anchoLabel + 3;
+        y = agregarTexto(String(detalle.value), valorX, y, contentWidth - anchoLabel - 3);
         y += 3;
       });
 
       y += 5;
-      y = addSubtitle('INFORMACIÓN DEL EVENTO:', y, 12);
+      y = agregarSubtitulo('INFORMACIÓN DEL EVENTO:', y, 12);
       const infoEvento = [
         { label: 'Disciplina:', value: resultado.disciplina || 'No especificada' },
         { label: 'Fecha:', value: resultado.evento_fecha ? new Date(resultado.evento_fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }) : 'No especificada' },
@@ -297,29 +299,29 @@ const ReportesEntrenador = () => {
         { label: 'Lugar obtenido:', value: resultado.posicion ? `${resultado.posicion}°` : 'No disponible' },
       ];
       infoEvento.forEach((detalle) => {
-        const labelText = `• ${detalle.label}`;
+        const textoLabel = `• ${detalle.label}`;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
-        doc.text(labelText, margin, y);
+        doc.text(textoLabel, margin, y);
         doc.setFont('helvetica', 'normal');
-        const labelWidth = doc.getTextWidth(labelText);
-        const valueX = margin + labelWidth + 3;
-        y = addText(String(detalle.value), valueX, y, contentWidth - labelWidth - 3);
+        const anchoLabel = doc.getTextWidth(textoLabel);
+        const valorX = margin + anchoLabel + 3;
+        y = agregarTexto(String(detalle.value), valorX, y, contentWidth - anchoLabel - 3);
         y += 3;
       });
 
       y += 5;
-      y = addSubtitle('PRUEBAS Y MARCAS:', y, 12);
+      y = agregarSubtitulo('PRUEBAS Y MARCAS:', y, 12);
       if (resultado.pruebas && resultado.pruebas.length > 0) {
         resultado.pruebas.forEach((prueba) => {
           if (prueba.nombre && prueba.marca) {
-            const pruebaText = `• ${prueba.nombre}: ${prueba.marca} ${prueba.unidad || ''}`;
-            y = addText(pruebaText, margin, y, contentWidth);
+            const textoPrueba = `• ${prueba.nombre}: ${prueba.marca} ${prueba.unidad || ''}`;
+            y = agregarTexto(textoPrueba, margin, y, contentWidth);
             y += 3;
           }
         });
       } else {
-        y = addText('No hay pruebas registradas', margin, y, contentWidth);
+        y = agregarTexto('No hay pruebas registradas', margin, y, contentWidth);
       }
 
       y += 8;
@@ -332,8 +334,8 @@ const ReportesEntrenador = () => {
       y += 4;
       doc.text(`Documento generado el ${fechaActual}`, pageWidth / 2, y, { align: 'center' });
 
-      const fileName = `Resultado_${nombreAtleta(resultado) || 'atleta'}_${resultado.evento_titulo || 'evento'}.pdf`;
-      doc.save(fileName);
+      const nombreArchivo = `Resultado_${obtenerNombreAtleta(resultado) || 'atleta'}_${resultado.evento_titulo || 'evento'}.pdf`;
+      doc.save(nombreArchivo);
 
       Swal.fire({
         icon: 'success',
@@ -352,16 +354,18 @@ const ReportesEntrenador = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Sin fecha';
+  // Formatea fecha en formato largo
+  const formatearFecha = (fecha) => {
+    if (!fecha) return 'Sin fecha';
     try {
-      return new Date(dateString).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+      return new Date(fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
     } catch {
       return 'Fecha inválida';
     }
   };
 
-  const getMejorMarca = (pruebas) => {
+  // Obtiene la mejor marca de un resultado (Marca, ChipTime o GunTime)
+  const obtenerMejorMarca = (pruebas) => {
     if (!pruebas || pruebas.length === 0) return 'Sin marca';
     const marca = pruebas.find((p) => p.nombre === 'Marca');
     if (marca) return `${marca.marca || '0'} ${marca.unidad || ''}`.trim();
@@ -373,11 +377,8 @@ const ReportesEntrenador = () => {
   const disciplinasDistintas = new Set(resultados.map((r) => r.disciplina).filter(Boolean)).size;
   const atletasDistintos = new Set(resultados.map((r) => r.atleta_id)).size;
 
-  // Listas COMPLETAS para los combobox de filtro (todo el roster del club y
-  // todo el catálogo), no solo lo que ya aparece en `resultados` — así se
-  // puede elegir a alguien sin resultados todavía y ver "no hay nada que
-  // mostrar" en vez de que ni siquiera aparezca como opción.
-  const atletasUnicos = [...new Map(atletasClub.map((a) => [a.atleta_id, nombreAtleta(a)])).entries()]
+  // Listas completas para los combobox de filtro
+  const atletasUnicos = [...new Map(atletasClub.map((a) => [a.id ?? a._id, obtenerNombreAtleta(a)])).entries()]
     .filter(([, nombre]) => nombre)
     .sort((a, b) => a[1].localeCompare(b[1]));
   const disciplinasUnicas = [...new Set(disciplinasCatalogo.map((d) => d.nombre).filter(Boolean))].sort();
@@ -390,14 +391,14 @@ const ReportesEntrenador = () => {
     (!filtroCategoria || r.categoria === filtroCategoria)
   );
 
-  const handleLimpiarFiltros = () => {
+  const manejarLimpiarFiltros = () => {
     setFiltroAtleta('');
     setFiltroDisciplina('');
     setFiltroCategoria('');
   };
 
-  /* ── Ver resultados de la categoría como PDF, directo en el navegador ── */
-  const handleVerResultadosPDF = async (resultado) => {
+  // Muestra los resultados de la categoría en formato PDF (abre en nueva pestaña)
+  const manejarVerResultadosPDF = async (resultado) => {
     if (!resultado?.convocatoria_id) {
       Swal.fire({
         icon: 'error', title: 'No disponible',
@@ -429,7 +430,7 @@ const ReportesEntrenador = () => {
         const marca = r.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
         const chip = r.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
         const gun = r.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
-        const base = [r.posicion ? `${r.posicion}°` : '—', r.bib ? String(r.bib).padStart(3, '0') : '—', nombreAtleta(r), r.club_nombre || 'Libre'];
+        const base = [r.posicion ? `${r.posicion}°` : '—', r.bib ? String(r.bib).padStart(3, '0') : '—', obtenerNombreAtleta(r), r.club_nombre || 'Libre'];
         return esDistancia ? [...base, marca || '—'] : [...base, chip || '—', gun || '—'];
       });
 
@@ -485,10 +486,8 @@ const ReportesEntrenador = () => {
     }
   };
 
-  // Excel oficial de la categoría (misma convocatoria) del resultado — no
-  // solo el/los atleta(s) del club, sino el campo completo ya rankeado,
-  // igual que en ResultadosAtleta/EventosAtleta.
-  const handleDescargarExcel = async (resultado) => {
+  // Descarga un Excel con los resultados de la categoría
+  const manejarDescargarExcel = async (resultado) => {
     if (!resultado?.convocatoria_id) {
       Swal.fire({
         icon: 'error', title: 'No disponible',
@@ -519,7 +518,7 @@ const ReportesEntrenador = () => {
         const base = {
           'Pl.': r.posicion ? `${r.posicion}°` : '—',
           Bib: r.bib ? String(r.bib).padStart(3, '0') : '—',
-          Nombre: nombreAtleta(r),
+          Nombre: obtenerNombreAtleta(r),
           Club: r.club_nombre || 'Libre',
         };
         return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
@@ -537,13 +536,13 @@ const ReportesEntrenador = () => {
       const wb = XLSX.utils.book_new();
       const nombreHoja = `${resultado.disciplina || ''} ${resultado.categoria || ''}`.slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, nombreHoja || 'Resultados');
-      XLSX.writeFile(wb, `Resultados_${slug(resultado.disciplina)}_${slug(resultado.categoria)}.xlsx`);
+      XLSX.writeFile(wb, `Resultados_${generarSlug(resultado.disciplina)}_${generarSlug(resultado.categoria)}.xlsx`);
     } catch (error) {
       Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo descargar el Excel de la categoría.', confirmButtonColor: COLORS.burgundy });
     }
   };
 
-  if (loading) {
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -553,25 +552,23 @@ const ReportesEntrenador = () => {
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera superior */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-            IVD · Panel de Entrenador
+            IVD · Panel de Club
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
             Resultados de Nuestros Atletas
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
-            Historial de marcas, lugares y participaciones donde fuiste entrenador
+            Historial de marcas, lugares y participaciones del club
           </Typography>
         </Container>
       </Box>
 
       <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 4,
@@ -609,7 +606,7 @@ const ReportesEntrenador = () => {
           </Box>
         ) : (
           <>
-            {/* ── Filtros ── */}
+            {/* Filtros */}
             <Box sx={{ ...cardSx, p: 2, mb: 2.5, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Atleta</InputLabel>
@@ -639,7 +636,7 @@ const ReportesEntrenador = () => {
                 </Select>
               </FormControl>
               <Button
-                onClick={handleLimpiarFiltros}
+                onClick={manejarLimpiarFiltros}
                 disabled={!hayFiltrosActivos}
                 startIcon={<ClearIcon fontSize="small" />}
                 sx={{ color: COLORS.purple, textTransform: 'none', fontWeight: 700, height: 40, ml: 'auto' }}
@@ -655,93 +652,93 @@ const ReportesEntrenador = () => {
                 </Typography>
               </Box>
             ) : (
-          <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    <TableCell sx={tableHeadSx}>Fecha</TableCell>
-                    <TableCell sx={tableHeadSx}>Evento</TableCell>
-                    <TableCell sx={tableHeadSx}>Atleta</TableCell>
-                    <TableCell sx={tableHeadSx}>Disciplina</TableCell>
-                    <TableCell sx={tableHeadSx}>Categoría</TableCell>
-                    <TableCell sx={tableHeadSx}>Bib</TableCell>
-                    <TableCell sx={tableHeadSx}>Marca</TableCell>
-                    <TableCell sx={tableHeadSx}>Lugar</TableCell>
-                    <TableCell sx={tableHeadSx} align="center">Acciones</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {resultadosFiltrados.map((r) => (
-                    <TableRow key={r.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{formatDate(r.evento_fecha)}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
-                          {r.evento_titulo || 'Sin nombre'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{nombreAtleta(r) || 'Sin nombre'}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{r.disciplina || '—'}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Chip
-                          label={r.categoria || '—'}
-                          size="small"
-                          sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Chip
-                          label={r.bib ? String(r.bib).padStart(3, '0') : '—'}
-                          size="small"
-                          sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 800, fontFamily: 'monospace' }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Chip
-                          label={getMejorMarca(r.pruebas)}
-                          size="small"
-                          sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <LugarChip posicion={r.posicion} />
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }} align="center">
-                        <IconButton
-                          onClick={() => handleViewDetails(r)}
-                          sx={{ color: COLORS.burgundy }}
-                          title="Ver detalles"
-                        >
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleVerResultadosPDF(r)}
-                          sx={{ color: COLORS.burgundy }}
-                          title="Ver resultados de la categoría (se abre en una pestaña nueva)"
-                        >
-                          <OpenInNewIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleDescargarExcel(r)}
-                          sx={{ color: '#1D6F42' }}
-                          title="Descargar Excel de resultados de la categoría"
-                        >
-                          <ExcelIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
+              <Box sx={{ ...cardSx, overflow: 'hidden' }}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                        <TableCell sx={estilosCabeceraTabla}>Fecha</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Evento</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Atleta</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Disciplina</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Categoría</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Bib</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Marca</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Lugar</TableCell>
+                        <TableCell sx={estilosCabeceraTabla} align="center">Acciones</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {resultadosFiltrados.map((r) => (
+                        <TableRow key={r.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{formatearFecha(r.evento_fecha)}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
+                              {r.evento_titulo || 'Sin nombre'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{obtenerNombreAtleta(r) || 'Sin nombre'}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{r.disciplina || '—'}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <Chip
+                              label={r.categoria || '—'}
+                              size="small"
+                              sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <Chip
+                              label={r.bib ? String(r.bib).padStart(3, '0') : '—'}
+                              size="small"
+                              sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 800, fontFamily: 'monospace' }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <Chip
+                              label={obtenerMejorMarca(r.pruebas)}
+                              size="small"
+                              sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <ChipPosicion posicion={r.posicion} />
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }} align="center">
+                            <IconButton
+                              onClick={() => manejarVerDetalles(r)}
+                              sx={{ color: COLORS.burgundy }}
+                              title="Ver detalles"
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => manejarVerResultadosPDF(r)}
+                              sx={{ color: COLORS.burgundy }}
+                              title="Ver resultados de la categoría (se abre en una pestaña nueva)"
+                            >
+                              <OpenInNewIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => manejarDescargarExcel(r)}
+                              sx={{ color: '#1D6F42' }}
+                              title="Descargar Excel de resultados de la categoría"
+                            >
+                              <ExcelIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
             )}
           </>
         )}
       </Container>
 
-      {/* Modal de Detalles */}
-      <Dialog open={modalDetallesOpen} onClose={handleCloseModal} maxWidth="md" fullWidth>
+      {/* Modal de detalles */}
+      <Dialog open={modalDetallesAbierto} onClose={manejarCerrarModal} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TrophyIcon sx={{ color: '#fff' }} />
@@ -751,7 +748,6 @@ const ReportesEntrenador = () => {
         <DialogContent dividers>
           {resultadoSeleccionado && (
             <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-
               {/* Información del Atleta */}
               <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}` }}>
                 <Typography variant="subtitle2" sx={{ color: COLORS.burgundy, fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -760,7 +756,7 @@ const ReportesEntrenador = () => {
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Nombre</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{nombreAtleta(resultadoSeleccionado)}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{obtenerNombreAtleta(resultadoSeleccionado)}</Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
@@ -780,7 +776,7 @@ const ReportesEntrenador = () => {
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar obtenido</Typography>
-                    <Box sx={{ mt: .3 }}><LugarChip posicion={resultadoSeleccionado.posicion} /></Box>
+                    <Box sx={{ mt: .3 }}><ChipPosicion posicion={resultadoSeleccionado.posicion} /></Box>
                   </Box>
                 </Box>
               </Box>
@@ -797,7 +793,7 @@ const ReportesEntrenador = () => {
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatDate(resultadoSeleccionado.evento_fecha)}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatearFecha(resultadoSeleccionado.evento_fecha)}</Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar del evento</Typography>
@@ -834,11 +830,11 @@ const ReportesEntrenador = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseModal} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+          <Button onClick={manejarCerrarModal} sx={{ color: COLORS.purple, fontWeight: 600 }}>
             Cerrar
           </Button>
           <Button
-            onClick={() => handleDownloadPDF(resultadoSeleccionado)}
+            onClick={() => manejarDescargarPDF(resultadoSeleccionado)}
             variant="contained"
             startIcon={<PdfIcon />}
             sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
@@ -851,4 +847,4 @@ const ReportesEntrenador = () => {
   );
 };
 
-export default ReportesEntrenador;
+export default ResultadosClub;

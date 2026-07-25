@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { eventosAPI } from '../../api/index.js';
+import { eventosAPI, resultadosAPI } from '../../api/index.js';
+import * as XLSX from 'xlsx';
 import {
-  Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
+  Box, Typography,
   Container, Button, CircularProgress, Avatar, Pagination, Chip, Divider,
   Tabs, Tab, FormControl, InputLabel, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Checkbox, FormControlLabel,
@@ -20,6 +21,7 @@ import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -33,15 +35,7 @@ const COLORS = {
 
 const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
 
-const tableHeadSx = {
-  fontWeight: 700,
-  color: '#fff',
-  fontSize: '0.72rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  py: 2,
-};
-
+// Chip para mostrar estado de inscripción
 const EstadoChip = ({ label, positivo = true }) => (
   <Chip
     label={label}
@@ -55,6 +49,7 @@ const EstadoChip = ({ label, positivo = true }) => (
   />
 );
 
+// Abre un documento en el navegador o en visor de Google
 const abrirDocumentoParaVer = (url) => {
   if (!url) return;
   const esPdf = /\.pdf(\?|$)/i.test(url);
@@ -62,6 +57,7 @@ const abrirDocumentoParaVer = (url) => {
   window.open(urlFinal, '_blank', 'noopener,noreferrer');
 };
 
+// Devuelve el texto legible para el género
 const textoGenero = (g) => {
   const v = (g || '').toLowerCase();
   if (v === 'masculino') return 'Masculino';
@@ -70,6 +66,7 @@ const textoGenero = (g) => {
   return g || 'N/A';
 };
 
+// Calcula la edad a partir de la fecha de nacimiento
 const calcularEdad = (fechaNacimiento) => {
   if (!fechaNacimiento) return null;
   const hoy = new Date(), nac = new Date(fechaNacimiento);
@@ -79,74 +76,153 @@ const calcularEdad = (fechaNacimiento) => {
   return edad;
 };
 
+// Disciplinas de campo (salto/lanzamiento) vs tiempo
+const DISCIPLINAS_DISTANCIA = new Set([
+  'Salto de longitud', 'Salto de altura',
+  'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
+]);
+const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
+
+// Genera un slug para nombres de archivo
+const slug = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
+
+// Obtiene el nombre completo de un registro
+const nombreCompleto = (r) => [r?.nombre, r?.apellido_paterno, r?.apellido_materno].filter(Boolean).join(' ');
+
+// Formatea fecha en formato largo
+const formatearFechaLarga = (fecha) => {
+  if (!fecha) return '—';
+  try {
+    return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch { return '—'; }
+};
+
+// Formatea fecha en formato corto
+const formatearFechaCorta = (fecha) => {
+  if (!fecha) return '—';
+  return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+// Extrae la hora (HH:MM)
+const formatearHora = (hora) => hora ? String(hora).slice(0, 5) : '';
+
+// Verifica si la inscripción al evento está abierta
+const estaInscripcionAbierta = (evento) => {
+  if (!evento.fecha_cierre) return true;
+  return new Date(evento.fecha_cierre) > new Date();
+};
+
+// Verifica si el evento ya finalizó (manual o por fecha)
+const estaFinalizado = (evento) => !!evento?.finalizado || new Date(evento.fecha) < new Date();
+
 const EventosAtleta = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [eventos, setEventos] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [cargando, setCargando] = useState(false);
 
   const [vista, setVista] = useState('lista');
-  const [tabLista, setTabLista] = useState('disponibles');
+  const [pestaniaLista, setPestaniaLista] = useState('disponibles');
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [convocatoriasDelEvento, setConvocatoriasDelEvento] = useState([]);
+  const [resultadosPorConvocatoria, setResultadosPorConvocatoria] = useState({});
   const [yaInscritos, setYaInscritos] = useState([]);
   const [filtroDisciplina, setFiltroDisciplina] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [cargandoConvocatorias, setCargandoConvocatorias] = useState(false);
 
-  const [pageDisponibles, setPageDisponibles] = useState(1);
-  const [pageTerminados, setPageTerminados] = useState(1);
+  const [paginaDisponibles, setPaginaDisponibles] = useState(1);
+  const [paginaTerminados, setPaginaTerminados] = useState(1);
   const porPagina = 6;
 
-  const [modalDetalleConvOpen, setModalDetalleConvOpen] = useState(false);
+  const [modalDetalleConvocatoriaAbierto, setModalDetalleConvocatoriaAbierto] = useState(false);
   const [convocatoriaDetalle, setConvocatoriaDetalle] = useState(null);
-  const [modalInscripcionOpen, setModalInscripcionOpen] = useState(false);
+  const [modalInscripcionAbierto, setModalInscripcionAbierto] = useState(false);
   const [convocatoriaParaInscribir, setConvocatoriaParaInscribir] = useState(null);
   const [aceptaRiesgos, setAceptaRiesgos] = useState(false);
   const [inscribiendo, setInscribiendo] = useState(false);
 
   useEffect(() => {
     if (!user) navigate('/login');
-    else fetchEventos();
+    else cargarEventos();
   }, [user, navigate]);
 
-  const fetchEventos = async () => {
+  // Carga la lista de eventos desde el backend
+  const cargarEventos = async () => {
     try {
-      setLoading(true);
+      setCargando(true);
       const response = await eventosAPI.getAll();
       setEventos(response.data.eventos || []);
     } catch (error) { console.error(error); }
-    finally { setLoading(false); }
+    finally { setCargando(false); }
   };
 
-  const fmt = (fecha) => {
-    if (!fecha) return '—';
+  // Navega al detalle de un evento y carga sus convocatorias/resultados
+  const manejarVerDetalle = async (evento) => {
+    setEventoSeleccionado(evento);
+    setVista('detalle');
+    setConvocatoriasDelEvento([]);
+    setResultadosPorConvocatoria({});
+    setYaInscritos([]);
+    setFiltroDisciplina('');
+    setFiltroCategoria('');
+
+    setCargandoConvocatorias(true);
     try {
-      return new Date(fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
-    } catch { return '—'; }
+      const terminado = estaFinalizado(evento);
+      const promesas = [eventosAPI.getConvocatoriasByEvento(evento.id)];
+      if (!terminado) promesas.push(eventosAPI.getMisInscripciones());
+
+      const resultados = await Promise.all(promesas);
+      const convRes = resultados[0];
+      const inscRes = resultados[1];
+      const listaConvocatorias = convRes.data.convocatorias || [];
+      setConvocatoriasDelEvento(listaConvocatorias);
+
+      if (terminado && listaConvocatorias.length > 0) {
+        const entradas = await Promise.all(
+          listaConvocatorias.map(async (c) => {
+            try {
+              const r = await resultadosAPI.getByConvocatoria(c.id);
+              return [c.id, r.data.resultados || []];
+            } catch { return [c.id, []]; }
+          })
+        );
+        setResultadosPorConvocatoria(Object.fromEntries(entradas));
+      }
+
+      if (inscRes) {
+        const inscripciones = inscRes.data.inscripciones || [];
+        const ids = inscripciones
+          .map((i) => i.convocatoria_id ?? i.convocatoriaId ?? i.id)
+          .filter((v) => v !== undefined && v !== null)
+          .map(String);
+        setYaInscritos(ids);
+      }
+    } catch (error) {
+      console.error('Error al cargar convocatorias del evento:', error);
+    } finally {
+      setCargandoConvocatorias(false);
+    }
   };
 
-  const fmtCorta = (fecha) => {
-    if (!fecha) return '—';
-    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  // Vuelve a la lista de eventos
+  const manejarVolver = () => {
+    setVista('lista');
+    setEventoSeleccionado(null);
+    setConvocatoriasDelEvento([]);
+    setYaInscritos([]);
+    setFiltroDisciplina('');
+    setFiltroCategoria('');
   };
 
-  const fmtHora = (hora) => hora ? String(hora).slice(0, 5) : '';
-
-  const inscripcionAbierta = (evento) => {
-    if (!evento.fecha_cierre) return true;
-    return new Date(evento.fecha_cierre) > new Date();
+  // Abre el modal de detalle de una convocatoria
+  const manejarVerDetalleConvocatoria = (conv) => {
+    setConvocatoriaDetalle(conv);
+    setModalDetalleConvocatoriaAbierto(true);
   };
 
-  const yaTermino = (evento) => new Date(evento.fecha) < new Date();
-
-  const eventosDisponibles = eventos.filter((e) => !yaTermino(e));
-  const eventosTerminados = eventos.filter((e) => yaTermino(e));
-
-  const disponiblesPaginados = eventosDisponibles.slice((pageDisponibles - 1) * porPagina, pageDisponibles * porPagina);
-  const terminadosPaginados = eventosTerminados.slice((pageTerminados - 1) * porPagina, pageTerminados * porPagina);
-  const totalAbiertos = eventosDisponibles.filter(inscripcionAbierta).length;
-
+  // Verifica si el atleta puede inscribirse (por género y edad)
   const puedeInscribirse = (conv) => {
     if (!conv) return false;
     const generoConv = (conv.genero || '').toLowerCase();
@@ -163,7 +239,8 @@ const EventosAtleta = () => {
     return generoOk && edadOk;
   };
 
-  const motivoNoElegible = (conv) => {
+  // Devuelve el motivo por el cual no es elegible
+  const obtenerMotivoNoElegible = (conv) => {
     if (!conv) return '';
     const generoConv = (conv.genero || '').toLowerCase();
     const generoAtleta = (user?.genero || '').toLowerCase();
@@ -182,82 +259,39 @@ const EventosAtleta = () => {
     return '';
   };
 
-  const handleVerDetalle = async (evento) => {
-    setEventoSeleccionado(evento);
-    setVista('detalle');
-    setConvocatoriasDelEvento([]);
-    setYaInscritos([]);
-    setFiltroDisciplina('');
-    setFiltroCategoria('');
-
-    setCargandoConvocatorias(true);
-    try {
-      const promesas = [eventosAPI.getConvocatoriasByEvento(evento.id)];
-      if (!yaTermino(evento)) promesas.push(eventosAPI.getMisInscripciones());
-
-      const resultados = await Promise.all(promesas);
-      const convRes = resultados[0];
-      const inscRes = resultados[1];
-      setConvocatoriasDelEvento(convRes.data.convocatorias || []);
-
-      if (inscRes) {
-        const inscripciones = inscRes.data.inscripciones || [];
-        const ids = inscripciones
-          .map((i) => i.convocatoria_id ?? i.convocatoriaId ?? i.id)
-          .filter((v) => v !== undefined && v !== null)
-          .map(String);
-        setYaInscritos(ids);
-      }
-    } catch (error) {
-      console.error('Error al cargar convocatorias del evento:', error);
-    } finally {
-      setCargandoConvocatorias(false);
-    }
-  };
-
-  const handleVolver = () => {
-    setVista('lista');
-    setEventoSeleccionado(null);
-    setConvocatoriasDelEvento([]);
-    setYaInscritos([]);
-    setFiltroDisciplina('');
-    setFiltroCategoria('');
-  };
-
-  const handleVerDetalleConvocatoria = (conv) => {
-    setConvocatoriaDetalle(conv);
-    setModalDetalleConvOpen(true);
-  };
-
-  const handleAbrirInscripcion = (conv) => {
+  // Abre el modal de inscripción
+  const manejarAbrirInscripcion = (conv) => {
     if (!user.nombre || !user.curp) {
       Swal.fire({ icon: 'warning', title: 'Perfil incompleto', text: 'Completa tu perfil antes de inscribirte.', confirmButtonColor: COLORS.burgundy });
       return;
     }
     if (!puedeInscribirse(conv)) {
-      Swal.fire({ icon: 'warning', title: 'No disponible', text: motivoNoElegible(conv), confirmButtonColor: COLORS.burgundy });
+      Swal.fire({ icon: 'warning', title: 'No disponible', text: obtenerMotivoNoElegible(conv), confirmButtonColor: COLORS.burgundy });
       return;
     }
-    setModalDetalleConvOpen(false);
+    setModalDetalleConvocatoriaAbierto(false);
     setConvocatoriaParaInscribir(conv);
     setAceptaRiesgos(false);
-    setModalInscripcionOpen(true);
+    setModalInscripcionAbierto(true);
   };
 
-  const handleConfirmarInscripcion = async () => {
+  // Confirma la inscripción
+  const manejarConfirmarInscripcion = async () => {
     if (!aceptaRiesgos || !convocatoriaParaInscribir) return;
     setInscribiendo(true);
     try {
-      await eventosAPI.inscribir({ convocatoria_id: Number(convocatoriaParaInscribir.id) });
+      const response = await eventosAPI.inscribir({ convocatoria_id: Number(convocatoriaParaInscribir.id) });
+      const bib = response.data?.inscripcion?.bib;
+
       setYaInscritos((prev) => (prev.includes(String(convocatoriaParaInscribir.id)) ? prev : [...prev, String(convocatoriaParaInscribir.id)]));
-      setModalInscripcionOpen(false);
+      setModalInscripcionAbierto(false);
       Swal.fire({
         icon: 'success',
         title: 'Inscripción exitosa',
-        text: 'Puedes consultarla en "Mis Convocatorias".',
+        text: bib
+          ? `Tu número de corredor es ${String(bib).padStart(3, '0')}. Puedes consultarlo en "Mis Convocatorias".`
+          : 'Puedes consultarla en "Mis Convocatorias".',
         confirmButtonColor: COLORS.burgundy,
-        timer: 2200,
-        showConfirmButton: false,
       });
     } catch (error) {
       const mensaje = error.response?.data?.error || 'No se pudo completar la inscripción.';
@@ -267,7 +301,47 @@ const EventosAtleta = () => {
     }
   };
 
-  if (loading) {
+  // Descarga un Excel con los resultados de una convocatoria
+  const manejarDescargarExcelResultados = (conv) => {
+    const resultadosCategoria = resultadosPorConvocatoria[conv.id] || [];
+    if (resultadosCategoria.length === 0) return;
+
+    const esDistancia = esDisciplinaDeDistancia(conv.disciplina);
+    const ordenados = [...resultadosCategoria].sort((a, b) => {
+      if (a.posicion === null) return 1;
+      if (b.posicion === null) return -1;
+      return (a.posicion ?? 999) - (b.posicion ?? 999);
+    });
+
+    const filas = ordenados.map((r) => {
+      const marca = r.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
+      const chip = r.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
+      const gun = r.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
+      const base = {
+        'Pl.': r.posicion ? `${r.posicion}°` : '—',
+        Bib: r.bib ? String(r.bib).padStart(3, '0') : '—',
+        Nombre: nombreCompleto(r),
+        Club: r.club_nombre || 'Libre',
+      };
+      return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
+    });
+
+    const headers = esDistancia
+      ? ['Pl.', 'Bib', 'Nombre', 'Club', 'Marca']
+      : ['Pl.', 'Bib', 'Nombre', 'Club', 'ChipTime', 'GunTime'];
+
+    const ws = XLSX.utils.json_to_sheet(filas, { header: headers });
+    ws['!cols'] = esDistancia
+      ? [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 14 }]
+      : [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+
+    const wb = XLSX.utils.book_new();
+    const nombreHoja = `${conv.disciplina || ''} ${conv.categoria || ''}`.slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, nombreHoja || 'Resultados');
+    XLSX.writeFile(wb, `Resultados_${slug(conv.disciplina)}_${slug(conv.categoria)}.xlsx`);
+  };
+
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -275,9 +349,10 @@ const EventosAtleta = () => {
     );
   }
 
+  // Vista de detalle de un evento
   if (vista === 'detalle' && eventoSeleccionado) {
-    const terminado = yaTermino(eventoSeleccionado);
-    const abierta = inscripcionAbierta(eventoSeleccionado);
+    const terminado = estaFinalizado(eventoSeleccionado);
+    const abierta = estaInscripcionAbierta(eventoSeleccionado);
 
     const disciplinasUnicas = [...new Set(convocatoriasDelEvento.map((c) => c.disciplina).filter(Boolean))].sort();
     const categoriasUnicas = [...new Set(convocatoriasDelEvento.map((c) => c.categoria).filter(Boolean))].sort();
@@ -293,7 +368,7 @@ const EventosAtleta = () => {
           <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
             <Button
               startIcon={<ArrowBackIcon />}
-              onClick={handleVolver}
+              onClick={manejarVolver}
               sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
             >
               Volver a Eventos
@@ -309,7 +384,7 @@ const EventosAtleta = () => {
 
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
           <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
-
+            {/* Columna izquierda: imagen y datos del evento */}
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
               {eventoSeleccionado.imagen_url && (
                 <Box component="img" src={eventoSeleccionado.imagen_url} alt={eventoSeleccionado.titulo}
@@ -327,14 +402,14 @@ const EventosAtleta = () => {
                     <CalendarIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
                   </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmt(eventoSeleccionado.fecha)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatearFechaLarga(eventoSeleccionado.fecha)}</Typography>
                 </Box>
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
                     <TimeIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
                     <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Hora</Typography>
                   </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmtHora(eventoSeleccionado.hora) || '—'}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatearHora(eventoSeleccionado.hora) || '—'}</Typography>
                 </Box>
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .3 }}>
@@ -351,9 +426,38 @@ const EventosAtleta = () => {
                     </Typography>
                   </Box>
                 )}
+                {(eventoSeleccionado.documentoConvocatoria || eventoSeleccionado.documentoDeslinde) && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
+                    {eventoSeleccionado.documentoConvocatoria && (
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        startIcon={<DownloadIcon />}
+                        onClick={() => abrirDocumentoParaVer(eventoSeleccionado.documentoConvocatoria)}
+                        sx={{ borderColor: COLORS.burgundy, color: COLORS.burgundy, fontWeight: 700, textTransform: 'none', justifyContent: 'flex-start' }}
+                      >
+                        Ver documento de convocatoria
+                      </Button>
+                    )}
+                    {eventoSeleccionado.documentoDeslinde && (
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        startIcon={<WarningIcon />}
+                        onClick={() => abrirDocumentoParaVer(eventoSeleccionado.documentoDeslinde)}
+                        sx={{ borderColor: COLORS.purple, color: COLORS.purple, fontWeight: 700, textTransform: 'none', justifyContent: 'flex-start' }}
+                      >
+                        Ver deslinde de responsabilidad
+                      </Button>
+                    )}
+                  </Box>
+                )}
               </Box>
             </Box>
 
+            {/* Columna derecha: convocatorias */}
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3.5 } }}>
               <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
                 {terminado ? 'Convocatorias y Resultados' : 'Convocatorias de este Evento'}
@@ -429,29 +533,29 @@ const EventosAtleta = () => {
                               </Box>
                               {!terminado && !elegible && (
                                 <Typography variant="caption" sx={{ display: 'block', color: COLORS.ink, opacity: .7, mt: .5 }}>
-                                  {motivoNoElegible(conv)}
+                                  {obtenerMotivoNoElegible(conv)}
                                 </Typography>
                               )}
                             </Box>
 
                             {terminado ? (
-                              conv.documentoResultado ? (
+                              (resultadosPorConvocatoria[conv.id] || []).length > 0 ? (
                                 <Button
                                   size="small" variant="contained" startIcon={<TrophyIcon />}
-                                  onClick={() => abrirDocumentoParaVer(conv.documentoResultado)}
+                                  onClick={() => manejarDescargarExcelResultados(conv)}
                                   sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
                                 >
-                                  Ver resultados
+                                  Ver Excel
                                 </Button>
                               ) : (
-                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Resultados aún no publicados" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Excel de resultados pendiente" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
                               )
                             ) : inscrito ? (
                               <Chip icon={<CheckIcon sx={{ fontSize: 16 }} />} label="Ya estás inscrito" size="small" sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 700 }} />
                             ) : (
                               <Button
                                 size="small" variant="outlined" startIcon={<InfoIcon />}
-                                onClick={() => handleVerDetalleConvocatoria(conv)}
+                                onClick={() => manejarVerDetalleConvocatoria(conv)}
                                 sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
                               >
                                 Ver detalles
@@ -468,8 +572,8 @@ const EventosAtleta = () => {
           </Box>
         </Container>
 
-        {/* ── Modal de detalle de convocatoria ── */}
-        <Dialog open={modalDetalleConvOpen} onClose={() => setModalDetalleConvOpen(false)} maxWidth="sm" fullWidth>
+        {/* Modal de detalle de convocatoria */}
+        <Dialog open={modalDetalleConvocatoriaAbierto} onClose={() => setModalDetalleConvocatoriaAbierto(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
             Detalle de la Convocatoria
           </DialogTitle>
@@ -497,11 +601,11 @@ const EventosAtleta = () => {
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar y Fecha del Evento</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{eventoSeleccionado.lugar} - {fmt(eventoSeleccionado.fecha)}</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{eventoSeleccionado.lugar} - {formatearFechaLarga(eventoSeleccionado.fecha)}</Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Cierre de Inscripciones</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{fmt(eventoSeleccionado.fecha_cierre)}</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{formatearFechaLarga(eventoSeleccionado.fecha_cierre)}</Typography>
                   </Box>
                 </Box>
 
@@ -510,10 +614,10 @@ const EventosAtleta = () => {
                 {(() => {
                   const inscritoDetalle = yaInscritos.includes(String(convocatoriaDetalle.id));
                   const elegibleDetalle = puedeInscribirse(convocatoriaDetalle);
-                  const abiertaDetalle = eventoSeleccionado && inscripcionAbierta(eventoSeleccionado);
+                  const abiertaDetalle = eventoSeleccionado && estaInscripcionAbierta(eventoSeleccionado);
 
                   return (
-                    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                       {eventoSeleccionado.documentoConvocatoria && (
                         <Button
                           variant="outlined" startIcon={<DownloadIcon />}
@@ -531,7 +635,7 @@ const EventosAtleta = () => {
                       ) : elegibleDetalle ? (
                         <Button
                           variant="contained" startIcon={<RegisterIcon />}
-                          onClick={() => handleAbrirInscripcion(convocatoriaDetalle)}
+                          onClick={() => manejarAbrirInscripcion(convocatoriaDetalle)}
                           sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700, flexGrow: 1, minWidth: 220 }}
                         >
                           Inscribirme a esta convocatoria
@@ -539,7 +643,7 @@ const EventosAtleta = () => {
                       ) : (
                         <Chip
                           icon={<WarningIcon sx={{ fontSize: 16 }} />}
-                          label={motivoNoElegible(convocatoriaDetalle)}
+                          label={obtenerMotivoNoElegible(convocatoriaDetalle)}
                           sx={{ border: `1px solid ${COLORS.line}`, bgcolor: 'transparent', color: COLORS.ink, fontWeight: 600 }}
                         />
                       )}
@@ -550,14 +654,14 @@ const EventosAtleta = () => {
             )}
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setModalDetalleConvOpen(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+            <Button onClick={() => setModalDetalleConvocatoriaAbierto(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>
               Cerrar
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* ── Modal de confirmación de inscripción ── */}
-        <Dialog open={modalInscripcionOpen} onClose={() => setModalInscripcionOpen(false)} maxWidth="sm" fullWidth>
+        {/* Modal de confirmación de inscripción */}
+        <Dialog open={modalInscripcionAbierto} onClose={() => setModalInscripcionAbierto(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
             Confirmar Inscripción
           </DialogTitle>
@@ -589,24 +693,33 @@ const EventosAtleta = () => {
               )}
 
               <FormControlLabel
-                sx={{ display: 'flex', alignItems: 'flex-start', ml: 0 }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  ml: 0,
+                  mr: 0
+                }}
                 control={
                   <Checkbox
                     checked={aceptaRiesgos}
                     onChange={(e) => setAceptaRiesgos(e.target.checked)}
-                    sx={{ color: '#E65100', '&.Mui-checked': { color: '#E65100' } }}
+                    sx={{color: '#E65100','&.Mui-checked': { color: '#E65100' },p: 0,pr: 1}}
                   />
                 }
-                label={<Typography variant="body2" sx={{ fontWeight: 700, color: '#E65100', mt: 1 }}>He leído y acepto los riesgos del evento.</Typography>}
+                label={
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#E65100' }}>
+                    He leído y acepto los riesgos del evento.
+                  </Typography>
+                }
               />
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button onClick={() => setModalInscripcionOpen(false)} variant="outlined" sx={{ color: COLORS.purple, borderColor: COLORS.purple, fontWeight: 600 }}>
+            <Button onClick={() => setModalInscripcionAbierto(false)} variant="outlined" sx={{ color: COLORS.purple, borderColor: COLORS.purple, fontWeight: 600 }}>
               Cancelar
             </Button>
             <Button
-              onClick={handleConfirmarInscripcion}
+              onClick={manejarConfirmarInscripcion}
               variant="contained"
               disabled={!aceptaRiesgos || inscribiendo}
               sx={{ bgcolor: COLORS.burgundy, fontWeight: 700, '&:hover': { bgcolor: COLORS.burgundyDark } }}
@@ -618,6 +731,14 @@ const EventosAtleta = () => {
       </Box>
     );
   }
+
+  // Vista de lista de eventos
+  const eventosDisponibles = eventos.filter((e) => !estaFinalizado(e));
+  const eventosTerminados = eventos.filter((e) => estaFinalizado(e));
+
+  const disponiblesPaginados = eventosDisponibles.slice((paginaDisponibles - 1) * porPagina, paginaDisponibles * porPagina);
+  const terminadosPaginados = eventosTerminados.slice((paginaTerminados - 1) * porPagina, paginaTerminados * porPagina);
+  const totalAbiertos = eventosDisponibles.filter(estaInscripcionAbierta).length;
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
@@ -636,7 +757,7 @@ const EventosAtleta = () => {
       </Box>
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
+        {/* Tarjeta de estadísticas */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 4,
@@ -663,10 +784,11 @@ const EventosAtleta = () => {
           </Box>
         </Box>
 
+        {/* Pestañas */}
         <Box sx={{ mb: 3, borderBottom: `1px solid ${COLORS.line}` }}>
           <Tabs
-            value={tabLista}
-            onChange={(e, v) => setTabLista(v)}
+            value={pestaniaLista}
+            onChange={(e, v) => setPestaniaLista(v)}
             sx={{ '& .MuiTabs-indicator': { backgroundColor: COLORS.burgundy, height: 3 } }}
           >
             <Tab icon={<EventIcon />} iconPosition="start" label="Eventos Disponibles" value="disponibles"
@@ -676,7 +798,8 @@ const EventosAtleta = () => {
           </Tabs>
         </Box>
 
-        {tabLista === 'disponibles' && (
+        {/* Lista de disponibles */}
+        {pestaniaLista === 'disponibles' && (
           eventosDisponibles.length === 0 ? (
             <Box sx={{ ...cardSx, textAlign: 'center', py: 5 }}>
               <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
@@ -685,66 +808,67 @@ const EventosAtleta = () => {
               <Typography sx={{ color: COLORS.purple, fontWeight: 700 }}>No hay eventos próximos por ahora</Typography>
             </Box>
           ) : (
-            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    {['Imagen', 'Fecha', 'Título', 'Lugar', 'Estado', 'Detalles'].map((h) => (
-                      <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {disponiblesPaginados.map((evento) => {
-                    const abierta = inscripcionAbierta(evento);
-                    return (
-                      <TableRow key={evento.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                        <TableCell sx={{ py: 1.5, borderColor: COLORS.line }}>
-                          <Avatar src={evento.imagen_url} variant="rounded" sx={{ width: 100, height: 100, bgcolor: COLORS.lineSoft, border: `1px solid ${COLORS.line}` }}>
-                            <EventIcon sx={{ color: COLORS.purple, fontSize: 36 }} />
-                          </Avatar>
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{fmtCorta(evento.fecha)}</Typography>
-                          {evento.hora && <Typography variant="caption" sx={{ color: COLORS.purple }}>{fmtHora(evento.hora)} hrs</Typography>}
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{evento.titulo}</Typography>
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ color: COLORS.ink, display: 'flex', alignItems: 'center', gap: .5 }}>
-                            <LocationIcon sx={{ fontSize: 14, color: COLORS.burgundy }} />
-                            {evento.lugar}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
+            <>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+                {disponiblesPaginados.map((evento) => {
+                  const abierta = estaInscripcionAbierta(evento);
+                  return (
+                    <Box
+                      key={evento.id}
+                      sx={{
+                        ...cardSx, overflow: 'hidden', cursor: 'pointer',
+                        transition: 'transform .15s, box-shadow .15s',
+                        '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                      }}
+                      onClick={() => manejarVerDetalle(evento)}
+                    >
+                      {evento.imagen_url ? (
+                        <Box component="img" src={evento.imagen_url} alt={evento.titulo}
+                          sx={{ width: '100%', height: 520, objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
+                          <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
+                        </Box>
+                      )}
+                      <Box sx={{ p: 2.25 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                          <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.25 }}>{evento.titulo}</Typography>
                           <EstadoChip label={abierta ? 'Abierto' : 'Cerrado'} positivo={abierta} />
-                        </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Button
-                            variant="outlined" size="small" startIcon={<InfoIcon />}
-                            onClick={() => handleVerDetalle(evento)}
-                            sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
-                          >
-                            Ver detalles
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .5 }}>
+                          <CalendarIcon sx={{ fontSize: 14, color: COLORS.burgundy }} />
+                          <Typography variant="body2" sx={{ color: COLORS.ink, fontWeight: 600 }}>
+                            {formatearFechaCorta(evento.fecha)}{evento.hora && ` · ${formatearHora(evento.hora)} hrs`}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: 1.75 }}>
+                          <LocationIcon sx={{ fontSize: 14, color: COLORS.burgundy }} />
+                          <Typography variant="body2" sx={{ color: COLORS.ink }}>{evento.lugar}</Typography>
+                        </Box>
+                        <Button
+                          fullWidth variant="outlined" size="small" startIcon={<InfoIcon />}
+                          onClick={(e) => { e.stopPropagation(); manejarVerDetalle(evento); }}
+                          sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
+                        >
+                          Ver detalles
+                        </Button>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
               {eventosDisponibles.length > porPagina && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
-                  <Pagination count={Math.ceil(eventosDisponibles.length / porPagina)} page={pageDisponibles} onChange={(e, v) => setPageDisponibles(v)}
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                  <Pagination count={Math.ceil(eventosDisponibles.length / porPagina)} page={paginaDisponibles} onChange={(e, v) => setPaginaDisponibles(v)}
                     sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }} />
                 </Box>
               )}
-            </Box>
+            </>
           )
         )}
 
-        {tabLista === 'terminados' && (
+        {/* Lista de terminados */}
+        {pestaniaLista === 'terminados' && (
           eventosTerminados.length === 0 ? (
             <Box sx={{ ...cardSx, textAlign: 'center', py: 5 }}>
               <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 56, height: 56, mx: 'auto', mb: 1.5 }}>
@@ -753,55 +877,57 @@ const EventosAtleta = () => {
               <Typography sx={{ color: COLORS.purple, fontWeight: 700 }}>Todavía no hay eventos finalizados</Typography>
             </Box>
           ) : (
-            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    {['Imagen', 'Fecha', 'Título', 'Lugar', 'Convocatorias y Resultados'].map((h) => (
-                      <TableCell key={h} sx={tableHeadSx}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {terminadosPaginados.map((evento) => (
-                    <TableRow key={evento.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                      <TableCell sx={{ py: 1.5, borderColor: COLORS.line }}>
-                        <Avatar src={evento.imagen_url} variant="rounded" sx={{ width: 100, height: 100, bgcolor: COLORS.lineSoft, border: `1px solid ${COLORS.line}`, filter: 'grayscale(60%)', opacity: 0.85 }}>
-                          <EventIcon sx={{ color: COLORS.purple, fontSize: 36 }} />
-                        </Avatar>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#8a8a8a' }}>{fmtCorta(evento.fecha)}</Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#8a8a8a' }}>{evento.titulo}</Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ color: '#8a8a8a', display: 'flex', alignItems: 'center', gap: .5 }}>
-                          <LocationIcon sx={{ fontSize: 14 }} />
-                          {evento.lugar}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Button
-                          variant="outlined" size="small" startIcon={<VisibilityIcon />}
-                          onClick={() => handleVerDetalle(evento)}
-                          sx={{ color: COLORS.purple, borderColor: COLORS.purple, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
-                        >
-                          Ver convocatorias y resultados
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+                {terminadosPaginados.map((evento) => (
+                  <Box
+                    key={evento.id}
+                    sx={{
+                      ...cardSx, overflow: 'hidden', cursor: 'pointer',
+                      transition: 'transform .15s, box-shadow .15s',
+                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                    }}
+                    onClick={() => manejarVerDetalle(evento)}
+                  >
+                    {evento.imagen_url ? (
+                      <Box component="img" src={evento.imagen_url} alt={evento.titulo}
+                        sx={{ width: '100%',height: 520, objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
+                    ) : (
+                      <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
+                        <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
+                      </Box>
+                    )}
+                    <Box sx={{ p: 2.25 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                        <Typography sx={{ fontWeight: 800, color: '#6a6a6a', lineHeight: 1.25 }}>{evento.titulo}</Typography>
+                        <Chip icon={<DoneAllIcon sx={{ fontSize: 14 }} />} label="Finalizado" size="small" sx={{ fontWeight: 700, fontSize: '.68rem', bgcolor: COLORS.lineSoft, color: COLORS.burgundy, flexShrink: 0 }} />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: .5 }}>
+                        <CalendarIcon sx={{ fontSize: 14, color: '#8a8a8a' }} />
+                        <Typography variant="body2" sx={{ color: '#8a8a8a', fontWeight: 600 }}>{formatearFechaCorta(evento.fecha)}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, mb: 1.75 }}>
+                        <LocationIcon sx={{ fontSize: 14, color: '#8a8a8a' }} />
+                        <Typography variant="body2" sx={{ color: '#8a8a8a' }}>{evento.lugar}</Typography>
+                      </Box>
+                      <Button
+                        fullWidth variant="outlined" size="small" startIcon={<VisibilityIcon />}
+                        onClick={(e) => { e.stopPropagation(); manejarVerDetalle(evento); }}
+                        sx={{ color: COLORS.purple, borderColor: COLORS.purple, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                      >
+                        Ver resultados
+                      </Button>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
               {eventosTerminados.length > porPagina && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, borderTop: `1px solid ${COLORS.line}` }}>
-                  <Pagination count={Math.ceil(eventosTerminados.length / porPagina)} page={pageTerminados} onChange={(e, v) => setPageTerminados(v)}
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                  <Pagination count={Math.ceil(eventosTerminados.length / porPagina)} page={paginaTerminados} onChange={(e, v) => setPaginaTerminados(v)}
                     sx={{ '& .MuiPaginationItem-root.Mui-selected': { bgcolor: COLORS.burgundy, color: '#fff' } }} />
                 </Box>
               )}
-            </Box>
+            </>
           )
         )}
       </Container>

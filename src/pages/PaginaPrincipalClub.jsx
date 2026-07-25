@@ -181,7 +181,10 @@ const PaginaPrincipalClub = () => {
     try {
       const res = await notificacionesAPI.getMiasClub();
       setNotificaciones(res.data.notificaciones || []);
-    } catch { setNotificaciones([]); }
+    } catch (err) {
+      console.error('Error al cargar notificaciones del club:', err.response?.status, err.response?.data || err.message);
+      setNotificaciones([]);
+    }
   };
 
   const handleDescartarNotificacion = async (id) => {
@@ -329,18 +332,6 @@ const PaginaPrincipalClub = () => {
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
             {club?.direccion || 'Sin dirección'}
           </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<EditIcon />}
-            onClick={() => navigate('/club/perfil')}
-            sx={{
-              mt: 2.5, color: '#fff', borderColor: 'rgba(255,255,255,0.5)',
-              textTransform: 'none', fontWeight: 700,
-              '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.08)' },
-            }}
-          >
-            Editar Perfil
-          </Button>
         </Container>
       </Box>
 

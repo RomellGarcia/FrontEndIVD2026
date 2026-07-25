@@ -22,9 +22,6 @@ import { FaWhatsapp } from 'react-icons/fa';
 const { Footer } = Layout;
 const { Text, Title } = Typography;
 
-// URL base del backend
-const API_BASE_URL = 'http://localhost:5000';
-
 // URL de geocodificación de Nominatim (OpenStreetMap)
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
@@ -36,43 +33,50 @@ const PieDePagina = () => {
     telefono: '',
     correo: '',
     direccion: '',
-    mostrarWhatsapp: true, // Nuevo campo para controlar la visibilidad del WhatsApp
+    mostrarWhatsapp: true,
   });
   const [error, setError] = useState(null);
   const mapRef = useRef(null);
 
-  useEffect(() => {
   const fetchPerfil = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/perfil-empresa`)
-      const perfil = response.data.perfil  // ← extraer .perfil
-      const redes = perfil.redes_sociales || []
-
+      const response = await perfilEmpresaAPI.get();
+      console.log('Datos del perfil recibidos:', response.data);
       setDatosEmpresa({
-        facebook:       redes.find(r => r.plataforma === 'facebook')?.url || '',
-        twitter:        redes.find(r => r.plataforma === 'twitter')?.url  || '',
-        instagram:      redes.find(r => r.plataforma === 'instagram')?.url || '',
-        telefono:       perfil.telefono  || '',
-        correo:         perfil.correo    || '',
-        direccion:      perfil.direccion || '',
-        mostrarWhatsapp: perfil.mostrar_whatsapp ?? true,
-      })
+        facebook: response.data.perfil.redes_sociales?.find(r => r.plataforma === 'facebook')?.url || '',
+        twitter: response.data.perfil.redes_sociales?.find(r => r.plataforma === 'twitter')?.url || '',
+        instagram: response.data.perfil.redes_sociales?.find(r => r.plataforma === 'instagram')?.url || '',
+        telefono: response.data.perfil.telefono || '',
+        correo: response.data.perfil.correo || '',
+        direccion: response.data.perfil.direccion || '',
+        mostrarWhatsapp: response.data.perfil.mostrar_whatsapp || true,
+      });
 
-      if (perfil.direccion && mapRef.current) {
-        initializeOrUpdateMap(perfil.direccion)
+      // Inicializar o actualizar el mapa después de obtener los datos
+      if (response.data.perfil.direccion && mapRef.current) {
+        initializeOrUpdateMap(response.data.perfil.direccion);
       }
     } catch (err) {
-      console.error('Error fetching perfil:', err)
-      setError('No se pudieron cargar los datos de la empresa.')
+      console.error('Error fetching perfil:', err);
+      setError('No se pudieron cargar los datos de la empresa.');
     }
-  }
-  fetchPerfil()
-}, [])
+  };
+
+  useEffect(() => {
+    fetchPerfil();
+  }, []);
+
+  // Se actualiza solo, sin recargar la página
+  useEffect(() => {
+    const alActualizarPerfil = () => fetchPerfil();
+    window.addEventListener('perfilEmpresaActualizado', alActualizarPerfil);
+    return () => window.removeEventListener('perfilEmpresaActualizado', alActualizarPerfil);
+  }, []);
 
   useEffect(() => {
     // Inicializar el mapa solo si el contenedor existe
     if (mapRef.current && !mapRef.current._leaflet_id) {
-      const mapInstance = L.map(mapRef.current).setView([21.1376, -98.6728], 13); // Coordenadas por defecto cerca de Huejutla
+      const mapInstance = L.map(mapRef.current).setView([21.1376, -98.6728], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(mapInstance);
@@ -270,11 +274,11 @@ const PieDePagina = () => {
             <Link to="/terminospca" style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none' }}>
               <FileTextOutlined style={{ fontSize: '18px', marginRight: '5px', color: '#F5E8C7' }} /> Términos y Condiciones
             </Link>
-            <Link to="/misionpca" style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none' }}>
-              <ThunderboltOutlined style={{ fontSize: '18px', marginRight: '5px', color: '#F5E8C7' }} /> Misión
-            </Link>
             <Link to="/visionpca" style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none' }}>
-              <BulbOutlined style={{ fontSize: '18px', marginRight: '5px', color: '#F5E8C7' }} /> Visión
+              <ThunderboltOutlined style={{ fontSize: '18px', marginRight: '5px', color: '#F5E8C7' }} /> Visión
+            </Link>
+            <Link to="/misionpca" style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none' }}>
+              <BulbOutlined style={{ fontSize: '18px', marginRight: '5px', color: '#F5E8C7' }} /> Misión
             </Link>
           </div>
         </div>

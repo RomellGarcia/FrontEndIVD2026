@@ -125,6 +125,7 @@ function Registro() {
     añosExperiencia: '',
     clubId: '',
     direccion: '',
+    lugarEntrenamiento: '',
     descripcion: '',
   });
 
@@ -257,6 +258,7 @@ function Registro() {
           email: formData.gmail,
           password: formData.password,
           descripcion: formData.descripcion.trim(),
+          lugar_entrenamiento: formData.lugarEntrenamiento.trim(),
           rol: 'club',
         };
       } else if (isEntrenador) {
@@ -403,6 +405,21 @@ function Registro() {
                         required
                         error={!!formErrors.direccion}
                         helperText={formErrors.direccion}
+                        sx={{ ...fieldSx, gridColumn: '1 / -1' }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start"><LocationIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                          ),
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Lugar de Entrenamiento (Opcional)"
+                        name="lugarEntrenamiento"
+                        value={formData.lugarEntrenamiento}
+                        onChange={handleChange}
+                        placeholder="Ej: Unidad Deportiva Xalapa, cancha 3"
+                        helperText="Si lo dejas en blanco, tus atletas podrán capturar el suyo propio; si lo llenas, se aplica automáticamente a todos ellos"
                         sx={{ ...fieldSx, gridColumn: '1 / -1' }}
                         InputProps={{
                           startAdornment: (

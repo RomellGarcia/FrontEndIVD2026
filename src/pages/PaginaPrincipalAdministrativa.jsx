@@ -26,7 +26,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { atletasAPI, clubesAPI, eventosAPI, resultadosAPI } from '../api/index.js';
 
-// --- Paleta institucional IVD (misma que ClubAtleta.jsx / PaginaPrincipalAtleta.jsx) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -38,6 +38,7 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
+// Componente base para secciones
 const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   <Box
     sx={{
@@ -76,7 +77,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   </Box>
 );
 
-/** Chip de estado sin colores semánticos default de MUI: borde purple = positivo/activo, borde ink = neutral/negativo. */
+// Chip de estado con borde de color según estado
 const EstadoChip = ({ label, positivo = true }) => (
   <Chip
     label={label}
@@ -95,42 +96,50 @@ const EstadoChip = ({ label, positivo = true }) => (
 const PaginaPrincipalAdministrativa = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
+  const [estadisticas, setEstadisticas] = useState({
     totalAtletas: 0, totalClubes: 0, totalEventos: 0, totalResultados: 0,
     atletasRecientes: 0, clubesRecientes: 0,
   });
-  const [recentActivity, setRecentActivity] = useState({
+  const [actividadReciente, setActividadReciente] = useState({
     atletas: [], clubes: [], eventos: [], resultados: [],
   });
   const [error, setError] = useState('');
 
-  useEffect(() => { cargarDatos(); }, []);
+  useEffect(() => {
+    cargarDatosDashboard();
+  }, []);
 
-  const cargarDatos = async () => {
+  // Obtiene los datos del dashboard y calcula estadísticas
+  const cargarDatosDashboard = async () => {
     try {
       setLoading(true);
       const [atletasRes, clubesRes, eventosRes, resultadosRes] = await Promise.all([
         atletasAPI.getAll(), clubesAPI.getAll(), eventosAPI.getAll(), resultadosAPI.getAll(),
       ]);
 
-      const atletas    = atletasRes.data.atletas       || [];
-      const clubes     = clubesRes.data.clubes         || [];
-      const eventos     = eventosRes.data.eventos       || [];
+      const atletas = atletasRes.data.atletas || [];
+      const clubes = clubesRes.data.clubes || [];
+      const eventos = eventosRes.data.eventos || [];
       const resultados = resultadosRes.data.resultados || [];
 
-      const hace7 = new Date(); hace7.setDate(hace7.getDate() - 7);
-      const atletasNuevos = atletas.filter(a => new Date(a.fecha_ingreso_club || a.created_at) >= hace7).length;
-      const clubesNuevos  = clubes.filter(c  => new Date(c.fecha_creacion    || c.created_at) >= hace7).length;
+      const fechaLimiteSemana = new Date();
+      fechaLimiteSemana.setDate(fechaLimiteSemana.getDate() - 7);
+      
+      const nuevosAtletas = atletas.filter(a => new Date(a.fecha_ingreso_club || a.created_at) >= fechaLimiteSemana).length;
+      const nuevosClubes = clubes.filter(c => new Date(c.fecha_creacion || c.created_at) >= fechaLimiteSemana).length;
 
-      setStats({
-        totalAtletas: atletas.length, totalClubes: clubes.length,
-        totalEventos: eventos.length, totalResultados: resultados.length,
-        atletasRecientes: atletasNuevos, clubesRecientes: clubesNuevos,
+      setEstadisticas({
+        totalAtletas: atletas.length,
+        totalClubes: clubes.length,
+        totalEventos: eventos.length,
+        totalResultados: resultados.length,
+        atletasRecientes: nuevosAtletas,
+        clubesRecientes: nuevosClubes,
       });
 
-      setRecentActivity({
+      setActividadReciente({
         atletas: atletas.slice(0, 5),
-        clubes:  clubes.slice(0, 5),
+        clubes: clubes.slice(0, 5),
         eventos: eventos
           .filter(e => new Date(e.fecha) >= new Date())
           .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
@@ -145,7 +154,8 @@ const PaginaPrincipalAdministrativa = () => {
     }
   };
 
-  const fmt = (fecha) => {
+  // Formatea fecha en formato corto
+  const formatearFechaCorta = (fecha) => {
     if (!fecha) return '—';
     const d = new Date(fecha);
     return isNaN(d) ? '—' : d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -161,8 +171,7 @@ const PaginaPrincipalAdministrativa = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: COLORS.cream }}>
-
-      {/* ── Franja superior ── */}
+      {/* Cabecera */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -178,10 +187,9 @@ const PaginaPrincipalAdministrativa = () => {
       </Box>
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
         {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>{error}</Alert>}
 
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas flotante */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 5,
@@ -192,10 +200,10 @@ const PaginaPrincipalAdministrativa = () => {
           }}
         >
           {[
-            { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: stats.totalAtletas, label: 'Atletas', sub: `+${stats.atletasRecientes} esta semana` },
-            { icon: <GroupsIcon sx={{ fontSize: 24 }} />, value: stats.totalClubes, label: 'Clubes', sub: `+${stats.clubesRecientes} esta semana` },
-            { icon: <EventIcon sx={{ fontSize: 24 }} />, value: stats.totalEventos, label: 'Eventos', sub: 'En el sistema' },
-            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: stats.totalResultados, label: 'Resultados', sub: 'Marcas y tiempos' },
+            { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: estadisticas.totalAtletas, label: 'Atletas', sub: `+${estadisticas.atletasRecientes} esta semana` },
+            { icon: <GroupsIcon sx={{ fontSize: 24 }} />, value: estadisticas.totalClubes, label: 'Clubes', sub: `+${estadisticas.clubesRecientes} esta semana` },
+            { icon: <EventIcon sx={{ fontSize: 24 }} />, value: estadisticas.totalEventos, label: 'Eventos', sub: 'En el sistema' },
+            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: estadisticas.totalResultados, label: 'Resultados', sub: 'Marcas y tiempos' },
           ].map((s, i) => (
             <Box
               key={i}
@@ -215,16 +223,15 @@ const PaginaPrincipalAdministrativa = () => {
           ))}
         </Box>
 
-        {/* ── Actividad reciente — fila 1 ── */}
+        {/* Fila 1: Atletas y Clubes recientes */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
-
-          {/* Atletas */}
+          {/* Atletas recientes */}
           <SectionCard icon={<PeopleIcon sx={{ fontSize: 16 }} />} eyebrow="Recién ingresados" title="Atletas Recientes">
-            {recentActivity.atletas.length === 0 ? (
+            {actividadReciente.atletas.length === 0 ? (
               <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>No hay atletas registrados.</Typography>
             ) : (
               <List disablePadding>
-                {recentActivity.atletas.map((a, i) => (
+                {actividadReciente.atletas.map((a, i) => (
                   <React.Fragment key={a.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2 }}>
                       <ListItemAvatar>
@@ -238,20 +245,20 @@ const PaginaPrincipalAdministrativa = () => {
                       />
                       <EstadoChip label={a.genero === 'femenino' ? 'F' : 'M'} positivo={a.genero === 'femenino'} />
                     </ListItem>
-                    {i < recentActivity.atletas.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
+                    {i < actividadReciente.atletas.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
             )}
           </SectionCard>
 
-          {/* Clubes */}
+          {/* Clubes registrados */}
           <SectionCard icon={<GroupsIcon sx={{ fontSize: 16 }} />} eyebrow="Registro" title="Clubes Registrados">
-            {recentActivity.clubes.length === 0 ? (
+            {actividadReciente.clubes.length === 0 ? (
               <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>No hay clubes registrados.</Typography>
             ) : (
               <List disablePadding>
-                {recentActivity.clubes.map((c, i) => (
+                {actividadReciente.clubes.map((c, i) => (
                   <React.Fragment key={c.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2 }}>
                       <ListItemAvatar>
@@ -263,7 +270,7 @@ const PaginaPrincipalAdministrativa = () => {
                       />
                       <EstadoChip label={c.estado === 'activo' ? 'Activo' : 'Inactivo'} positivo={c.estado === 'activo'} />
                     </ListItem>
-                    {i < recentActivity.clubes.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
+                    {i < actividadReciente.clubes.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
@@ -271,16 +278,15 @@ const PaginaPrincipalAdministrativa = () => {
           </SectionCard>
         </Box>
 
-        {/* ── Actividad reciente — fila 2 ── */}
+        {/* Fila 2: Próximos Eventos y Resultados recientes */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-
-          {/* Próximos Eventos */}
+          {/* Próximos eventos */}
           <SectionCard icon={<CalendarIcon sx={{ fontSize: 16 }} />} eyebrow="Agenda" title="Próximos Eventos">
-            {recentActivity.eventos.length === 0 ? (
+            {actividadReciente.eventos.length === 0 ? (
               <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>No hay eventos próximos.</Typography>
             ) : (
               <List disablePadding>
-                {recentActivity.eventos.map((e, i) => (
+                {actividadReciente.eventos.map((e, i) => (
                   <React.Fragment key={e.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2, alignItems: 'flex-start' }}>
                       <ListItemAvatar>
@@ -293,7 +299,7 @@ const PaginaPrincipalAdministrativa = () => {
                         secondary={
                           <Box>
                             <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
-                              <CalendarIcon sx={{ fontSize: 13 }} /> {fmt(e.fecha)}{e.hora && ` · ${e.hora.slice(0, 5)}`}
+                              <CalendarIcon sx={{ fontSize: 13 }} /> {formatearFechaCorta(e.fecha)}{e.hora && ` · ${e.hora.slice(0, 5)}`}
                             </Typography>
                             <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5 }}>
                               <LocationIcon sx={{ fontSize: 13 }} /> {e.lugar}
@@ -303,16 +309,16 @@ const PaginaPrincipalAdministrativa = () => {
                       />
                       <EstadoChip label="Activo" positivo />
                     </ListItem>
-                    {i < recentActivity.eventos.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
+                    {i < actividadReciente.eventos.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
             )}
           </SectionCard>
 
-          {/* Resultados */}
+          {/* Resultados recientes */}
           <SectionCard icon={<TrophyIcon sx={{ fontSize: 16 }} />} eyebrow="Marcas y tiempos" title="Resultados Recientes">
-            {recentActivity.resultados.length === 0 ? (
+            {actividadReciente.resultados.length === 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 3, gap: 2 }}>
                 <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center' }}>
                   Los resultados de eventos pasados aparecerán aquí.
@@ -329,7 +335,7 @@ const PaginaPrincipalAdministrativa = () => {
               </Box>
             ) : (
               <List disablePadding>
-                {recentActivity.resultados.map((r, i) => (
+                {actividadReciente.resultados.map((r, i) => (
                   <React.Fragment key={r.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2 }}>
                       <ListItemAvatar>
@@ -339,10 +345,10 @@ const PaginaPrincipalAdministrativa = () => {
                       </ListItemAvatar>
                       <ListItemText
                         primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{r.nombre_atleta || r.nombreAtleta || 'Atleta'}</Typography>}
-                        secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{r.nombre_evento || r.nombreEvento || 'Evento'} · {fmt(r.fecha_registro)}</Typography>}
+                        secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{r.nombre_evento || r.nombreEvento || 'Evento'} · {formatearFechaCorta(r.fecha_registro)}</Typography>}
                       />
                     </ListItem>
-                    {i < recentActivity.resultados.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
+                    {i < actividadReciente.resultados.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>

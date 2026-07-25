@@ -34,7 +34,7 @@ import { atletasAPI, clubesAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-// --- Paleta institucional IVD (misma que GestionAtletas.jsx) ---
+// Paleta de colores
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -46,6 +46,7 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
+// Componente base para secciones
 const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   <Box
     sx={{
@@ -89,6 +90,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   </Box>
 );
 
+// Muestra un dato con ícono
 const DatoCampo = ({ icon, label, valor }) => (
   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
     {icon && <Box sx={{ color: COLORS.purple, mt: 0.3 }}>{icon}</Box>}
@@ -109,7 +111,7 @@ const DatoCampo = ({ icon, label, valor }) => (
   </Box>
 );
 
-/** Tarjeta de invitación recibida, formato "expediente" (folio + acciones). */
+// Tarjeta de invitación recibida
 const ExpedienteInvitacion = ({ invitacion, onVerPerfil, onAceptar, onRechazar, procesando }) => {
   const folio = String(invitacion.id ?? '').replace(/\D/g, '').slice(-6).padStart(6, '0') || '000000';
   return (
@@ -177,7 +179,7 @@ const ExpedienteInvitacion = ({ invitacion, onVerPerfil, onAceptar, onRechazar, 
   );
 };
 
-/** Tarjeta de club disponible para explorar / solicitar unirse. */
+// Tarjeta de club disponible para solicitar unirse
 const ClubCard = ({ club, onVerPerfil, onSolicitar, solicitudBloqueada }) => (
   <Box sx={{ border: `1px solid ${COLORS.line}`, borderTop: `3px solid ${COLORS.purple}`, borderRadius: '8px', p: 2, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
@@ -217,6 +219,7 @@ const ClubCard = ({ club, onVerPerfil, onSolicitar, solicitudBloqueada }) => (
   </Box>
 );
 
+// Formatea fecha a formato largo en español
 const formatearFecha = (fecha) => {
   if (!fecha) return 'N/A';
   try {
@@ -232,7 +235,7 @@ const ClubAtleta = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [perfil, setPerfil] = useState(null);
   const [clubActual, setClubActual] = useState(null);
@@ -242,20 +245,21 @@ const ClubAtleta = () => {
   const [procesandoId, setProcesandoId] = useState(null);
   const [busquedaClub, setBusquedaClub] = useState('');
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogClub, setDialogClub] = useState(null);
-  const [dialogContexto, setDialogContexto] = useState(null); // 'invitacion' | 'disponible'
-  const [dialogSolicitudId, setDialogSolicitudId] = useState(null);
-  const [loadingDialog, setLoadingDialog] = useState(false);
+  const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [clubDialogo, setClubDialogo] = useState(null);
+  const [contextoDialogo, setContextoDialogo] = useState(null); // 'invitacion' | 'disponible'
+  const [solicitudDialogoId, setSolicitudDialogoId] = useState(null);
+  const [cargandoDialogo, setCargandoDialogo] = useState(false);
 
   useEffect(() => {
     if (!user?.id) {
       navigate('/login');
       return;
     }
-    cargarTodo();
+    cargarDatosCompletos();
   }, [user, navigate]);
 
+  // Normaliza la estructura de un club para uso interno
   const normalizarClub = (c) => ({
     id: c.id,
     nombre: c.nombre || 'Club sin nombre',
@@ -267,8 +271,9 @@ const ClubAtleta = () => {
     totalEntrenadores: c.total_entrenadores ?? 0,
   });
 
-  const cargarTodo = async () => {
-    setLoading(true);
+  // Carga todos los datos del atleta relacionados con clubes
+  const cargarDatosCompletos = async () => {
+    setCargando(true);
     setError('');
     try {
       const perfilRes = await atletasAPI.getPerfil();
@@ -313,53 +318,56 @@ const ClubAtleta = () => {
       console.error('Error al cargar la sección de club:', err);
       setError('Error al cargar la información del club.');
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
+  // Abre el diálogo para un club disponible
   const abrirDialogoDisponible = (clubResumen) => {
-    setDialogOpen(true);
-    setDialogContexto('disponible');
-    setDialogSolicitudId(null);
-    setDialogClub(clubResumen);
-    setLoadingDialog(false);
+    setDialogoAbierto(true);
+    setContextoDialogo('disponible');
+    setSolicitudDialogoId(null);
+    setClubDialogo(clubResumen);
+    setCargandoDialogo(false);
   };
 
+  // Abre el diálogo para una invitación (carga el perfil del club)
   const abrirDialogoInvitacion = async (invitacion) => {
-    setDialogOpen(true);
-    setDialogContexto('invitacion');
-    setDialogSolicitudId(invitacion.id);
-    setDialogClub(null);
-    setLoadingDialog(true);
+    setDialogoAbierto(true);
+    setContextoDialogo('invitacion');
+    setSolicitudDialogoId(invitacion.id);
+    setClubDialogo(null);
+    setCargandoDialogo(true);
     try {
       const clubRes = await clubesAPI.getById(invitacion.clubId);
-      setDialogClub(normalizarClub(clubRes.data.club || clubRes.data));
+      setClubDialogo(normalizarClub(clubRes.data.club || clubRes.data));
     } catch (err) {
       console.error('Error al cargar el perfil del club invitante:', err);
     } finally {
-      setLoadingDialog(false);
+      setCargandoDialogo(false);
     }
   };
 
-  const cerrarDialog = () => {
-    setDialogOpen(false);
-    setDialogClub(null);
-    setDialogContexto(null);
-    setDialogSolicitudId(null);
+  const cerrarDialogo = () => {
+    setDialogoAbierto(false);
+    setClubDialogo(null);
+    setContextoDialogo(null);
+    setSolicitudDialogoId(null);
   };
 
-  const handleSolicitarUnirse = async (clubId) => {
+  // Solicita unirse a un club
+  const manejarSolicitarUnirse = async (clubId) => {
     try {
       setProcesandoId(clubId);
       await atletasAPI.crearSolicitud({ club_id: clubId, tipo: 'asociar' });
-      cerrarDialog();
+      cerrarDialogo();
       Swal.fire({
         icon: 'success',
         title: 'Solicitud enviada',
         text: 'Tu solicitud se envió correctamente. Espera la respuesta del club antes de solicitar a otro.',
         confirmButtonColor: COLORS.burgundy,
       });
-      await cargarTodo();
+      await cargarDatosCompletos();
     } catch (err) {
       console.error('Error al enviar solicitud:', err);
       setError(err.response?.data?.error || 'Error al enviar la solicitud.');
@@ -368,18 +376,19 @@ const ClubAtleta = () => {
     }
   };
 
-  const handleAceptarInvitacion = async (solicitudId) => {
+  // Acepta una invitación
+  const manejarAceptarInvitacion = async (solicitudId) => {
     try {
       setProcesandoId(solicitudId);
       await atletasAPI.procesarSolicitud(solicitudId, { estado: 'aceptada' });
-      cerrarDialog();
+      cerrarDialogo();
       Swal.fire({
         icon: 'success',
         title: 'Invitación aceptada',
         text: 'Ya formas parte del club.',
         confirmButtonColor: COLORS.burgundy,
       });
-      await cargarTodo();
+      await cargarDatosCompletos();
     } catch (err) {
       console.error('Error al aceptar invitación:', err);
       setError(err.response?.data?.error || 'Error al aceptar la invitación.');
@@ -388,11 +397,12 @@ const ClubAtleta = () => {
     }
   };
 
-  const handleRechazarInvitacion = async (solicitudId) => {
+  // Rechaza una invitación
+  const manejarRechazarInvitacion = async (solicitudId) => {
     try {
       setProcesandoId(solicitudId);
       await atletasAPI.procesarSolicitud(solicitudId, { estado: 'rechazada' });
-      cerrarDialog();
+      cerrarDialogo();
       Swal.fire({
         icon: 'success',
         title: 'Invitación rechazada',
@@ -400,7 +410,7 @@ const ClubAtleta = () => {
         timer: 1800,
         showConfirmButton: false,
       });
-      await cargarTodo();
+      await cargarDatosCompletos();
     } catch (err) {
       console.error('Error al rechazar invitación:', err);
       setError(err.response?.data?.error || 'Error al rechazar la invitación.');
@@ -409,7 +419,8 @@ const ClubAtleta = () => {
     }
   };
 
-  const handleSalirClub = async () => {
+  // Sale del club actual
+  const manejarSalirClub = async () => {
     const result = await Swal.fire({
       title: '¿Confirmar salida del club?',
       icon: 'question',
@@ -422,14 +433,14 @@ const ClubAtleta = () => {
     if (!result.isConfirmed) return;
     try {
       await atletasAPI.updateClub(perfil.id, { club_id: null });
-      await cargarTodo();
+      await cargarDatosCompletos();
     } catch (err) {
       console.error('Error al salir del club:', err);
       setError('Error al salir del club.');
     }
   };
 
-  if (loading) {
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -439,8 +450,7 @@ const ClubAtleta = () => {
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera superior */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
         <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -453,7 +463,6 @@ const ClubAtleta = () => {
       </Box>
 
       <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 3, md: 4 }, pb: { xs: 5, md: 7 } }}>
-
         {error && (
           <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
             {error}
@@ -476,7 +485,7 @@ const ClubAtleta = () => {
               variant="outlined"
               color="error"
               startIcon={<ExitToAppIcon />}
-              onClick={handleSalirClub}
+              onClick={manejarSalirClub}
               sx={{ textTransform: 'none', fontWeight: 700 }}
             >
               Salir del club
@@ -514,8 +523,8 @@ const ClubAtleta = () => {
                           invitacion={inv}
                           procesando={procesandoId === inv.id}
                           onVerPerfil={() => abrirDialogoInvitacion(inv)}
-                          onAceptar={() => handleAceptarInvitacion(inv.id)}
-                          onRechazar={() => handleRechazarInvitacion(inv.id)}
+                          onAceptar={() => manejarAceptarInvitacion(inv.id)}
+                          onRechazar={() => manejarRechazarInvitacion(inv.id)}
                         />
                       ))}
                     </Box>
@@ -583,7 +592,7 @@ const ClubAtleta = () => {
                             club={c}
                             solicitudBloqueada={!!solicitudPendiente || procesandoId === c.id}
                             onVerPerfil={() => abrirDialogoDisponible(c)}
-                            onSolicitar={() => handleSolicitarUnirse(c.id)}
+                            onSolicitar={() => manejarSolicitarUnirse(c.id)}
                           />
                         ))}
                       </Box>
@@ -597,16 +606,16 @@ const ClubAtleta = () => {
       </Container>
 
       {/* Diálogo de perfil del club */}
-      <Dialog open={dialogOpen} onClose={cerrarDialog} maxWidth="sm" fullWidth>
+      <Dialog open={dialogoAbierto} onClose={cerrarDialogo} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Perfil del Club</Typography>
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
-          {loadingDialog ? (
+          {cargandoDialogo ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
               <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
             </Box>
-          ) : !dialogClub ? (
+          ) : !clubDialogo ? (
             <Typography variant="body2" color="textSecondary">
               No se pudo cargar el perfil del club.
             </Typography>
@@ -614,47 +623,47 @@ const ClubAtleta = () => {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
                 <Avatar sx={{ width: 48, height: 48, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
-                  {dialogClub.nombre.charAt(0)}
+                  {clubDialogo.nombre.charAt(0)}
                 </Avatar>
                 <Typography variant="h6" sx={{ color: COLORS.ink, fontWeight: 700 }}>
-                  {dialogClub.nombre}
+                  {clubDialogo.nombre}
                 </Typography>
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5, mb: 2 }}>
-                <DatoCampo icon={<LocationOnIcon fontSize="small" />} label="Dirección" valor={dialogClub.direccion} />
-                <DatoCampo icon={<PhoneIcon fontSize="small" />} label="Teléfono" valor={dialogClub.telefono} />
-                <DatoCampo icon={<EmailIcon fontSize="small" />} label="Correo" valor={dialogClub.email} />
-                <DatoCampo icon={<GroupsIcon fontSize="small" />} label="Plantilla" valor={`${dialogClub.totalAtletas} atletas · ${dialogClub.totalEntrenadores} entrenadores`} />
+                <DatoCampo icon={<LocationOnIcon fontSize="small" />} label="Dirección" valor={clubDialogo.direccion} />
+                <DatoCampo icon={<PhoneIcon fontSize="small" />} label="Teléfono" valor={clubDialogo.telefono} />
+                <DatoCampo icon={<EmailIcon fontSize="small" />} label="Correo" valor={clubDialogo.email} />
+                <DatoCampo icon={<GroupsIcon fontSize="small" />} label="Plantilla" valor={`${clubDialogo.totalAtletas} atletas · ${clubDialogo.totalEntrenadores} entrenadores`} />
               </Box>
               <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: 0.5 }}>
                 Descripción
               </Typography>
-              <Typography sx={{ fontSize: '0.9rem', color: COLORS.ink }}>{dialogClub.descripcion}</Typography>
+              <Typography sx={{ fontSize: '0.9rem', color: COLORS.ink }}>{clubDialogo.descripcion}</Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={cerrarDialog} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+          <Button onClick={cerrarDialogo} sx={{ color: COLORS.purple, fontWeight: 600 }}>
             Cerrar
           </Button>
-          {dialogClub && dialogContexto === 'disponible' && (
+          {clubDialogo && contextoDialogo === 'disponible' && (
             <Button
               variant="contained"
               startIcon={<SendIcon fontSize="small" />}
-              disabled={!!solicitudPendiente || procesandoId === dialogClub.id}
-              onClick={() => handleSolicitarUnirse(dialogClub.id)}
+              disabled={!!solicitudPendiente || procesandoId === clubDialogo.id}
+              onClick={() => manejarSolicitarUnirse(clubDialogo.id)}
               sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
             >
               Solicitar unirme
             </Button>
           )}
-          {dialogClub && dialogContexto === 'invitacion' && (
+          {clubDialogo && contextoDialogo === 'invitacion' && (
             <>
               <Button
                 variant="outlined"
                 startIcon={<CloseIcon fontSize="small" />}
-                disabled={procesandoId === dialogSolicitudId}
-                onClick={() => handleRechazarInvitacion(dialogSolicitudId)}
+                disabled={procesandoId === solicitudDialogoId}
+                onClick={() => manejarRechazarInvitacion(solicitudDialogoId)}
                 sx={{ borderColor: COLORS.purple, color: COLORS.purple }}
               >
                 Rechazar
@@ -662,8 +671,8 @@ const ClubAtleta = () => {
               <Button
                 variant="contained"
                 startIcon={<CheckIcon fontSize="small" />}
-                disabled={procesandoId === dialogSolicitudId}
-                onClick={() => handleAceptarInvitacion(dialogSolicitudId)}
+                disabled={procesandoId === solicitudDialogoId}
+                onClick={() => manejarAceptarInvitacion(solicitudDialogoId)}
                 sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
               >
                 Aceptar invitación

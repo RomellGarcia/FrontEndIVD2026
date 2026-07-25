@@ -222,7 +222,8 @@ const ConvocatoriasAtleta = () => {
     setInscribiendo(true);
     const idConv = getConvId(convocatoriaSeleccionada);
     try {
-      await eventosAPI.inscribir({ convocatoria_id: Number(idConv) });
+      const response = await eventosAPI.inscribir({ convocatoria_id: Number(idConv) });
+      const bib = response.data?.inscripcion?.bib;
 
       setYaInscritos((prev) => (prev.includes(idConv) ? prev : [...prev, idConv]));
       setModalOpen(false);
@@ -230,10 +231,10 @@ const ConvocatoriasAtleta = () => {
       Swal.fire({
         icon: 'success',
         title: 'Inscripción exitosa',
-        text: 'Puedes consultarla en "Mis Convocatorias".',
+        text: bib
+          ? `Tu número de corredor es ${String(bib).padStart(3, '0')}. Puedes consultarlo en "Mis Convocatorias".`
+          : 'Puedes consultarla en "Mis Convocatorias".',
         confirmButtonColor: COLORS.burgundy,
-        timer: 2200,
-        showConfirmButton: false,
       });
       cargarDatos();
     } catch (error) {
@@ -298,17 +299,10 @@ const ConvocatoriasAtleta = () => {
           <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
             {vista === 'lista' ? 'Convocatorias Disponibles' : 'Detalles de Convocatoria'}
           </Typography>
-          {vista === 'lista' && (
-            <Button
-              onClick={() => navigate('/atleta/mis-convocatorias')}
-              startIcon={<CheckIcon />}
-              sx={{ mt: 2, color: '#fff', borderColor: 'rgba(255,255,255,0.5)', textTransform: 'none', fontWeight: 700 }}
-              variant="outlined"
-              size="small"
-            >
-              Ver mis convocatorias inscritas
-            </Button>
-          )}
+
+           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
+             Consulta las convocatorias que hay disponibles para tu edad y género, filtra por evento, disciplina o categoría, y regístrate en las que te interesen.
+          </Typography>
         </Container>
       </Box>
 

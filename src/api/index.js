@@ -122,6 +122,9 @@ export const eventosAPI = {
   // Edición, borrado y estado del evento (admin)
   update: (id, data) => api.put(`/eventos/${id}`, data),
   toggleEstado: (id, estado) => api.put(`/eventos/${id}/estado`, { estado }),
+  // Finalizar/reabrir el evento por completo (distinto de toggleEstado, que
+  // es cancelar/activar). Al finalizar, cierra en cascada sus convocatorias.
+  finalizarEvento: (id, finalizar) => api.patch(`/eventos/${id}/finalizar`, { finalizado: finalizar }),
   deleteEvento: (id) => api.delete(`/eventos/${id}`),
   deleteConvocatoria: (convocatoriaId) => api.delete(`/eventos/convocatorias/${convocatoriaId}`),
   removerAtletaDeConvocatoria: (inscripcionId) => api.delete(`/eventos/participantes/${inscripcionId}`),
@@ -130,6 +133,9 @@ export const eventosAPI = {
     api.post(`/eventos/convocatorias/${convocatoriaId}/resultado`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   eliminarResultadoConvocatoria: (convocatoriaId) => api.delete(`/eventos/convocatorias/${convocatoriaId}/resultado`),
   updateConvocatoria: (convocatoriaId, data) => api.put(`/eventos/convocatorias/${convocatoriaId}`, data),
+
+  finalizarConvocatoria: (convocatoriaId, finalizar) =>
+  api.patch(`/eventos/convocatorias/${convocatoriaId}/estado`, { estado: !finalizar }),
 }
 
 export const notificacionesAPI = {
@@ -151,7 +157,11 @@ export const resultadosAPI = {
   create: (data) => api.post('/resultados', data),
   update: (id, data) => api.put(`/resultados/${id}`, data),
   remove: (id) => api.delete(`/resultados/${id}`),
+  getByConvocatoria: (convocatoriaId) => api.get(`/resultados/convocatoria/${convocatoriaId}`),
+  crearMasivo: (data) => api.post('/resultados/masivo', data),
+  removeByConvocatoria: (convocatoriaId) => api.delete(`/resultados/convocatoria/${convocatoriaId}`),
 }
+
 
 export const catalogosAPI = {
   getDisciplinas: () => api.get('/catalogos/disciplinas'),

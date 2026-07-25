@@ -39,26 +39,19 @@ import { atletasAPI, clubesAPI, entrenadoresAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-// --- Paleta institucional IVD ---
-// NOTA: el CREAM anterior (#e4e4e5) era un gris genérico, no el cream
-// institucional real. Se corrige aquí a #F5E8C7 para que coincida con el
-// resto de la plataforma (GestionarUsuarios, GestionClubesAdmin, etc).
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
   purple: '#7A4069',
-  cream: '#e4e4e5', // #F5E8C7
+  cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
   line: 'rgba(128,0,32,0.18)',
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
-/**
- * Panel de sección estilo "expediente institucional": borde definido +
- * franja superior de color en vez de sombra difusa, con un eyebrow en
- * mayúsculas en lugar del avatar circular flotante.
- */
+// Componente base para secciones
 const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   <Box
     sx={{
@@ -103,7 +96,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   </Box>
 );
 
-/** Un campo de dato dentro de un expediente (label chico + valor). */
+// Muestra un campo con etiqueta y valor
 const DatoCampo = ({ label, valor }) => (
   <Box>
     <Typography
@@ -121,10 +114,7 @@ const DatoCampo = ({ label, valor }) => (
   </Box>
 );
 
-/**
- * Tarjeta de solicitud con formato de "expediente": folio, estado y datos
- * de quien solicita, con botones de acción con etiqueta (no solo ícono).
- */
+// Tarjeta de solicitud de atleta o entrenador
 const ExpedienteSolicitud = ({ folio, nombre, campos, fecha, onAceptar, onRechazar }) => (
   <Box
     sx={{
@@ -217,7 +207,7 @@ const ExpedienteSolicitud = ({ folio, nombre, campos, fecha, onAceptar, onRechaz
   </Box>
 );
 
-const tableHeadSx = {
+const estilosCabeceraTabla = {
   fontWeight: 700,
   color: COLORS.cream,
   fontSize: '0.72rem',
@@ -225,10 +215,7 @@ const tableHeadSx = {
   letterSpacing: '0.04em',
 };
 
-/**
- * Tarjeta de perfil de un atleta disponible (sin club), con acción de
- * invitar o ver el perfil completo.
- */
+// Tarjeta de perfil de atleta disponible
 const AtletaPerfilCard = ({ atleta, invitacionPendiente, onInvitar, onVerPerfil }) => (
   <Box
     sx={{
@@ -311,10 +298,7 @@ const AtletaPerfilCard = ({ atleta, invitacionPendiente, onInvitar, onVerPerfil 
   </Box>
 );
 
-/**
- * Tarjeta de perfil de un entrenador disponible (sin club), con acción de
- * invitar o ver el perfil completo.
- */
+// Tarjeta de perfil de entrenador disponible
 const EntrenadorPerfilCard = ({ entrenador, invitacionPendiente, onInvitar, onVerPerfil }) => (
   <Box
     sx={{
@@ -420,44 +404,45 @@ const EntrenadorPerfilCard = ({ entrenador, invitacionPendiente, onInvitar, onVe
 const GestionAtletas = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
-  const [loadingEntrenadores, setLoadingEntrenadores] = useState(false);
-  const [loadingDisponibles, setLoadingDisponibles] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
+  const [cargandoEntrenadores, setCargandoEntrenadores] = useState(false);
+  const [cargandoDisponibles, setCargandoDisponibles] = useState(false);
+  const [cargandoDisponiblesEntrenadores, setCargandoDisponiblesEntrenadores] = useState(false);
   const [error, setError] = useState('');
   const [atletas, setAtletas] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
   const [entrenadores, setEntrenadores] = useState([]);
   const [solicitudesEntrenadores, setSolicitudesEntrenadores] = useState([]);
   const [atletasDisponibles, setAtletasDisponibles] = useState([]);
-  const [invitacionesEnviadas, setInvitacionesEnviadas] = useState([]); // atletaId de invitaciones pendientes
+  const [invitacionesEnviadas, setInvitacionesEnviadas] = useState([]);
   const [entrenadoresDisponibles, setEntrenadoresDisponibles] = useState([]);
-  const [loadingDisponiblesEntrenadores, setLoadingDisponiblesEntrenadores] = useState(false);
-  const [invitacionesEnviadasEntrenador, setInvitacionesEnviadasEntrenador] = useState([]); // entrenadorId pendientes
+  const [invitacionesEnviadasEntrenador, setInvitacionesEnviadasEntrenador] = useState([]);
+  const [invitando, setInvitando] = useState(null);
   const [invitandoEntrenador, setInvitandoEntrenador] = useState(null);
-  const [perfilEntrenadorDialogOpen, setPerfilEntrenadorDialogOpen] = useState(false);
-  const [perfilEntrenadorSeleccionado, setPerfilEntrenadorSeleccionado] = useState(null);
-  const [loadingPerfilEntrenador, setLoadingPerfilEntrenador] = useState(false);
-  const [modalExpulsionOpen, setModalExpulsionOpen] = useState(false);
-  const [atletaAExpulsar, setAtletaAExpulsar] = useState(null);
-  const [modalExpulsionEntrenadorOpen, setModalExpulsionEntrenadorOpen] = useState(false);
-  const [entrenadorAExpulsar, setEntrenadorAExpulsar] = useState(null);
-  const [activeTab, setActiveTab] = useState(0);
-  const [clubId, setClubId] = useState(null);
-  const [perfilDialogOpen, setPerfilDialogOpen] = useState(false);
+  const [perfilDialogAbierto, setPerfilDialogAbierto] = useState(false);
   const [perfilSeleccionado, setPerfilSeleccionado] = useState(null);
-  const [loadingPerfil, setLoadingPerfil] = useState(false);
-  const [invitando, setInvitando] = useState(null); // atletaId en proceso de invitación
+  const [cargandoPerfil, setCargandoPerfil] = useState(false);
+  const [perfilEntrenadorDialogAbierto, setPerfilEntrenadorDialogAbierto] = useState(false);
+  const [perfilEntrenadorSeleccionado, setPerfilEntrenadorSeleccionado] = useState(null);
+  const [cargandoPerfilEntrenador, setCargandoPerfilEntrenador] = useState(false);
+  const [modalExpulsionAbierto, setModalExpulsionAbierto] = useState(false);
+  const [atletaParaExpulsar, setAtletaParaExpulsar] = useState(null);
+  const [modalExpulsionEntrenadorAbierto, setModalExpulsionEntrenadorAbierto] = useState(false);
+  const [entrenadorParaExpulsar, setEntrenadorParaExpulsar] = useState(null);
+  const [pestaniaActiva, setPestaniaActiva] = useState(0);
+  const [idClub, setIdClub] = useState(null);
 
   useEffect(() => {
     if (!user?.id) {
       navigate('/login');
       return;
     }
-    obtenerClubIdYcargar();
+    obtenerClubYCargar();
   }, [user, navigate]);
 
-  const obtenerClubIdYcargar = async () => {
+  // Obtiene el club del usuario y carga todos los datos
+  const obtenerClubYCargar = async () => {
     try {
       const response = await clubesAPI.getAll();
       let clubes = response.data.clubes || response.data || [];
@@ -465,29 +450,30 @@ const GestionAtletas = () => {
       const club = clubes.find((c) => c.email === user.email);
       if (!club) {
         setError('No se encontró un club asociado a este usuario.');
-        setLoading(false);
+        setCargando(false);
         return;
       }
-      const idClub = club.id || club._id;
-      setClubId(idClub);
+      const idClubObtenido = club.id || club._id;
+      setIdClub(idClubObtenido);
       await Promise.all([
-        fetchAtletas(idClub),
-        fetchSolicitudes(idClub),
-        fetchEntrenadores(idClub),
-        fetchSolicitudesEntrenadores(idClub),
-        fetchInvitacionesEnviadas(idClub),
-        fetchAtletasDisponibles(),
-        fetchEntrenadoresDisponibles(),
-        fetchInvitacionesEnviadasEntrenador(idClub),
+        cargarAtletas(idClubObtenido),
+        cargarSolicitudes(idClubObtenido),
+        cargarEntrenadores(idClubObtenido),
+        cargarSolicitudesEntrenadores(idClubObtenido),
+        cargarInvitacionesEnviadas(idClubObtenido),
+        cargarAtletasDisponibles(),
+        cargarEntrenadoresDisponibles(),
+        cargarInvitacionesEnviadasEntrenador(idClubObtenido),
       ]);
-      setLoading(false);
+      setCargando(false);
     } catch (error) {
       console.error('Error al obtener clubId:', error);
       setError('Error al cargar los datos del club.');
-      setLoading(false);
+      setCargando(false);
     }
   };
 
+  // Normaliza los datos de un atleta
   const normalizarAtleta = (a) => ({
     id: a.id,
     nombreCompleto: [a.nombre, a.apellido_paterno, a.apellido_materno].filter(Boolean).join(' ') || 'Sin nombre',
@@ -503,7 +489,8 @@ const GestionAtletas = () => {
     fechaIngresoClub: a.fecha_ingreso_club || null,
   });
 
-  const fetchAtletas = async (idClub) => {
+  // Carga los atletas del club
+  const cargarAtletas = async (idClub) => {
     try {
       const response = await atletasAPI.getAll({ club_id: idClub });
       let data = response.data.atletas || response.data || [];
@@ -519,9 +506,10 @@ const GestionAtletas = () => {
     }
   };
 
-  const fetchAtletasDisponibles = async () => {
+  // Carga los atletas sin club
+  const cargarAtletasDisponibles = async () => {
     try {
-      setLoadingDisponibles(true);
+      setCargandoDisponibles(true);
       const response = await atletasAPI.getAll({ sin_club: true });
       let data = response.data.atletas || response.data || [];
       if (!Array.isArray(data)) data = [];
@@ -530,47 +518,39 @@ const GestionAtletas = () => {
       console.error('Error al obtener atletas disponibles:', error);
       setAtletasDisponibles([]);
     } finally {
-      setLoadingDisponibles(false);
+      setCargandoDisponibles(false);
     }
   };
 
-  /**
-   * `findSolicitudesClub` (atleta.model.js) hace JOIN con `usuarios` y
-   * regresa los campos del solicitante planos en la misma fila (no
-   * anidados): nombre, apellido_paterno, apellido_materno, email,
-   * telefono, edad, genero, atleta_id.
-   */
-  const normalizarSolicitudAtleta = (s) => ({
-    id: s.id,
-    atletaId: s.atleta_id ?? null,
-    nombreCompleto: [s.nombre, s.apellido_paterno, s.apellido_materno].filter(Boolean).join(' ') || 'Atleta sin nombre',
-    edad: s.edad ?? null,
-    genero: s.genero || null,
-    telefono: s.telefono || null,
-    email: s.email || null,
-    tipo: s.tipo || null,
-    fechaSolicitud: s.fecha_solicitud || null,
-  });
-
-  const fetchSolicitudes = async (idClub) => {
+  // Carga las solicitudes de atletas para el club
+  const cargarSolicitudes = async (idClub) => {
     try {
-      setLoadingSolicitudes(true);
+      setCargandoSolicitudes(true);
       const response = await atletasAPI.getSolicitudes({ club_id: idClub, tipo: 'asociar' });
       let data = response.data.solicitudes || response.data || [];
       if (!Array.isArray(data)) data = [];
-      const pendientes = data.filter((s) => s.estado === 'pendiente').map(normalizarSolicitudAtleta);
+      const pendientes = data.filter((s) => s.estado === 'pendiente').map((s) => ({
+        id: s.id,
+        atletaId: s.atleta_id ?? null,
+        nombreCompleto: [s.nombre, s.apellido_paterno, s.apellido_materno].filter(Boolean).join(' ') || 'Atleta sin nombre',
+        edad: s.edad ?? null,
+        genero: s.genero || null,
+        telefono: s.telefono || null,
+        email: s.email || null,
+        tipo: s.tipo || null,
+        fechaSolicitud: s.fecha_solicitud || null,
+      }));
       setSolicitudes(pendientes);
     } catch (error) {
       console.error('Error al cargar solicitudes de atletas:', error);
       setSolicitudes([]);
     } finally {
-      setLoadingSolicitudes(false);
+      setCargandoSolicitudes(false);
     }
   };
 
-  // Invitaciones que este club ya envió y siguen pendientes de respuesta
-  // del atleta — se usan para no mostrar "Invitar" dos veces al mismo atleta.
-  const fetchInvitacionesEnviadas = async (idClub) => {
+  // Carga las invitaciones enviadas a atletas (pendientes)
+  const cargarInvitacionesEnviadas = async (idClub) => {
     try {
       const response = await atletasAPI.getSolicitudes({ club_id: idClub, tipo: 'invitacion' });
       let data = response.data.solicitudes || response.data || [];
@@ -583,36 +563,39 @@ const GestionAtletas = () => {
     }
   };
 
-  const handleAceptarSolicitud = async (solicitudId) => {
+  // Acepta una solicitud de atleta
+  const manejarAceptarSolicitud = async (solicitudId) => {
     try {
       await atletasAPI.procesarSolicitud(solicitudId, { estado: 'aceptada' });
       setError('');
-      await fetchSolicitudes(clubId);
-      await fetchAtletas(clubId);
-      await fetchAtletasDisponibles();
+      await cargarSolicitudes(idClub);
+      await cargarAtletas(idClub);
+      await cargarAtletasDisponibles();
     } catch (error) {
       console.error('Error al aceptar solicitud:', error);
       setError('Error al procesar la solicitud. Intente de nuevo.');
     }
   };
 
-  const handleRechazarSolicitud = async (solicitudId) => {
+  // Rechaza una solicitud de atleta
+  const manejarRechazarSolicitud = async (solicitudId) => {
     try {
       await atletasAPI.procesarSolicitud(solicitudId, { estado: 'rechazada' });
       setError('');
-      await fetchSolicitudes(clubId);
+      await cargarSolicitudes(idClub);
     } catch (error) {
       console.error('Error al rechazar solicitud:', error);
       setError('Error al procesar la solicitud. Intente de nuevo.');
     }
   };
 
-  const handleInvitarAtleta = async (atletaId) => {
+  // Invita a un atleta al club
+  const manejarInvitarAtleta = async (atletaId) => {
     try {
       setInvitando(atletaId);
-      await atletasAPI.invitarClub(atletaId, { club_id: clubId });
+      await atletasAPI.invitarClub(atletaId, { club_id: idClub });
       setError('');
-      await fetchInvitacionesEnviadas(clubId);
+      await cargarInvitacionesEnviadas(idClub);
     } catch (error) {
       console.error('Error al invitar atleta:', error);
       setError(error.response?.data?.error || 'Error al enviar la invitación. Intente de nuevo.');
@@ -621,10 +604,11 @@ const GestionAtletas = () => {
     }
   };
 
-  const handleVerPerfil = async (atletaId) => {
-    setPerfilDialogOpen(true);
+  // Abre el diálogo de perfil de atleta
+  const manejarVerPerfil = async (atletaId) => {
+    setPerfilDialogAbierto(true);
     setPerfilSeleccionado(null);
-    setLoadingPerfil(true);
+    setCargandoPerfil(true);
     try {
       const response = await atletasAPI.getById(atletaId);
       const data = response.data.atleta || response.data;
@@ -633,28 +617,29 @@ const GestionAtletas = () => {
       console.error('Error al obtener el perfil del atleta:', error);
       setPerfilSeleccionado(null);
     } finally {
-      setLoadingPerfil(false);
+      setCargandoPerfil(false);
     }
   };
 
   const cerrarPerfilDialog = () => {
-    setPerfilDialogOpen(false);
+    setPerfilDialogAbierto(false);
     setPerfilSeleccionado(null);
   };
 
-  const handleExpulsarAtleta = (atleta) => {
-    setAtletaAExpulsar(atleta);
-    setModalExpulsionOpen(true);
+  // Expulsa un atleta del club
+  const manejarExpulsarAtleta = (atleta) => {
+    setAtletaParaExpulsar(atleta);
+    setModalExpulsionAbierto(true);
   };
 
   const confirmarExpulsion = async () => {
     try {
-      await atletasAPI.updateClub(atletaAExpulsar.id, { club_id: null });
+      await atletasAPI.updateClub(atletaParaExpulsar.id, { club_id: null });
       setError('');
-      setModalExpulsionOpen(false);
-      setAtletaAExpulsar(null);
-      await fetchAtletas(clubId);
-      await fetchAtletasDisponibles();
+      setModalExpulsionAbierto(false);
+      setAtletaParaExpulsar(null);
+      await cargarAtletas(idClub);
+      await cargarAtletasDisponibles();
     } catch (error) {
       console.error('Error al expulsar atleta:', error);
       setError('Error al expulsar al atleta. Intente de nuevo.');
@@ -662,38 +647,14 @@ const GestionAtletas = () => {
   };
 
   const cancelarExpulsion = () => {
-    setModalExpulsionOpen(false);
-    setAtletaAExpulsar(null);
+    setModalExpulsionAbierto(false);
+    setAtletaParaExpulsar(null);
   };
 
-  const calcularEdad = (fecha) => {
-    if (!fecha) return 'N/A';
-    const hoy = new Date();
-    const nac = new Date(fecha);
-    let edad = hoy.getFullYear() - nac.getFullYear();
-    const m = hoy.getMonth() - nac.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
-    return edad;
-  };
-
-  const formatearFecha = (fecha) => {
-    if (!fecha) return 'N/A';
+  // Carga los entrenadores del club
+  const cargarEntrenadores = async (idClub) => {
     try {
-      const d = new Date(fecha);
-      if (isNaN(d.getTime())) return 'N/A';
-      return d.toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return 'N/A';
-    }
-  };
-
-  const fetchEntrenadores = async (idClub) => {
-    try {
-      setLoadingEntrenadores(true);
+      setCargandoEntrenadores(true);
       const response = await entrenadoresAPI.getByClub(idClub);
       let data = response.data.entrenadores || response.data || [];
       if (!Array.isArray(data)) data = [];
@@ -710,31 +671,25 @@ const GestionAtletas = () => {
       console.error('Error al obtener entrenadores:', error);
       setEntrenadores([]);
     } finally {
-      setLoadingEntrenadores(false);
+      setCargandoEntrenadores(false);
     }
   };
 
-  /**
-   * `findSolicitudesByClub` (entrenadores.model.js) también regresa los
-   * campos del solicitante planos: nombre, apellido_paterno,
-   * apellido_materno, email, telefono, anos_experiencia.
-   */
-  const normalizarSolicitudEntrenador = (s) => ({
-    id: s.id,
-    nombreCompleto: [s.nombre, s.apellido_paterno, s.apellido_materno].filter(Boolean).join(' ') || 'Entrenador sin nombre',
-    email: s.email || null,
-    telefono: s.telefono || null,
-    añosExperiencia: s.anos_experiencia ?? null,
-    mensaje: s.mensaje || null,
-    fechaSolicitud: s.fecha_solicitud || null,
-  });
-
-  const fetchSolicitudesEntrenadores = async (idClub) => {
+  // Carga las solicitudes de entrenadores
+  const cargarSolicitudesEntrenadores = async (idClub) => {
     try {
       const response = await entrenadoresAPI.getSolicitudesByClub(idClub);
       let data = response.data.solicitudes || response.data || [];
       if (!Array.isArray(data)) data = [];
-      const pendientes = data.filter((s) => s.estado === 'pendiente').map(normalizarSolicitudEntrenador);
+      const pendientes = data.filter((s) => s.estado === 'pendiente').map((s) => ({
+        id: s.id,
+        nombreCompleto: [s.nombre, s.apellido_paterno, s.apellido_materno].filter(Boolean).join(' ') || 'Entrenador sin nombre',
+        email: s.email || null,
+        telefono: s.telefono || null,
+        añosExperiencia: s.anos_experiencia ?? null,
+        mensaje: s.mensaje || null,
+        fechaSolicitud: s.fecha_solicitud || null,
+      }));
       setSolicitudesEntrenadores(pendientes);
     } catch (error) {
       console.error('Error al cargar solicitudes de entrenadores:', error);
@@ -742,41 +697,44 @@ const GestionAtletas = () => {
     }
   };
 
-  const handleAceptarSolicitudEntrenador = async (solicitudId) => {
+  // Acepta una solicitud de entrenador
+  const manejarAceptarSolicitudEntrenador = async (solicitudId) => {
     try {
       await entrenadoresAPI.updateSolicitud(solicitudId, { estado: 'aceptada' });
       setError('');
-      await fetchSolicitudesEntrenadores(clubId);
-      await fetchEntrenadores(clubId);
+      await cargarSolicitudesEntrenadores(idClub);
+      await cargarEntrenadores(idClub);
     } catch (error) {
       console.error('Error al aceptar solicitud de entrenador:', error);
       setError('Error al procesar la solicitud del entrenador.');
     }
   };
 
-  const handleRechazarSolicitudEntrenador = async (solicitudId) => {
+  // Rechaza una solicitud de entrenador
+  const manejarRechazarSolicitudEntrenador = async (solicitudId) => {
     try {
       await entrenadoresAPI.updateSolicitud(solicitudId, { estado: 'rechazada' });
       setError('');
-      await fetchSolicitudesEntrenadores(clubId);
+      await cargarSolicitudesEntrenadores(idClub);
     } catch (error) {
       console.error('Error al rechazar solicitud de entrenador:', error);
       setError('Error al procesar la solicitud del entrenador.');
     }
   };
 
-  const handleExpulsarEntrenador = (entrenador) => {
-    setEntrenadorAExpulsar(entrenador);
-    setModalExpulsionEntrenadorOpen(true);
+  // Expulsa un entrenador del club
+  const manejarExpulsarEntrenador = (entrenador) => {
+    setEntrenadorParaExpulsar(entrenador);
+    setModalExpulsionEntrenadorAbierto(true);
   };
 
   const confirmarExpulsionEntrenador = async () => {
     try {
-      await entrenadoresAPI.updateClub(entrenadorAExpulsar.id, { club_id: null });
+      await entrenadoresAPI.updateClub(entrenadorParaExpulsar.id, { club_id: null });
       setError('');
-      setModalExpulsionEntrenadorOpen(false);
-      setEntrenadorAExpulsar(null);
-      await fetchEntrenadores(clubId);
+      setModalExpulsionEntrenadorAbierto(false);
+      setEntrenadorParaExpulsar(null);
+      await cargarEntrenadores(idClub);
     } catch (error) {
       console.error('Error al expulsar entrenador:', error);
       setError('Error al expulsar al entrenador. Intente de nuevo.');
@@ -784,42 +742,40 @@ const GestionAtletas = () => {
   };
 
   const cancelarExpulsionEntrenador = () => {
-    setModalExpulsionEntrenadorOpen(false);
-    setEntrenadorAExpulsar(null);
+    setModalExpulsionEntrenadorAbierto(false);
+    setEntrenadorParaExpulsar(null);
   };
 
-  const normalizarEntrenador = (e) => ({
-    id: e.id,
-    nombreCompleto: [e.nombre, e.apellido_paterno, e.apellido_materno].filter(Boolean).join(' ') || 'Sin nombre',
-    gmail: e.email || 'N/A',
-    telefono: e.telefono || 'N/A',
-    especialidades: e.especialidades || [],
-    certificaciones: e.certificaciones || [],
-    añosExperiencia: e.anos_experiencia ?? 'N/A',
-    curp: e.curp || 'N/A',
-    fechaNacimiento: e.fecha_nacimiento || null,
-    estadoNacimiento: e.estado_nacimiento || 'N/A',
-    sexo: e.genero || 'N/A',
-  });
-
-  // Entrenadores sin club asignado, disponibles para invitar.
-  const fetchEntrenadoresDisponibles = async () => {
+  // Carga los entrenadores sin club
+  const cargarEntrenadoresDisponibles = async () => {
     try {
-      setLoadingDisponiblesEntrenadores(true);
+      setCargandoDisponiblesEntrenadores(true);
       const response = await entrenadoresAPI.getAll({ sin_club: true });
       let data = response.data.entrenadores || response.data || [];
       if (!Array.isArray(data)) data = [];
-      setEntrenadoresDisponibles(data.map(normalizarEntrenador));
+      setEntrenadoresDisponibles(data.map((e) => ({
+        id: e.id,
+        nombreCompleto: [e.nombre, e.apellido_paterno, e.apellido_materno].filter(Boolean).join(' ') || 'Sin nombre',
+        gmail: e.email || 'N/A',
+        telefono: e.telefono || 'N/A',
+        especialidades: e.especialidades || [],
+        certificaciones: e.certificaciones || [],
+        añosExperiencia: e.anos_experiencia ?? 'N/A',
+        curp: e.curp || 'N/A',
+        fechaNacimiento: e.fecha_nacimiento || null,
+        estadoNacimiento: e.estado_nacimiento || 'N/A',
+        sexo: e.genero || 'N/A',
+      })));
     } catch (error) {
       console.error('Error al obtener entrenadores disponibles:', error);
       setEntrenadoresDisponibles([]);
     } finally {
-      setLoadingDisponiblesEntrenadores(false);
+      setCargandoDisponiblesEntrenadores(false);
     }
   };
 
-  // Invitaciones que este club ya envió a entrenadores y siguen pendientes.
-  const fetchInvitacionesEnviadasEntrenador = async (idClub) => {
+  // Carga las invitaciones enviadas a entrenadores
+  const cargarInvitacionesEnviadasEntrenador = async (idClub) => {
     try {
       const response = await entrenadoresAPI.getSolicitudesByClub(idClub, { tipo: 'invitacion' });
       let data = response.data.solicitudes || response.data || [];
@@ -832,12 +788,13 @@ const GestionAtletas = () => {
     }
   };
 
-  const handleInvitarEntrenador = async (entrenadorId) => {
+  // Invita a un entrenador al club
+  const manejarInvitarEntrenador = async (entrenadorId) => {
     try {
       setInvitandoEntrenador(entrenadorId);
-      await entrenadoresAPI.invitarClub(entrenadorId, { club_id: clubId });
+      await entrenadoresAPI.invitarClub(entrenadorId, { club_id: idClub });
       setError('');
-      await fetchInvitacionesEnviadasEntrenador(clubId);
+      await cargarInvitacionesEnviadasEntrenador(idClub);
     } catch (error) {
       console.error('Error al invitar entrenador:', error);
       setError(error.response?.data?.error || 'Error al enviar la invitación. Intente de nuevo.');
@@ -846,34 +803,75 @@ const GestionAtletas = () => {
     }
   };
 
-  const handleVerPerfilEntrenador = async (entrenadorId) => {
-    setPerfilEntrenadorDialogOpen(true);
+  // Abre el diálogo de perfil de entrenador
+  const manejarVerPerfilEntrenador = async (entrenadorId) => {
+    setPerfilEntrenadorDialogAbierto(true);
     setPerfilEntrenadorSeleccionado(null);
-    setLoadingPerfilEntrenador(true);
+    setCargandoPerfilEntrenador(true);
     try {
       const response = await entrenadoresAPI.getById(entrenadorId);
       const data = response.data.entrenador || response.data;
-      setPerfilEntrenadorSeleccionado(normalizarEntrenador(data));
+      setPerfilEntrenadorSeleccionado({
+        id: data.id,
+        nombreCompleto: [data.nombre, data.apellido_paterno, data.apellido_materno].filter(Boolean).join(' ') || 'Sin nombre',
+        gmail: data.email || 'N/A',
+        telefono: data.telefono || 'N/A',
+        especialidades: data.especialidades || [],
+        certificaciones: data.certificaciones || [],
+        añosExperiencia: data.anos_experiencia ?? 'N/A',
+        curp: data.curp || 'N/A',
+        fechaNacimiento: data.fecha_nacimiento || null,
+        estadoNacimiento: data.estado_nacimiento || 'N/A',
+        sexo: data.genero || 'N/A',
+      });
     } catch (error) {
       console.error('Error al obtener el perfil del entrenador:', error);
       setPerfilEntrenadorSeleccionado(null);
     } finally {
-      setLoadingPerfilEntrenador(false);
+      setCargandoPerfilEntrenador(false);
     }
   };
 
   const cerrarPerfilEntrenadorDialog = () => {
-    setPerfilEntrenadorDialogOpen(false);
+    setPerfilEntrenadorDialogAbierto(false);
     setPerfilEntrenadorSeleccionado(null);
   };
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
+  const manejarCambioPestania = (event, newValue) => {
+    setPestaniaActiva(newValue);
   };
 
+  // Genera un folio a partir de un ID
   const folioDe = (id) => String(id ?? '').replace(/\D/g, '').slice(-6).padStart(6, '0') || '000000';
 
-  if (loading) {
+  // Calcula edad a partir de fecha de nacimiento
+  const calcularEdad = (fecha) => {
+    if (!fecha) return 'N/A';
+    const hoy = new Date();
+    const nac = new Date(fecha);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const m = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+    return edad;
+  };
+
+  // Formatea fecha en formato largo
+  const formatearFecha = (fecha) => {
+    if (!fecha) return 'N/A';
+    try {
+      const d = new Date(fecha);
+      if (isNaN(d.getTime())) return 'N/A';
+      return d.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -883,8 +881,7 @@ const GestionAtletas = () => {
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera superior */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
         <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -897,7 +894,6 @@ const GestionAtletas = () => {
       </Box>
 
       <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 3, md: 4 }, pb: { xs: 5, md: 7 } }}>
-
         {error && (
           <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
             {error}
@@ -906,8 +902,8 @@ const GestionAtletas = () => {
 
         <Box sx={{ borderBottom: `2px solid ${COLORS.line}`, mb: 4 }}>
           <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
+            value={pestaniaActiva}
+            onChange={manejarCambioPestania}
             sx={{
               '& .MuiTab-root': {
                 color: COLORS.purple,
@@ -927,10 +923,9 @@ const GestionAtletas = () => {
           </Tabs>
         </Box>
 
-        {/* Contenido pestaña Atletas */}
-        {activeTab === 0 && (
+        {/* Pestaña Atletas */}
+        {pestaniaActiva === 0 && (
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, gap: 3, alignItems: 'start' }}>
-            {/* Solicitudes de atletas */}
             <Box>
               <SectionCard
                 icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
@@ -946,7 +941,7 @@ const GestionAtletas = () => {
                   )
                 }
               >
-                {loadingSolicitudes ? (
+                {cargandoSolicitudes ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                     <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
                   </Box>
@@ -974,8 +969,8 @@ const GestionAtletas = () => {
                           { label: 'Teléfono', valor: s.telefono },
                           { label: 'Correo', valor: s.email },
                         ]}
-                        onAceptar={() => handleAceptarSolicitud(s.id)}
-                        onRechazar={() => handleRechazarSolicitud(s.id)}
+                        onAceptar={() => manejarAceptarSolicitud(s.id)}
+                        onRechazar={() => manejarRechazarSolicitud(s.id)}
                       />
                     ))}
                   </Box>
@@ -983,7 +978,6 @@ const GestionAtletas = () => {
               </SectionCard>
             </Box>
 
-            {/* Atletas del club */}
             <Box>
               <SectionCard
                 icon={<PeopleIcon sx={{ fontSize: 16 }} />}
@@ -1008,14 +1002,14 @@ const GestionAtletas = () => {
                     <Table size="small">
                       <TableHead>
                         <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                          <TableCell sx={tableHeadSx}>Nombre</TableCell>
-                          <TableCell sx={tableHeadSx}>CURP</TableCell>
-                          <TableCell sx={tableHeadSx}>Teléfono</TableCell>
-                          <TableCell sx={tableHeadSx}>Correo</TableCell>
-                          <TableCell sx={tableHeadSx}>Género</TableCell>
-                          <TableCell sx={tableHeadSx}>Edad</TableCell>
-                          <TableCell sx={tableHeadSx}>Fecha Ingreso</TableCell>
-                          <TableCell sx={tableHeadSx} align="center">Acciones</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Nombre</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>CURP</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Teléfono</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Correo</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Género</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Edad</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Fecha Ingreso</TableCell>
+                          <TableCell sx={estilosCabeceraTabla} align="center">Acciones</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1053,7 +1047,7 @@ const GestionAtletas = () => {
                             <TableCell sx={{ color: COLORS.ink }}>{calcularEdad(a.fechaNacimiento)} años</TableCell>
                             <TableCell sx={{ color: COLORS.ink }}>{formatearFecha(a.fechaIngresoClub)}</TableCell>
                             <TableCell align="center">
-                              <IconButton color="error" onClick={() => handleExpulsarAtleta(a)} title="Expulsar" size="small">
+                              <IconButton color="error" onClick={() => manejarExpulsarAtleta(a)} title="Expulsar" size="small">
                                 <PersonRemoveIcon fontSize="small" />
                               </IconButton>
                             </TableCell>
@@ -1068,10 +1062,9 @@ const GestionAtletas = () => {
           </Box>
         )}
 
-        {/* Contenido pestaña Entrenadores */}
-        {activeTab === 1 && (
+        {/* Pestaña Entrenadores */}
+        {pestaniaActiva === 1 && (
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, gap: 3, alignItems: 'start' }}>
-            {/* Solicitudes de entrenadores */}
             <Box>
               <SectionCard
                 icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
@@ -1087,7 +1080,7 @@ const GestionAtletas = () => {
                   )
                 }
               >
-                {loadingEntrenadores ? (
+                {cargandoEntrenadores ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                     <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
                   </Box>
@@ -1115,8 +1108,8 @@ const GestionAtletas = () => {
                           { label: 'Años de experiencia', valor: s.añosExperiencia != null ? s.añosExperiencia : 'N/A' },
                           { label: 'Mensaje', valor: s.mensaje || 'Sin mensaje' },
                         ]}
-                        onAceptar={() => handleAceptarSolicitudEntrenador(s.id)}
-                        onRechazar={() => handleRechazarSolicitudEntrenador(s.id)}
+                        onAceptar={() => manejarAceptarSolicitudEntrenador(s.id)}
+                        onRechazar={() => manejarRechazarSolicitudEntrenador(s.id)}
                       />
                     ))}
                   </Box>
@@ -1124,7 +1117,6 @@ const GestionAtletas = () => {
               </SectionCard>
             </Box>
 
-            {/* Entrenadores del club */}
             <Box>
               <SectionCard
                 icon={<FitnessCenterIcon sx={{ fontSize: 16 }} />}
@@ -1149,12 +1141,12 @@ const GestionAtletas = () => {
                     <Table size="small">
                       <TableHead>
                         <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                          <TableCell sx={tableHeadSx}>Nombre</TableCell>
-                          <TableCell sx={tableHeadSx}>Email</TableCell>
-                          <TableCell sx={tableHeadSx}>Teléfono</TableCell>
-                          <TableCell sx={tableHeadSx}>Especialidades</TableCell>
-                          <TableCell sx={tableHeadSx}>Años Exp.</TableCell>
-                          <TableCell sx={tableHeadSx} align="center">Acciones</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Nombre</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Email</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Teléfono</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Especialidades</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Años Exp.</TableCell>
+                          <TableCell sx={estilosCabeceraTabla} align="center">Acciones</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1199,7 +1191,7 @@ const GestionAtletas = () => {
                             </TableCell>
                             <TableCell sx={{ color: COLORS.ink }}>{e.añosExperiencia}</TableCell>
                             <TableCell align="center">
-                              <IconButton color="error" onClick={() => handleExpulsarEntrenador(e)} title="Expulsar" size="small">
+                              <IconButton color="error" onClick={() => manejarExpulsarEntrenador(e)} title="Expulsar" size="small">
                                 <PersonRemoveIcon fontSize="small" />
                               </IconButton>
                             </TableCell>
@@ -1214,56 +1206,56 @@ const GestionAtletas = () => {
           </Box>
         )}
 
-        {/* Contenido pestaña Atletas Disponibles */}
-        {activeTab === 2 && (
+        {/* Pestaña Atletas Disponibles */}
+        {pestaniaActiva === 2 && (
           <Box>
             <SectionCard
               icon={<SearchIcon sx={{ fontSize: 16 }} />}
               eyebrow="Atletas sin club"
-                title="Atletas Disponibles"
-                action={
-                  atletasDisponibles.length > 0 && (
-                    <Chip
-                      label={`${atletasDisponibles.length} disponibles`}
-                      size="small"
-                      sx={{ bgcolor: COLORS.purple, color: '#fff', fontWeight: 700 }}
+              title="Atletas Disponibles"
+              action={
+                atletasDisponibles.length > 0 && (
+                  <Chip
+                    label={`${atletasDisponibles.length} disponibles`}
+                    size="small"
+                    sx={{ bgcolor: COLORS.purple, color: '#fff', fontWeight: 700 }}
+                  />
+                )
+              }
+            >
+              {cargandoDisponibles ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
+                </Box>
+              ) : atletasDisponibles.length === 0 ? (
+                <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
+                  No hay atletas independientes disponibles en este momento.
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                    gap: 2,
+                  }}
+                >
+                  {atletasDisponibles.map((a) => (
+                    <AtletaPerfilCard
+                      key={a.id}
+                      atleta={a}
+                      invitacionPendiente={invitacionesEnviadas.includes(a.id) || invitando === a.id}
+                      onInvitar={() => manejarInvitarAtleta(a.id)}
+                      onVerPerfil={() => manejarVerPerfil(a.id)}
                     />
-                  )
-                }
-              >
-                {loadingDisponibles ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
-                  </Box>
-                ) : atletasDisponibles.length === 0 ? (
-                  <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
-                    No hay atletas independientes disponibles en este momento.
-                  </Typography>
-                ) : (
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                      gap: 2,
-                    }}
-                  >
-                    {atletasDisponibles.map((a) => (
-                      <AtletaPerfilCard
-                        key={a.id}
-                        atleta={a}
-                        invitacionPendiente={invitacionesEnviadas.includes(a.id) || invitando === a.id}
-                        onInvitar={() => handleInvitarAtleta(a.id)}
-                        onVerPerfil={() => handleVerPerfil(a.id)}
-                      />
-                    ))}
-                  </Box>
-                )}
-              </SectionCard>
+                  ))}
+                </Box>
+              )}
+            </SectionCard>
           </Box>
         )}
 
-        {/* Contenido pestaña Entrenadores Disponibles */}
-        {activeTab === 3 && (
+        {/* Pestaña Entrenadores Disponibles */}
+        {pestaniaActiva === 3 && (
           <Box>
             <SectionCard
               icon={<SearchIcon sx={{ fontSize: 16 }} />}
@@ -1279,7 +1271,7 @@ const GestionAtletas = () => {
                 )
               }
             >
-              {loadingDisponiblesEntrenadores ? (
+              {cargandoDisponiblesEntrenadores ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                   <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
                 </Box>
@@ -1300,8 +1292,8 @@ const GestionAtletas = () => {
                       key={e.id}
                       entrenador={e}
                       invitacionPendiente={invitacionesEnviadasEntrenador.includes(e.id) || invitandoEntrenador === e.id}
-                      onInvitar={() => handleInvitarEntrenador(e.id)}
-                      onVerPerfil={() => handleVerPerfilEntrenador(e.id)}
+                      onInvitar={() => manejarInvitarEntrenador(e.id)}
+                      onVerPerfil={() => manejarVerPerfilEntrenador(e.id)}
                     />
                   ))}
                 </Box>
@@ -1311,13 +1303,69 @@ const GestionAtletas = () => {
         )}
       </Container>
 
+      {/* Diálogo de perfil de atleta */}
+      <Dialog open={perfilDialogAbierto} onClose={cerrarPerfilDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Perfil del Atleta</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {cargandoPerfil ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
+            </Box>
+          ) : !perfilSeleccionado ? (
+            <Typography variant="body2" color="textSecondary">
+              No se pudo cargar el perfil del atleta.
+            </Typography>
+          ) : (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                <Avatar sx={{ width: 48, height: 48, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
+                  {perfilSeleccionado.nombreCompleto.charAt(0)}
+                </Avatar>
+                <Typography variant="h6" sx={{ color: COLORS.ink, fontWeight: 700 }}>
+                  {perfilSeleccionado.nombreCompleto}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5 }}>
+                <DatoCampo label="CURP" valor={perfilSeleccionado.curp} />
+                <DatoCampo label="Género" valor={perfilSeleccionado.sexo} />
+                <DatoCampo label="Edad" valor={perfilSeleccionado.edad !== null ? `${perfilSeleccionado.edad} años` : 'N/A'} />
+                <DatoCampo label="Fecha de nacimiento" valor={formatearFecha(perfilSeleccionado.fechaNacimiento)} />
+                <DatoCampo label="Estado de nacimiento" valor={perfilSeleccionado.estadoNacimiento} />
+                <DatoCampo label="Municipio" valor={perfilSeleccionado.municipio} />
+                <DatoCampo label="Teléfono" valor={perfilSeleccionado.telefono} />
+                <DatoCampo label="Correo" valor={perfilSeleccionado.gmail} />
+                <DatoCampo label="Lugar de entrenamiento" valor={perfilSeleccionado.lugarEntrenamiento} />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={cerrarPerfilDialog} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+            Cerrar
+          </Button>
+          {perfilSeleccionado && (
+            <Button
+              variant="contained"
+              startIcon={<SendIcon fontSize="small" />}
+              disabled={invitacionesEnviadas.includes(perfilSeleccionado.id) || invitando === perfilSeleccionado.id}
+              onClick={() => manejarInvitarAtleta(perfilSeleccionado.id)}
+              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+            >
+              {invitacionesEnviadas.includes(perfilSeleccionado.id) ? 'Invitación enviada' : 'Invitar al club'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Diálogo de perfil de entrenador */}
-      <Dialog open={perfilEntrenadorDialogOpen} onClose={cerrarPerfilEntrenadorDialog} maxWidth="sm" fullWidth>
+      <Dialog open={perfilEntrenadorDialogAbierto} onClose={cerrarPerfilEntrenadorDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Perfil del Entrenador</Typography>
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
-          {loadingPerfilEntrenador ? (
+          {cargandoPerfilEntrenador ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
               <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
             </Box>
@@ -1393,7 +1441,7 @@ const GestionAtletas = () => {
               variant="contained"
               startIcon={<SendIcon fontSize="small" />}
               disabled={invitacionesEnviadasEntrenador.includes(perfilEntrenadorSeleccionado.id) || invitandoEntrenador === perfilEntrenadorSeleccionado.id}
-              onClick={() => handleInvitarEntrenador(perfilEntrenadorSeleccionado.id)}
+              onClick={() => manejarInvitarEntrenador(perfilEntrenadorSeleccionado.id)}
               sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
             >
               {invitacionesEnviadasEntrenador.includes(perfilEntrenadorSeleccionado.id) ? 'Invitación enviada' : 'Invitar al club'}
@@ -1402,64 +1450,8 @@ const GestionAtletas = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo de perfil de atleta */}
-      <Dialog open={perfilDialogOpen} onClose={cerrarPerfilDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Perfil del Atleta</Typography>
-        </DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
-          {loadingPerfil ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
-            </Box>
-          ) : !perfilSeleccionado ? (
-            <Typography variant="body2" color="textSecondary">
-              No se pudo cargar el perfil del atleta.
-            </Typography>
-          ) : (
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                <Avatar sx={{ width: 48, height: 48, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
-                  {perfilSeleccionado.nombreCompleto.charAt(0)}
-                </Avatar>
-                <Typography variant="h6" sx={{ color: COLORS.ink, fontWeight: 700 }}>
-                  {perfilSeleccionado.nombreCompleto}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5 }}>
-                <DatoCampo label="CURP" valor={perfilSeleccionado.curp} />
-                <DatoCampo label="Género" valor={perfilSeleccionado.sexo} />
-                <DatoCampo label="Edad" valor={perfilSeleccionado.edad !== null ? `${perfilSeleccionado.edad} años` : 'N/A'} />
-                <DatoCampo label="Fecha de nacimiento" valor={formatearFecha(perfilSeleccionado.fechaNacimiento)} />
-                <DatoCampo label="Estado de nacimiento" valor={perfilSeleccionado.estadoNacimiento} />
-                <DatoCampo label="Municipio" valor={perfilSeleccionado.municipio} />
-                <DatoCampo label="Teléfono" valor={perfilSeleccionado.telefono} />
-                <DatoCampo label="Correo" valor={perfilSeleccionado.gmail} />
-                <DatoCampo label="Lugar de entrenamiento" valor={perfilSeleccionado.lugarEntrenamiento} />
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={cerrarPerfilDialog} sx={{ color: COLORS.purple, fontWeight: 600 }}>
-            Cerrar
-          </Button>
-          {perfilSeleccionado && (
-            <Button
-              variant="contained"
-              startIcon={<SendIcon fontSize="small" />}
-              disabled={invitacionesEnviadas.includes(perfilSeleccionado.id) || invitando === perfilSeleccionado.id}
-              onClick={() => handleInvitarAtleta(perfilSeleccionado.id)}
-              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
-            >
-              {invitacionesEnviadas.includes(perfilSeleccionado.id) ? 'Invitación enviada' : 'Invitar al club'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
-
       {/* Diálogo confirmar expulsión atleta */}
-      <Dialog open={modalExpulsionOpen} onClose={cancelarExpulsion} maxWidth="sm" fullWidth>
+      <Dialog open={modalExpulsionAbierto} onClose={cancelarExpulsion} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WarningIcon sx={{ color: '#fff' }} />
@@ -1469,7 +1461,7 @@ const GestionAtletas = () => {
         <DialogContent sx={{ mt: 2 }}>
           <Typography variant="body1" paragraph>
             ¿Estás seguro de que quieres expulsar a{' '}
-            <strong>{atletaAExpulsar?.nombreCompleto}</strong> del club?
+            <strong>{atletaParaExpulsar?.nombreCompleto}</strong> del club?
           </Typography>
           <Typography variant="body2" color="textSecondary">
             Esta acción:
@@ -1497,7 +1489,7 @@ const GestionAtletas = () => {
       </Dialog>
 
       {/* Diálogo confirmar expulsión entrenador */}
-      <Dialog open={modalExpulsionEntrenadorOpen} onClose={cancelarExpulsionEntrenador} maxWidth="sm" fullWidth>
+      <Dialog open={modalExpulsionEntrenadorAbierto} onClose={cancelarExpulsionEntrenador} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WarningIcon sx={{ color: '#fff' }} />
@@ -1507,7 +1499,7 @@ const GestionAtletas = () => {
         <DialogContent sx={{ mt: 2 }}>
           <Typography variant="body1" paragraph>
             ¿Estás seguro de que quieres expulsar a{' '}
-            <strong>{entrenadorAExpulsar?.nombreCompleto}</strong> del club?
+            <strong>{entrenadorParaExpulsar?.nombreCompleto}</strong> del club?
           </Typography>
           <Typography variant="body2" color="textSecondary">
             Esta acción:
