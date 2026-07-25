@@ -41,7 +41,7 @@ import { atletasAPI, clubesAPI, eventosAPI, resultadosAPI, notificacionesAPI } f
 import { useAuth } from '../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-// --- Paleta institucional IVD (misma que ClubAtleta.jsx / PaginaPrincipalAtleta.jsx) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -53,6 +53,7 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
+// Componente base para las secciones del panel
 const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   <Box
     sx={{
@@ -91,7 +92,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   </Box>
 );
 
-/** Franja de notificaciones no leídas (eventos/convocatorias cancelados, etc). */
+// Banner de notificaciones no leídas
 const BannerNotificaciones = ({ notificaciones, onDescartar, onDescartarTodas }) => {
   if (!notificaciones.length) return null;
   return (
@@ -134,7 +135,7 @@ const BannerNotificaciones = ({ notificaciones, onDescartar, onDescartarTodas })
   );
 };
 
-/** Chip de estado sin colores semánticos default de MUI. */
+// Chip de estado
 const EstadoChip = ({ label, positivo = true, sx = {} }) => (
   <Chip
     label={label}
@@ -157,14 +158,14 @@ const PaginaPrincipalClub = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [club, setClub] = useState(null);
-  const [clubId, setClubId] = useState(null);
+  const [idClub, setIdClub] = useState(null);
   const [atletasRecientes, setAtletasRecientes] = useState([]);
   const [eventosRecientes, setEventosRecientes] = useState([]);
   const [estadisticas, setEstadisticas] = useState({});
-  const [modalEventoOpen, setModalEventoOpen] = useState(false);
+  const [modalEventoAbierto, setModalEventoAbierto] = useState(false);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [notificaciones, setNotificaciones] = useState([]);
 
@@ -177,6 +178,7 @@ const PaginaPrincipalClub = () => {
     cargarNotificaciones();
   }, [user, navigate]);
 
+  // Carga las notificaciones del club
   const cargarNotificaciones = async () => {
     try {
       const res = await notificacionesAPI.getMiasClub();
@@ -187,60 +189,64 @@ const PaginaPrincipalClub = () => {
     }
   };
 
-  const handleDescartarNotificacion = async (id) => {
+  // Marca una notificación como leída
+  const manejarDescartarNotificacion = async (id) => {
     setNotificaciones((prev) => prev.filter((n) => n.id !== id));
-    try { await notificacionesAPI.marcarLeidasClub([id]); } catch { /* silencioso */ }
+    try {
+      await notificacionesAPI.marcarLeidasClub([id]);
+    } catch { /* silencioso */ }
   };
 
-  const handleDescartarTodasNotificaciones = async () => {
+  // Marca todas las notificaciones como leídas
+  const manejarDescartarTodasNotificaciones = async () => {
     const idsPrevios = notificaciones.map((n) => n.id);
     setNotificaciones([]);
-    try { await notificacionesAPI.marcarLeidasClub(idsPrevios); } catch { /* silencioso */ }
+    try {
+      await notificacionesAPI.marcarLeidasClub(idsPrevios);
+    } catch { /* silencioso */ }
   };
 
+  // Carga los datos del club: perfil, atletas, eventos y estadísticas
   const cargarDatosClub = async () => {
     try {
-      setLoading(true);
+      setCargando(true);
       setError('');
 
-      // 1. Obtener club por email
       const clubesRes = await clubesAPI.getAll();
       let clubes = clubesRes.data.clubes || clubesRes.data || [];
       if (!Array.isArray(clubes)) clubes = [clubes];
       const clubData = clubes.find(c => c.email === user.email);
       if (!clubData) {
         setError('No se encontró un club asociado a este usuario.');
-        setLoading(false);
+        setCargando(false);
         return;
       }
       setClub(clubData);
-      const idClub = clubData.id || clubData._id;
-      setClubId(idClub);
+      const idClubObtenido = clubData.id || clubData._id;
+      setIdClub(idClubObtenido);
 
-      // 2. Atletas del club
-      const atletasRes = await atletasAPI.getAll({ club_id: idClub });
+      const atletasRes = await atletasAPI.getAll({ club_id: idClubObtenido });
       let atletas = atletasRes.data.atletas || atletasRes.data || [];
       if (!Array.isArray(atletas)) atletas = [];
       setAtletasRecientes(atletas);
 
-      // 3. Eventos recientes
       const eventosRes = await eventosAPI.getAll({ limit: 5 });
       let eventos = eventosRes.data.eventos || eventosRes.data || [];
       if (!Array.isArray(eventos)) eventos = [];
       setEventosRecientes(eventos);
 
-      // 4. Estadísticas (resultados del club)
-      const statsRes = await resultadosAPI.getByClub(idClub);
+      const statsRes = await resultadosAPI.getByClub(idClubObtenido);
       const resultados = statsRes.data.resultados || statsRes.data || [];
       calcularEstadisticas(atletas, Array.isArray(resultados) ? resultados : []);
     } catch (err) {
       console.error('Error al cargar datos del club:', err);
       setError('Error al cargar los datos del club');
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
+  // Calcula estadísticas a partir de atletas y resultados
   const calcularEstadisticas = (atletasData, resultadosData) => {
     const totalAtletas = atletasData.length;
     const atletasActivos = atletasData.filter(a => a.estado !== 'inactivo').length;
@@ -249,6 +255,7 @@ const PaginaPrincipalClub = () => {
     setEstadisticas({ totalAtletas, atletasActivos, totalResultados, podios });
   };
 
+  // Calcula la edad a partir de la fecha de nacimiento
   const obtenerEdad = (fecha) => {
     if (!fecha) return 'N/A';
     const hoy = new Date();
@@ -259,7 +266,8 @@ const PaginaPrincipalClub = () => {
     return edad;
   };
 
-  const fmt = (fecha) => {
+  // Formatea fecha en formato corto
+  const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
     try {
       return new Date(fecha).toLocaleDateString('es-MX', {
@@ -268,21 +276,23 @@ const PaginaPrincipalClub = () => {
     } catch { return 'Fecha inválida'; }
   };
 
+  // Obtiene texto legible para el estado
   const obtenerTextoEstado = (estado) => {
     if (estado === true || estado === 'activo') return 'Activo';
     if (estado === false || estado === 'inactivo') return 'Inactivo';
     return 'Desconocido';
   };
 
-  const handleVerEvento = (evento) => {
+  // Abre el modal de detalle de un evento
+  const manejarVerEvento = (evento) => {
     setEventoSeleccionado(evento);
-    setModalEventoOpen(true);
+    setModalEventoAbierto(true);
   };
 
-  const handleVerAtletas = () => navigate('/club/gestionAtletas');
-  const handleVerEventos = () => navigate('/club/eventos');
+  const manejarVerAtletas = () => navigate('/club/gestionAtletas');
+  const manejarVerEventos = () => navigate('/club/eventos');
 
-  if (loading) {
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -311,8 +321,7 @@ const PaginaPrincipalClub = () => {
 
   return (
     <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera de bienvenida */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -336,16 +345,15 @@ const PaginaPrincipalClub = () => {
       </Box>
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
         <Box sx={{ mt: { xs: -5, md: -6 } }}>
           <BannerNotificaciones
             notificaciones={notificaciones}
-            onDescartar={handleDescartarNotificacion}
-            onDescartarTodas={handleDescartarTodasNotificaciones}
+            onDescartar={manejarDescartarNotificacion}
+            onDescartarTodas={manejarDescartarTodasNotificaciones}
           />
         </Box>
 
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: notificaciones.length ? 0 : { xs: -5, md: -6 }, mb: 5,
@@ -369,7 +377,9 @@ const PaginaPrincipalClub = () => {
                 borderBottom: { xs: i < 2 ? `1px solid ${COLORS.line}` : 'none', sm: 'none' },
               }}
             >
-              <Box sx={{ color: i % 2 === 0 ? COLORS.burgundy : COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+              <Box sx={{ color: i % 2 === 0 ? COLORS.burgundy : COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}>
+                {s.icon}
+              </Box>
               <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
                 {s.value}
               </Typography>
@@ -380,16 +390,15 @@ const PaginaPrincipalClub = () => {
           ))}
         </Box>
 
-        {/* ── Contenido principal ── */}
+        {/* Contenido principal */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
-
           {/* Atletas recientes */}
           <SectionCard
             icon={<PeopleIcon sx={{ fontSize: 16 }} />}
             eyebrow="Plantilla"
             title="Nuevos Atletas"
             action={atletasRecientes.length > 0 && (
-              <Button size="small" onClick={handleVerAtletas} sx={{ color: COLORS.burgundy, textTransform: 'none', fontWeight: 700, fontSize: '.8rem' }}>
+              <Button size="small" onClick={manejarVerAtletas} sx={{ color: COLORS.burgundy, textTransform: 'none', fontWeight: 700, fontSize: '.8rem' }}>
                 Ver todos
               </Button>
             )}
@@ -443,7 +452,7 @@ const PaginaPrincipalClub = () => {
             eyebrow="Agenda"
             title="Eventos Recientes"
             action={eventosRecientes.length > 0 && (
-              <Button size="small" onClick={handleVerEventos} sx={{ color: COLORS.burgundy, textTransform: 'none', fontWeight: 700, fontSize: '.8rem' }}>
+              <Button size="small" onClick={manejarVerEventos} sx={{ color: COLORS.burgundy, textTransform: 'none', fontWeight: 700, fontSize: '.8rem' }}>
                 Ver todos
               </Button>
             )}
@@ -467,7 +476,7 @@ const PaginaPrincipalClub = () => {
                           secondary={
                             <Box>
                               <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
-                                <CalendarIcon sx={{ fontSize: 12 }} /> {fmt(evento.fecha)}
+                                <CalendarIcon sx={{ fontSize: 12 }} /> {formatearFecha(evento.fecha)}
                               </Typography>
                               <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5 }}>
                                 <LocationIcon sx={{ fontSize: 12 }} /> {evento.lugar || 'Lugar no especificado'}
@@ -479,7 +488,7 @@ const PaginaPrincipalClub = () => {
                               )}
                               <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, gap: 1 }}>
                                 <EstadoChip label={obtenerTextoEstado(evento.estado)} positivo={evento.estado === true || evento.estado === 'activo'} />
-                                <IconButton size="small" onClick={() => handleVerEvento(evento)} sx={{ color: COLORS.burgundy, p: 0.25 }}>
+                                <IconButton size="small" onClick={() => manejarVerEvento(evento)} sx={{ color: COLORS.burgundy, p: 0.25 }}>
                                   <ViewIcon sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Box>
@@ -495,7 +504,7 @@ const PaginaPrincipalClub = () => {
             )}
           </SectionCard>
 
-          {/* Resumen del Club */}
+          {/* Resumen del club */}
           <SectionCard icon={<GroupIcon sx={{ fontSize: 16 }} />} eyebrow="Ficha" title="Resumen del Club">
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Box>
@@ -522,12 +531,12 @@ const PaginaPrincipalClub = () => {
         </Box>
       </Container>
 
-      {/* Modal de Detalles del Evento */}
-      <Dialog open={modalEventoOpen} onClose={() => setModalEventoOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
+      {/* Modal de detalles del evento */}
+      <Dialog open={modalEventoAbierto} onClose={() => setModalEventoAbierto(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Detalles del Evento</Typography>
-            <IconButton onClick={() => setModalEventoOpen(false)} size="small" sx={{ color: '#fff' }}><CloseIcon /></IconButton>
+            <IconButton onClick={() => setModalEventoAbierto(false)} size="small" sx={{ color: '#fff' }}><CloseIcon /></IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -538,7 +547,7 @@ const PaginaPrincipalClub = () => {
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
                 <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.burgundy }}>Información General</Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}><strong>Fecha:</strong> {fmt(eventoSeleccionado.fecha)}</Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}><strong>Fecha:</strong> {formatearFecha(eventoSeleccionado.fecha)}</Typography>
                   <Typography variant="body2"><strong>Hora:</strong> {eventoSeleccionado.hora || 'No especificada'}</Typography>
                   <Typography variant="body2"><strong>Lugar:</strong> {eventoSeleccionado.lugar}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
@@ -574,14 +583,14 @@ const PaginaPrincipalClub = () => {
               <Box sx={{ mt: 3 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.burgundy }}>Información Técnica</Typography>
                 <Typography variant="body2" sx={{ mt: 1 }}><strong>ID:</strong> {eventoSeleccionado.id}</Typography>
-                <Typography variant="body2"><strong>Fecha de creación:</strong> {fmt(eventoSeleccionado.createdAt)}</Typography>
-                <Typography variant="body2"><strong>Fecha de cierre:</strong> {fmt(eventoSeleccionado.fechaCierre)}</Typography>
+                <Typography variant="body2"><strong>Fecha de creación:</strong> {formatearFecha(eventoSeleccionado.createdAt)}</Typography>
+                <Typography variant="body2"><strong>Fecha de cierre:</strong> {formatearFecha(eventoSeleccionado.fechaCierre)}</Typography>
               </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setModalEventoOpen(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
+          <Button onClick={() => setModalEventoAbierto(false)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
     </Box>

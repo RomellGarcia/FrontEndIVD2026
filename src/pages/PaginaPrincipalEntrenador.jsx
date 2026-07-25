@@ -14,7 +14,7 @@ import { clubesAPI, eventosAPI } from '../api/index.js';
 import { useAuth } from '../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-// --- Paleta institucional IVD (misma que ClubAtleta.jsx / PaginaPrincipalAtleta.jsx) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -26,7 +26,8 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
-const SectionCard = ({ icon, eyebrow, title, action, children }) => (
+// Componente base para las secciones del panel
+const TarjetaSeccion = ({ icon, eyebrow, title, action, children }) => (
   <Box
     sx={{
       bgcolor: COLORS.paper,
@@ -64,8 +65,8 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   </Box>
 );
 
-/** Chip de estado sin colores semánticos default de MUI. */
-const EstadoChip = ({ label, positivo = true, sx = {} }) => (
+// Chip de estado
+const ChipEstado = ({ label, positivo = true, sx = {} }) => (
   <Chip
     label={label}
     size="small"
@@ -79,8 +80,8 @@ const EstadoChip = ({ label, positivo = true, sx = {} }) => (
   />
 );
 
-/** Tarjeta de acción rápida — borde + sombra sutil, sin borde-de-color-por-hover. */
-const ActionCard = ({ icon, title, subtitle, accent, onClick }) => (
+// Tarjeta de acción rápida
+const TarjetaAccion = ({ icon, title, subtitle, accent, onClick }) => (
   <Box
     onClick={onClick}
     sx={{
@@ -105,14 +106,21 @@ const ActionCard = ({ icon, title, subtitle, accent, onClick }) => (
   </Box>
 );
 
+// Formatea fecha en formato corto
+const formatearFecha = (fecha) => {
+  if (!fecha) return '—';
+  const d = new Date(fecha);
+  return isNaN(d) ? '—' : d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
 const PaginaPrincipalEntrenador = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState({ atletasActivos: 0, eventosProximos: 0 });
-  const [clubInfo, setClubInfo] = useState(null);
-  const [atletasClub, setAtletasClub] = useState([]);
+  const [estadisticas, setEstadisticas] = useState({ atletasActivos: 0, eventosProximos: 0 });
+  const [infoClub, setInfoClub] = useState(null);
+  const [atletasDelClub, setAtletasDelClub] = useState([]);
   const [eventosProximos, setEventosProximos] = useState([]);
 
   useEffect(() => {
@@ -121,25 +129,26 @@ const PaginaPrincipalEntrenador = () => {
     cargarDatos();
   }, [user]);
 
+  // Carga los datos del entrenador: club, atletas y eventos próximos
   const cargarDatos = async () => {
     try {
-      setLoading(true);
+      setCargando(true);
       if (!isAuthenticated()) { setError('Usuario no autenticado'); return; }
 
       if (user.clubId) {
         try {
           const clubRes = await clubesAPI.getById(user.clubId);
-          setClubInfo(clubRes.data.club || clubRes.data);
-        } catch { setClubInfo(null); }
+          setInfoClub(clubRes.data.club || clubRes.data);
+        } catch { setInfoClub(null); }
 
         try {
           const atletasRes = await clubesAPI.getAtletas(user.clubId);
           const lista = atletasRes.data.atletas || atletasRes.data || [];
-          setAtletasClub(lista);
-          setStats(prev => ({ ...prev, atletasActivos: lista.length }));
+          setAtletasDelClub(lista);
+          setEstadisticas(prev => ({ ...prev, atletasActivos: lista.length }));
         } catch {
-          setAtletasClub([]);
-          setStats(prev => ({ ...prev, atletasActivos: 0 }));
+          setAtletasDelClub([]);
+          setEstadisticas(prev => ({ ...prev, atletasActivos: 0 }));
         }
       }
 
@@ -150,28 +159,22 @@ const PaginaPrincipalEntrenador = () => {
           .filter(e => new Date(e.fecha) >= new Date())
           .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         setEventosProximos(futuros.slice(0, 5));
-        setStats(prev => ({ ...prev, eventosProximos: futuros.length }));
+        setEstadisticas(prev => ({ ...prev, eventosProximos: futuros.length }));
       } catch {
         setEventosProximos([]);
-        setStats(prev => ({ ...prev, eventosProximos: 0 }));
+        setEstadisticas(prev => ({ ...prev, eventosProximos: 0 }));
       }
     } catch (err) {
       console.error('Error al cargar datos:', err);
       setError('Error al cargar los datos del dashboard');
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
-  };
-
-  const fmt = (fecha) => {
-    if (!fecha) return '—';
-    const d = new Date(fecha);
-    return isNaN(d) ? '—' : d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   if (!isAuthenticated()) return null;
 
-  if (loading) {
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -181,8 +184,7 @@ const PaginaPrincipalEntrenador = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: COLORS.cream }}>
-
-      {/* ── Franja de bienvenida ── */}
+      {/* Cabecera de bienvenida */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
@@ -200,10 +202,10 @@ const PaginaPrincipalEntrenador = () => {
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             ¡Bienvenido, {user?.nombre}!
           </Typography>
-          {clubInfo && (
+          {infoClub && (
             <Chip
               icon={<GroupIcon sx={{ fontSize: 16, color: '#fff !important' }} />}
-              label={clubInfo.nombre}
+              label={infoClub.nombre}
               sx={{
                 mt: 1.5, bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700,
                 border: '1px solid rgba(255,255,255,0.35)',
@@ -214,10 +216,9 @@ const PaginaPrincipalEntrenador = () => {
       </Box>
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-
         {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setError('')}>{error}</Alert>}
 
-        {/* ── Stat-strip flotante ── */}
+        {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
             mt: { xs: -5, md: -6 }, mb: 4,
@@ -228,8 +229,8 @@ const PaginaPrincipalEntrenador = () => {
           }}
         >
           {[
-            { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: stats.atletasActivos, label: 'Atletas del Club', sub: clubInfo ? `Club ${clubInfo.nombre}` : 'Sin club asignado' },
-            { icon: <EventIcon sx={{ fontSize: 24 }} />, value: stats.eventosProximos, label: 'Eventos Próximos', sub: 'Competencias por venir' },
+            { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: estadisticas.atletasActivos, label: 'Atletas del Club', sub: infoClub ? `Club ${infoClub.nombre}` : 'Sin club asignado' },
+            { icon: <EventIcon sx={{ fontSize: 24 }} />, value: estadisticas.eventosProximos, label: 'Eventos Próximos', sub: 'Competencias por venir' },
           ].map((s, i) => (
             <Box
               key={i}
@@ -248,23 +249,23 @@ const PaginaPrincipalEntrenador = () => {
           ))}
         </Box>
 
-        {/* ── Acciones rápidas ── */}
+        {/* Acciones rápidas */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 4 }}>
-          <ActionCard
+          <TarjetaAccion
             icon={<GroupIcon />}
             title="Gestionar Atletas"
             subtitle="Ver y administrar atletas asignados"
             accent={COLORS.burgundy}
             onClick={() => navigate('/entrenador/gestionar-atletas')}
           />
-          <ActionCard
+          <TarjetaAccion
             icon={<EventIcon />}
             title="Ver Eventos"
             subtitle="Consultar competencias y calendario"
             accent={COLORS.purple}
             onClick={() => navigate('/entrenador/eventos')}
           />
-          <ActionCard
+          <TarjetaAccion
             icon={<AssessmentIcon />}
             title="Ver Reportes"
             subtitle="Análisis de rendimiento del equipo"
@@ -273,18 +274,17 @@ const PaginaPrincipalEntrenador = () => {
           />
         </Box>
 
-        {/* ── Contenido principal ── */}
+        {/* Contenido principal */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
-
           {/* Atletas del club */}
-          <SectionCard icon={<PeopleIcon sx={{ fontSize: 16 }} />} eyebrow="Plantilla" title="Atletas del Club">
-            {atletasClub.length === 0 ? (
+          <TarjetaSeccion icon={<PeopleIcon sx={{ fontSize: 16 }} />} eyebrow="Plantilla" title="Atletas del Club">
+            {atletasDelClub.length === 0 ? (
               <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>
-                {clubInfo ? 'No hay atletas en tu club aún.' : 'No tienes un club asignado.'}
+                {infoClub ? 'No hay atletas en tu club aún.' : 'No tienes un club asignado.'}
               </Typography>
             ) : (
               <List disablePadding>
-                {atletasClub.map((a, i) => (
+                {atletasDelClub.map((a, i) => (
                   <React.Fragment key={a.id || i}>
                     <ListItem sx={{ px: 0, py: 1.2 }}>
                       <ListItemAvatar>
@@ -296,17 +296,17 @@ const PaginaPrincipalEntrenador = () => {
                         primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{a.nombre} {a.apellido_paterno} {a.apellido_materno || ''}</Typography>}
                         secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{a.edad ? `${a.edad} años` : ''} · {a.genero || ''} · {a.municipio || 'Sin municipio'}</Typography>}
                       />
-                      <EstadoChip label={a.genero === 'femenino' ? 'F' : 'M'} positivo={a.genero === 'femenino'} />
+                      <ChipEstado label={a.genero === 'femenino' ? 'F' : 'M'} positivo={a.genero === 'femenino'} />
                     </ListItem>
-                    {i < atletasClub.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
+                    {i < atletasDelClub.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
             )}
-          </SectionCard>
+          </TarjetaSeccion>
 
           {/* Próximos eventos */}
-          <SectionCard icon={<CalendarIcon sx={{ fontSize: 16 }} />} eyebrow="Agenda" title="Próximos Eventos">
+          <TarjetaSeccion icon={<CalendarIcon sx={{ fontSize: 16 }} />} eyebrow="Agenda" title="Próximos Eventos">
             {eventosProximos.length === 0 ? (
               <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 4 }}>No hay eventos próximos.</Typography>
             ) : (
@@ -324,7 +324,7 @@ const PaginaPrincipalEntrenador = () => {
                         secondary={
                           <Box>
                             <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5, mt: .3 }}>
-                              <CalendarIcon sx={{ fontSize: 13 }} /> {fmt(e.fecha)}{e.hora && ` · ${String(e.hora).slice(0, 5)}`}
+                              <CalendarIcon sx={{ fontSize: 13 }} /> {formatearFecha(e.fecha)}{e.hora && ` · ${String(e.hora).slice(0, 5)}`}
                             </Typography>
                             <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: .5 }}>
                               <LocationIcon sx={{ fontSize: 13 }} /> {e.lugar}
@@ -332,18 +332,18 @@ const PaginaPrincipalEntrenador = () => {
                           </Box>
                         }
                       />
-                      <EstadoChip label="Activo" positivo />
+                      <ChipEstado label="Activo" positivo />
                     </ListItem>
                     {i < eventosProximos.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
                 ))}
               </List>
             )}
-          </SectionCard>
+          </TarjetaSeccion>
         </Box>
 
-        {/* ── Información profesional ── */}
-        <SectionCard icon={<SchoolIcon sx={{ fontSize: 16 }} />} eyebrow="Perfil" title="Información Profesional">
+        {/* Información profesional */}
+        <TarjetaSeccion icon={<SchoolIcon sx={{ fontSize: 16 }} />} eyebrow="Perfil" title="Información Profesional">
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
             <Box>
               <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: 1 }}>
@@ -397,11 +397,10 @@ const PaginaPrincipalEntrenador = () => {
               <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: .5 }}>
                 Estado
               </Typography>
-              <EstadoChip label={user?.estado || 'Activo'} positivo />
+              <ChipEstado label={user?.estado || 'Activo'} positivo />
             </Box>
           </Box>
-        </SectionCard>
-
+        </TarjetaSeccion>
       </Container>
     </Box>
   );
