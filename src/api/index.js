@@ -109,6 +109,8 @@ export const entrenadorAPI = {
   // que ya escribieron otros entrenadores, no un catálogo fijo.
   getCertificacionesSugeridas: () => api.get('/entrenador/certificaciones-sugeridas'),
   getEspecialidadesSugeridas: () => api.get('/entrenador/especialidades-sugeridas'),
+  // NUEVO: el entrenador sale de su club por su cuenta.
+  salirClub: () => api.post('/entrenador/salir-club'),
 }
 
 export const entrenadoresAPI = {

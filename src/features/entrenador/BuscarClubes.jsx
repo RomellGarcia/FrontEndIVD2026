@@ -1,20 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Container, Typography, Button, Alert, Chip, Avatar,
-  CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  Divider, TextField, InputAdornment,
+  Box,
+  Container,
+  Typography,
+  Button,
+  Alert,
+  Chip,
+  Avatar,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
-  Groups as GroupsIcon, Search as SearchIcon, Check as CheckIcon,
-  Close as CloseIcon, Visibility as VisibilityIcon, Send as SendIcon,
-  LocationOn as LocationOnIcon, Phone as PhoneIcon, Email as EmailIcon,
+  Groups as GroupsIcon,
+  Inbox as MailOutlineIcon,
+  Search as SearchIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Visibility as VisibilityIcon,
+  Send as SendIcon,
+  ExitToApp as ExitToAppIcon,
+  LocationOn as LocationOnIcon,
+  Phone as PhoneIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import Swal from 'sweetalert2';
-import { entrenadorAPI, clubesAPI } from '../../api/index.js';
+import { entrenadorAPI, entrenadoresAPI, clubesAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-// --- Paleta institucional IVD (misma que el resto de la app) ---
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020',
   burgundyDark: '#5C0017',
@@ -26,116 +46,221 @@ const COLORS = {
   lineSoft: 'rgba(128,0,32,0.08)',
 };
 
-const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
-
-const EstadoSolicitudChip = ({ estado }) => {
-  const map = {
-    pendiente: { label: 'Solicitud pendiente', icon: <SendIcon sx={{ fontSize: 14 }} /> },
-    aceptada: { label: 'Solicitud aceptada', icon: <CheckIcon sx={{ fontSize: 14 }} /> },
-    rechazada: { label: 'Solicitud rechazada', icon: <CloseIcon sx={{ fontSize: 14 }} /> },
-  };
-  const cfg = map[estado];
-  if (!cfg) return null;
-  return (
-    <Chip
-      icon={cfg.icon}
-      label={cfg.label}
-      size="small"
-      sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 700, fontSize: '.68rem' }}
-    />
-  );
-};
-
-/** Tarjeta de club disponible para explorar / solicitar unirse. */
-const ClubCard = ({ club, onVerPerfil, onSolicitar, estadoSolicitud, procesando }) => (
+// Componente base para secciones
+const SectionCard = ({ icon, eyebrow, title, action, children }) => (
   <Box
     sx={{
-      ...cardSx, overflow: 'hidden',
-      transition: 'transform .15s, box-shadow .15s',
-      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+      bgcolor: COLORS.paper,
+      borderRadius: '10px',
+      border: `1px solid ${COLORS.line}`,
+      boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
     }}
   >
-    <Box sx={{ p: 2.25 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.5 }}>
-        <Avatar sx={{ width: 44, height: 44, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
-          {club.nombre.charAt(0)}
-        </Avatar>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.2 }} noWrap>
-            {club.nombre}
+    <Box sx={{ p: 3, pb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+        <Box>
+          <Typography
+            sx={{
+              color: COLORS.purple,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              mb: 0.5,
+            }}
+          >
+            {icon}
+            {eyebrow}
           </Typography>
-          <Typography sx={{ fontSize: '0.72rem', color: COLORS.purple }}>
-            {club.totalAtletas} atletas · {club.totalEntrenadores} entrenadores
+          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
+            {title}
           </Typography>
         </Box>
-      </Box>
-
-      {estadoSolicitud && (
-        <Box sx={{ mb: 1.5 }}>
-          <EstadoSolicitudChip estado={estadoSolicitud} />
-        </Box>
-      )}
-
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <Button
-          size="small" variant="outlined" startIcon={<VisibilityIcon fontSize="small" />}
-          onClick={onVerPerfil}
-          sx={{ borderColor: COLORS.purple, color: COLORS.purple, textTransform: 'none', fontWeight: 700, flex: 1, '&:hover': { borderColor: COLORS.burgundy, color: COLORS.burgundy, bgcolor: 'transparent' } }}
-        >
-          Ver perfil
-        </Button>
-        <Button
-          size="small" variant="contained" startIcon={<SendIcon fontSize="small" />}
-          onClick={onSolicitar}
-          disabled={procesando || (estadoSolicitud && estadoSolicitud !== 'rechazada')}
-          sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700, flex: 1, boxShadow: 'none' }}
-        >
-          {estadoSolicitud === 'rechazada' ? 'Solicitar de nuevo' : 'Solicitar'}
-        </Button>
+        {action}
       </Box>
     </Box>
+    <Divider sx={{ borderColor: COLORS.line }} />
+    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
   </Box>
 );
 
+// Muestra un dato con ícono
 const DatoCampo = ({ icon, label, valor }) => (
   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
     {icon && <Box sx={{ color: COLORS.purple, mt: 0.3 }}>{icon}</Box>}
     <Box>
-      <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+      <Typography
+        sx={{
+          fontSize: '0.65rem',
+          color: COLORS.purple,
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{valor || '—'}</Typography>
+      <Typography sx={{ fontSize: '0.85rem', color: COLORS.ink }}>{valor || 'N/A'}</Typography>
     </Box>
   </Box>
 );
 
-/**
- * "Buscar Clubes" del entrenador — explorar clubes registrados y enviar
- * solicitud para unirse a uno. Solo usa lo que el backend realmente
- * expone para este rol: entrenadorAPI.solicitarClub / getSolicitudes.
- * No hay flujo de aceptar invitaciones ni de salir del club aquí porque
- * esos endpoints no existen para entrenador (a diferencia de atleta).
- */
+// Tarjeta de invitación recibida
+const ExpedienteInvitacion = ({ invitacion, onVerPerfil, onAceptar, onRechazar, procesando }) => {
+  const folio = String(invitacion.id ?? '').replace(/\D/g, '').slice(-6).padStart(6, '0') || '000000';
+  return (
+    <Box sx={{ border: `1px solid ${COLORS.line}`, borderLeft: `4px solid ${COLORS.burgundy}`, borderRadius: '8px', overflow: 'hidden', mb: 1.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2,
+          py: 0.75,
+          bgcolor: COLORS.cream,
+          borderBottom: `1px solid ${COLORS.line}`,
+        }}
+      >
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: COLORS.burgundy, letterSpacing: '0.06em' }}>
+          FOLIO #{folio}
+        </Typography>
+        <Chip
+          label="Invitación pendiente"
+          size="small"
+          sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 700, fontSize: '0.68rem', height: 22 }}
+        />
+      </Box>
+      <Box sx={{ p: 2 }}>
+        <Typography sx={{ fontWeight: 700, color: COLORS.ink, mb: 1.25, fontSize: '1rem' }}>
+          {invitacion.clubNombre}
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: COLORS.purple, mb: 1.5 }}>
+          Invitación recibida el {invitacion.fechaFormateada}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            size="small"
+            variant="text"
+            startIcon={<VisibilityIcon fontSize="small" />}
+            onClick={onVerPerfil}
+            sx={{ color: COLORS.purple, textTransform: 'none', fontWeight: 700 }}
+          >
+            Ver perfil del club
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<CheckIcon fontSize="small" />}
+            onClick={onAceptar}
+            disabled={procesando}
+            sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+          >
+            Aceptar
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CloseIcon fontSize="small" />}
+            onClick={onRechazar}
+            disabled={procesando}
+            sx={{ borderColor: COLORS.purple, color: COLORS.purple, textTransform: 'none', fontWeight: 700, '&:hover': { borderColor: COLORS.burgundy, color: COLORS.burgundy, bgcolor: 'transparent' } }}
+          >
+            Rechazar
+          </Button>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+// Tarjeta de club disponible para solicitar unirse
+const ClubCard = ({ club, onVerPerfil, onSolicitar, solicitudBloqueada }) => (
+  <Box sx={{ border: `1px solid ${COLORS.line}`, borderTop: `3px solid ${COLORS.purple}`, borderRadius: '8px', p: 2, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <Avatar sx={{ width: 36, height: 36, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
+        {club.nombre.charAt(0)}
+      </Avatar>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, color: COLORS.ink, fontSize: '0.9rem', lineHeight: 1.2 }} noWrap>
+          {club.nombre}
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: COLORS.purple }}>
+          {club.totalAtletas} atletas · {club.totalEntrenadores} entrenadores
+        </Typography>
+      </Box>
+    </Box>
+    <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<VisibilityIcon fontSize="small" />}
+        onClick={onVerPerfil}
+        sx={{ borderColor: COLORS.purple, color: COLORS.purple, textTransform: 'none', fontWeight: 700, flex: 1, '&:hover': { borderColor: COLORS.burgundy, color: COLORS.burgundy, bgcolor: 'transparent' } }}
+      >
+        Ver perfil
+      </Button>
+      <Button
+        size="small"
+        variant="contained"
+        startIcon={<SendIcon fontSize="small" />}
+        onClick={onSolicitar}
+        disabled={solicitudBloqueada}
+        sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700, flex: 1, boxShadow: 'none' }}
+      >
+        Solicitar
+      </Button>
+    </Box>
+  </Box>
+);
+
+// Formatea fecha a formato largo en español
+const formatearFecha = (fecha) => {
+  if (!fecha) return 'N/A';
+  try {
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch {
+    return 'N/A';
+  }
+};
+
+// Página "Buscar Clubes" para entrenadores
 const BuscarClubes = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [clubes, setClubes] = useState([]);
-  const [solicitudes, setSolicitudes] = useState([]);
-  const [busqueda, setBusqueda] = useState('');
+  const [perfil, setPerfil] = useState(null);
+  const [clubActual, setClubActual] = useState(null);
+  const [clubesDisponibles, setClubesDisponibles] = useState([]);
+  const [invitaciones, setInvitaciones] = useState([]);
+  const [solicitudPendiente, setSolicitudPendiente] = useState(null);
   const [procesandoId, setProcesandoId] = useState(null);
+  const [busquedaClub, setBusquedaClub] = useState('');
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogClub, setDialogClub] = useState(null);
-  const [mensajeSolicitud, setMensajeSolicitud] = useState('');
+  const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [clubDialogo, setClubDialogo] = useState(null);
+  const [contextoDialogo, setContextoDialogo] = useState(null);
+  const [solicitudDialogoId, setSolicitudDialogoId] = useState(null);
+  const [cargandoDialogo, setCargandoDialogo] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) { navigate('/login'); return; }
-    cargarTodo();
+    if (!user?.id) {
+      navigate('/login');
+      return;
+    }
+    cargarDatosCompletos();
   }, [user, navigate]);
 
+  // Normaliza la estructura de un club para uso interno
   const normalizarClub = (c) => ({
     id: c.id,
     nombre: c.nombre || 'Club sin nombre',
@@ -147,75 +272,176 @@ const BuscarClubes = () => {
     totalEntrenadores: c.total_entrenadores ?? 0,
   });
 
-  const cargarTodo = async () => {
+  // Carga todos los datos del entrenador relacionados con clubes
+  const cargarDatosCompletos = async () => {
+    setCargando(true);
+    setError('');
     try {
-      setLoading(true);
-      const [clubesRes, solicitudesRes] = await Promise.all([
-        clubesAPI.getAll(),
-        entrenadorAPI.getSolicitudes(),
-      ]);
+      const perfilRes = await entrenadorAPI.getPerfil();
+      const datosPerfil = perfilRes.data.entrenador;
+      setPerfil(datosPerfil);
 
-      let clubesData = clubesRes.data.clubes || clubesRes.data || [];
-      if (!Array.isArray(clubesData)) clubesData = [];
-      setClubes(clubesData.map(normalizarClub));
+      if (datosPerfil?.club_id) {
+        const clubRes = await clubesAPI.getById(datosPerfil.club_id);
+        setClubActual(normalizarClub(clubRes.data.club || clubRes.data));
+        setClubesDisponibles([]);
+        setInvitaciones([]);
+        setSolicitudPendiente(null);
+      } else {
+        setClubActual(null);
+        const [clubesRes, solicitudesRes] = await Promise.all([
+          clubesAPI.getAll(),
+          entrenadorAPI.getSolicitudes(),
+        ]);
 
-      let solicitudesData = solicitudesRes.data.solicitudes || solicitudesRes.data || [];
-      if (!Array.isArray(solicitudesData)) solicitudesData = [];
-      setSolicitudes(solicitudesData);
+        let clubes = clubesRes.data.clubes || clubesRes.data || [];
+        if (!Array.isArray(clubes)) clubes = [];
+        setClubesDisponibles(clubes.map(normalizarClub));
 
-      setError('');
+        let solicitudes = solicitudesRes.data.solicitudes || solicitudesRes.data || [];
+        if (!Array.isArray(solicitudes)) solicitudes = [];
+        const pendientes = solicitudes.filter((s) => s.estado === 'pendiente');
+
+        const invitacionesRecibidas = pendientes
+          .filter((s) => s.tipo === 'invitacion')
+          .map((s) => ({
+            id: s.id,
+            clubId: s.club_id,
+            clubNombre: s.club_nombre || 'Club',
+            fechaFormateada: formatearFecha(s.fecha_solicitud),
+          }));
+        setInvitaciones(invitacionesRecibidas);
+
+        const propiaPendiente = pendientes.find((s) => s.tipo !== 'invitacion') || null;
+        setSolicitudPendiente(propiaPendiente);
+      }
     } catch (err) {
-      console.error('Error al cargar clubes:', err);
-      setError('Error al cargar los clubes disponibles.');
+      console.error('Error al cargar la sección de club:', err);
+      setError('Error al cargar la información del club.');
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
-  const estadoSolicitudPara = (clubId) => {
-    const solicitud = solicitudes.find((s) => s.club_id === clubId);
-    return solicitud ? solicitud.estado : null;
+  // Abre el diálogo para un club disponible
+  const abrirDialogoDisponible = (clubResumen) => {
+    setDialogoAbierto(true);
+    setContextoDialogo('disponible');
+    setSolicitudDialogoId(null);
+    setClubDialogo(clubResumen);
+    setCargandoDialogo(false);
   };
 
-  const abrirPerfil = (club) => {
-    setDialogClub(club);
-    setMensajeSolicitud('');
-    setDialogOpen(true);
+  // Abre el diálogo para una invitación (carga el perfil del club)
+  const abrirDialogoInvitacion = async (invitacion) => {
+    setDialogoAbierto(true);
+    setContextoDialogo('invitacion');
+    setSolicitudDialogoId(invitacion.id);
+    setClubDialogo(null);
+    setCargandoDialogo(true);
+    try {
+      const clubRes = await clubesAPI.getById(invitacion.clubId);
+      setClubDialogo(normalizarClub(clubRes.data.club || clubRes.data));
+    } catch (err) {
+      console.error('Error al cargar el perfil del club invitante:', err);
+    } finally {
+      setCargandoDialogo(false);
+    }
   };
 
-  const cerrarDialog = () => {
-    setDialogOpen(false);
-    setDialogClub(null);
+  const cerrarDialogo = () => {
+    setDialogoAbierto(false);
+    setClubDialogo(null);
+    setContextoDialogo(null);
+    setSolicitudDialogoId(null);
   };
 
-  const handleSolicitar = async (clubId) => {
+  // Solicita unirse a un club
+  const manejarSolicitarUnirse = async (clubId) => {
     try {
       setProcesandoId(clubId);
-      await entrenadorAPI.solicitarClub({ club_id: clubId, mensaje: mensajeSolicitud });
-      cerrarDialog();
+      await entrenadorAPI.solicitarClub({ club_id: clubId });
+      cerrarDialogo();
       Swal.fire({
         icon: 'success',
         title: 'Solicitud enviada',
-        text: 'Tu solicitud se envió correctamente.',
+        text: 'Tu solicitud se envió correctamente. Espera la respuesta del club antes de solicitar a otro.',
         confirmButtonColor: COLORS.burgundy,
       });
-      await cargarTodo();
+      await cargarDatosCompletos();
     } catch (err) {
       console.error('Error al enviar solicitud:', err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err.response?.data?.error || 'No se pudo enviar la solicitud.',
-        confirmButtonColor: COLORS.burgundy,
-      });
+      setError(err.response?.data?.error || 'Error al enviar la solicitud.');
     } finally {
       setProcesandoId(null);
     }
   };
 
-  const clubesFiltrados = clubes.filter((c) => c.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+  // Acepta una invitación
+  const manejarAceptarInvitacion = async (solicitudId) => {
+    try {
+      setProcesandoId(solicitudId);
+      await entrenadoresAPI.updateSolicitud(solicitudId, { estado: 'aceptada' });
+      cerrarDialogo();
+      Swal.fire({
+        icon: 'success',
+        title: 'Invitación aceptada',
+        text: 'Ya formas parte del club.',
+        confirmButtonColor: COLORS.burgundy,
+      });
+      await cargarDatosCompletos();
+    } catch (err) {
+      console.error('Error al aceptar invitación:', err);
+      setError(err.response?.data?.error || 'Error al aceptar la invitación.');
+    } finally {
+      setProcesandoId(null);
+    }
+  };
 
-  if (loading) {
+  // Rechaza una invitación
+  const manejarRechazarInvitacion = async (solicitudId) => {
+    try {
+      setProcesandoId(solicitudId);
+      await entrenadoresAPI.updateSolicitud(solicitudId, { estado: 'rechazada' });
+      cerrarDialogo();
+      Swal.fire({
+        icon: 'success',
+        title: 'Invitación rechazada',
+        confirmButtonColor: COLORS.burgundy,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+      await cargarDatosCompletos();
+    } catch (err) {
+      console.error('Error al rechazar invitación:', err);
+      setError(err.response?.data?.error || 'Error al rechazar la invitación.');
+    } finally {
+      setProcesandoId(null);
+    }
+  };
+
+  // Sale del club actual
+  const manejarSalirClub = async () => {
+    const result = await Swal.fire({
+      title: '¿Confirmar salida del club?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: COLORS.burgundy,
+      cancelButtonColor: COLORS.purple,
+      confirmButtonText: 'Sí, salir',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await entrenadorAPI.salirClub();
+      await cargarDatosCompletos();
+    } catch (err) {
+      console.error('Error al salir del club:', err);
+      setError(err.response?.data?.error || 'Error al salir del club.');
+    }
+  };
+
+  if (cargando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', bgcolor: COLORS.cream }}>
         <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
@@ -224,131 +450,236 @@ const BuscarClubes = () => {
   }
 
   return (
-    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh' }}>
-      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
-        <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
+      {/* Cabecera superior */}
+      <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 6, md: 7 } }}>
+        <Container maxWidth="xl" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Entrenador
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
-            Buscar Clubes
-          </Typography>
-          <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
-            Encuentra un club y envía tu solicitud para unirte
+            Mi Club
           </Typography>
         </Container>
       </Box>
 
-      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
+      <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 3, md: 4 }, pb: { xs: 5, md: 7 } }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 3, mt: { xs: -5, md: -6 }, borderRadius: '8px' }} onClose={() => setError('')}>
+          <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
             {error}
           </Alert>
         )}
 
-        <Box sx={{ ...cardSx, p: 2, mb: 3, mt: error ? 0 : { xs: -5, md: -6 } }}>
-          <TextField
-            fullWidth
-            placeholder="Buscar club por nombre..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: COLORS.purple }} /></InputAdornment>,
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-              '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: COLORS.burgundy },
-            }}
-          />
-        </Box>
-
-        {clubesFiltrados.length === 0 ? (
-          <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
-            <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
-              <GroupsIcon sx={{ fontSize: 32, color: COLORS.purple }} />
-            </Avatar>
-            <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
-              {clubes.length === 0 ? 'No hay clubes registrados' : 'Ningún club coincide con tu búsqueda'}
+        {clubActual ? (
+          <SectionCard icon={<GroupsIcon sx={{ fontSize: 16 }} />} eyebrow="Club actual" title={clubActual.nombre}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 3, rowGap: 2, mb: 3 }}>
+              <DatoCampo icon={<LocationOnIcon fontSize="small" />} label="Dirección" valor={clubActual.direccion} />
+              <DatoCampo icon={<PhoneIcon fontSize="small" />} label="Teléfono" valor={clubActual.telefono} />
+              <DatoCampo icon={<EmailIcon fontSize="small" />} label="Correo" valor={clubActual.email} />
+              <DatoCampo icon={<GroupsIcon fontSize="small" />} label="Plantilla" valor={`${clubActual.totalAtletas} atletas · ${clubActual.totalEntrenadores} entrenadores`} />
+            </Box>
+            <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: 0.5 }}>
+              Descripción
             </Typography>
-          </Box>
+            <Typography sx={{ fontSize: '0.9rem', color: COLORS.ink, mb: 3 }}>{clubActual.descripcion}</Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<ExitToAppIcon />}
+              onClick={manejarSalirClub}
+              sx={{ textTransform: 'none', fontWeight: 700 }}
+            >
+              Salir del club
+            </Button>
+          </SectionCard>
         ) : (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
-            {clubesFiltrados.map((club) => (
-              <ClubCard
-                key={club.id}
-                club={club}
-                estadoSolicitud={estadoSolicitudPara(club.id)}
-                procesando={procesandoId === club.id}
-                onVerPerfil={() => abrirPerfil(club)}
-                onSolicitar={() => handleSolicitar(club.id)}
-              />
-            ))}
+          <Box>
+            {solicitudPendiente && (
+              <Alert severity="info" sx={{ borderRadius: '8px', mb: 3 }}>
+                Tienes una solicitud pendiente con <strong>{solicitudPendiente.club_nombre || 'un club'}</strong>. Espera su respuesta antes de solicitar otro.
+              </Alert>
+            )}
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 9fr' }, gap: 3, alignItems: 'start' }}>
+              <Box>
+                <SectionCard
+                  icon={<MailOutlineIcon sx={{ fontSize: 16 }} />}
+                  eyebrow="Bandeja de entrada"
+                  title="Invitaciones Recibidas"
+                  action={
+                    invitaciones.length > 0 && (
+                      <Chip label={invitaciones.length} size="small" sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }} />
+                    )
+                  }
+                >
+                  {invitaciones.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 3 }}>
+                      No tienes invitaciones pendientes.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 2 }}>
+                      {invitaciones.map((inv) => (
+                        <ExpedienteInvitacion
+                          key={inv.id}
+                          invitacion={inv}
+                          procesando={procesandoId === inv.id}
+                          onVerPerfil={() => abrirDialogoInvitacion(inv)}
+                          onAceptar={() => manejarAceptarInvitacion(inv.id)}
+                          onRechazar={() => manejarRechazarInvitacion(inv.id)}
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </SectionCard>
+              </Box>
+
+              <Box>
+                <SectionCard
+                  icon={<SearchIcon sx={{ fontSize: 16 }} />}
+                  eyebrow="Explorar"
+                  title="Clubes Disponibles"
+                  action={
+                    clubesDisponibles.length > 0 && (
+                      <Chip label={`${clubesDisponibles.length} clubes`} size="small" sx={{ bgcolor: COLORS.purple, color: '#fff', fontWeight: 700 }} />
+                    )
+                  }
+                >
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Buscar club por nombre..."
+                    value={busquedaClub}
+                    onChange={(e) => setBusquedaClub(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon sx={{ fontSize: 18, color: COLORS.purple }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      mb: 2.5,
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: '#fff',
+                        '& fieldset': { borderColor: COLORS.line },
+                        '&:hover fieldset': { borderColor: COLORS.burgundy },
+                        '&.Mui-focused fieldset': { borderColor: COLORS.burgundy },
+                      },
+                    }}
+                  />
+                  {(() => {
+                    const clubesFiltrados = clubesDisponibles.filter((c) =>
+                      c.nombre.toLowerCase().includes(busquedaClub.trim().toLowerCase())
+                    );
+                    if (clubesDisponibles.length === 0) {
+                      return (
+                        <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 3 }}>
+                          No hay clubes disponibles en este momento.
+                        </Typography>
+                      );
+                    }
+                    if (clubesFiltrados.length === 0) {
+                      return (
+                        <Typography variant="body2" sx={{ color: COLORS.purple, textAlign: 'center', py: 3 }}>
+                          Ningún club coincide con "{busquedaClub}".
+                        </Typography>
+                      );
+                    }
+                    return (
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 2 }}>
+                        {clubesFiltrados.map((c) => (
+                          <ClubCard
+                            key={c.id}
+                            club={c}
+                            solicitudBloqueada={!!solicitudPendiente || procesandoId === c.id}
+                            onVerPerfil={() => abrirDialogoDisponible(c)}
+                            onSolicitar={() => manejarSolicitarUnirse(c.id)}
+                          />
+                        ))}
+                      </Box>
+                    );
+                  })()}
+                </SectionCard>
+              </Box>
+            </Box>
           </Box>
         )}
       </Container>
 
-      {/* ── Modal: Perfil del Club ── */}
-      <Dialog open={dialogOpen} onClose={cerrarDialog} maxWidth="sm" fullWidth>
+      {/* Diálogo de perfil del club */}
+      <Dialog open={dialogoAbierto} onClose={cerrarDialogo} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
-          Perfil del Club
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Perfil del Club</Typography>
         </DialogTitle>
-        <DialogContent dividers>
-          {dialogClub && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Avatar sx={{ width: 56, height: 56, bgcolor: COLORS.burgundy, fontWeight: 700, fontSize: '1.3rem' }}>
-                  {dialogClub.nombre.charAt(0)}
+        <DialogContent sx={{ mt: 2 }}>
+          {cargandoDialogo ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress size={30} sx={{ color: COLORS.burgundy }} />
+            </Box>
+          ) : !clubDialogo ? (
+            <Typography variant="body2" color="textSecondary">
+              No se pudo cargar el perfil del club.
+            </Typography>
+          ) : (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                <Avatar sx={{ width: 48, height: 48, bgcolor: COLORS.burgundy, fontWeight: 700 }}>
+                  {clubDialogo.nombre.charAt(0)}
                 </Avatar>
-                <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
-                  {dialogClub.nombre}
+                <Typography variant="h6" sx={{ color: COLORS.ink, fontWeight: 700 }}>
+                  {clubDialogo.nombre}
                 </Typography>
               </Box>
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <DatoCampo icon={<LocationOnIcon fontSize="small" />} label="Dirección" valor={dialogClub.direccion} />
-                <DatoCampo icon={<PhoneIcon fontSize="small" />} label="Teléfono" valor={dialogClub.telefono} />
-                <DatoCampo icon={<EmailIcon fontSize="small" />} label="Correo" valor={dialogClub.email} />
-                <DatoCampo icon={<GroupsIcon fontSize="small" />} label="Plantilla" valor={`${dialogClub.totalAtletas} atletas · ${dialogClub.totalEntrenadores} entrenadores`} />
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5, mb: 2 }}>
+                <DatoCampo icon={<LocationOnIcon fontSize="small" />} label="Dirección" valor={clubDialogo.direccion} />
+                <DatoCampo icon={<PhoneIcon fontSize="small" />} label="Teléfono" valor={clubDialogo.telefono} />
+                <DatoCampo icon={<EmailIcon fontSize="small" />} label="Correo" valor={clubDialogo.email} />
+                <DatoCampo icon={<GroupsIcon fontSize="small" />} label="Plantilla" valor={`${clubDialogo.totalAtletas} atletas · ${clubDialogo.totalEntrenadores} entrenadores`} />
               </Box>
-
-              <Divider sx={{ borderColor: COLORS.line }} />
-              <Box>
-                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: .5 }}>Descripción</Typography>
-                <Typography sx={{ fontSize: '0.9rem', color: COLORS.ink }}>{dialogClub.descripcion}</Typography>
-              </Box>
-
-              {!estadoSolicitudPara(dialogClub.id) && (
-                <TextField
-                  label="Mensaje para el club (opcional)"
-                  multiline
-                  rows={3}
-                  value={mensajeSolicitud}
-                  onChange={(e) => setMensajeSolicitud(e.target.value)}
-                  placeholder="Cuéntale al club tu experiencia y por qué quieres unirte..."
-                  fullWidth
-                  size="small"
-                  sx={{ '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: COLORS.burgundy } }}
-                />
-              )}
+              <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: 0.5 }}>
+                Descripción
+              </Typography>
+              <Typography sx={{ fontSize: '0.9rem', color: COLORS.ink }}>{clubDialogo.descripcion}</Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={cerrarDialog} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
-          {dialogClub && (() => {
-            const estado = estadoSolicitudPara(dialogClub.id);
-            return (
+          <Button onClick={cerrarDialogo} sx={{ color: COLORS.purple, fontWeight: 600 }}>
+            Cerrar
+          </Button>
+          {clubDialogo && contextoDialogo === 'disponible' && (
+            <Button
+              variant="contained"
+              startIcon={<SendIcon fontSize="small" />}
+              disabled={!!solicitudPendiente || procesandoId === clubDialogo.id}
+              onClick={() => manejarSolicitarUnirse(clubDialogo.id)}
+              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+            >
+              Solicitar unirme
+            </Button>
+          )}
+          {clubDialogo && contextoDialogo === 'invitacion' && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<CloseIcon fontSize="small" />}
+                disabled={procesandoId === solicitudDialogoId}
+                onClick={() => manejarRechazarInvitacion(solicitudDialogoId)}
+                sx={{ borderColor: COLORS.purple, color: COLORS.purple }}
+              >
+                Rechazar
+              </Button>
               <Button
                 variant="contained"
-                startIcon={<SendIcon />}
-                disabled={procesandoId === dialogClub.id || (estado && estado !== 'rechazada')}
-                onClick={() => handleSolicitar(dialogClub.id)}
-                sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700 }}
+                startIcon={<CheckIcon fontSize="small" />}
+                disabled={procesandoId === solicitudDialogoId}
+                onClick={() => manejarAceptarInvitacion(solicitudDialogoId)}
+                sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
               >
-                {estado === 'rechazada' ? 'Solicitar de nuevo' : 'Solicitar unirme'}
+                Aceptar invitación
               </Button>
-            );
-          })()}
+            </>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
