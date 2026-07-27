@@ -10,7 +10,7 @@ import {
   Visibility as VisibilityIcon, TrendingUp as TrendingUpIcon, People as PeopleIcon,
   EmojiEvents as TrophyIcon, Group as GroupIcon, MilitaryTech as MedalIcon,
 } from '@mui/icons-material';
-import { resultadosAPI, atletasAPI, clubesAPI } from '../../api/index.js';
+import { resultadosAPI, clubesAPI, catalogosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import * as XLSX from 'xlsx';
 
@@ -62,51 +62,12 @@ const ChipPosicion = ({ posicion }) => {
   return <Chip label={`${posicion}°`} size="small" sx={{ ...sx, fontWeight: 800, minWidth: 42 }} />;
 };
 
-// Disciplinas de campo (salto/lanzamiento): gana la marca MÁS ALTA.
-// El resto (carreras, vallas, marcha, relevos) es por tiempo: gana la MÁS BAJA.
-const DISCIPLINAS_DISTANCIA = new Set([
-  'Salto de longitud', 'Salto de altura',
-  'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
-]);
-const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
-
-// Convierte un tiempo en formato "01:02:17,45" o "62:17,45" a centésimas
-const tiempoACentesimas = (str) => {
-  if (!str) return null;
-  const limpio = String(str).trim().replace(',', '.');
-  const partes = limpio.split(':').map((p) => parseFloat(p));
-  if (partes.some((p) => Number.isNaN(p))) return null;
-  let segundos = 0;
-  if (partes.length === 3) segundos = partes[0] * 3600 + partes[1] * 60 + partes[2];
-  else if (partes.length === 2) segundos = partes[0] * 60 + partes[1];
-  else if (partes.length === 1) segundos = partes[0];
-  else return null;
-  return Math.round(segundos * 100);
-};
-
-// Convierte una marca de distancia (ej. "6,45 m") a número
-const marcaANumero = (str) => {
-  if (!str) return null;
-  const num = parseFloat(String(str).trim().replace(',', '.').replace(/[^0-9.]/g, ''));
-  return Number.isNaN(num) ? null : num;
-};
-
-// Extrae de un resultado el valor comparable (según disciplina de distancia o tiempo)
-const obtenerValorComparable = (resultado) => {
-  const esDistancia = esDisciplinaDeDistancia(resultado.disciplina);
-  const prueba = esDistancia
-    ? resultado.pruebas?.find((p) => p.nombre === 'Marca')
-    : resultado.pruebas?.find((p) => p.nombre === 'ChipTime') || resultado.pruebas?.find((p) => p.nombre === 'GunTime');
-  const valor = prueba ? (esDistancia ? marcaANumero(prueba.marca) : tiempoACentesimas(prueba.marca)) : null;
-  const texto = prueba ? `${prueba.marca}${prueba.unidad ? ' ' + prueba.unidad : ''}`.trim() : null;
-  return { valor, esDistancia, texto };
-};
-
 const Reportes = () => {
   const { user } = useAuth();
   const [cargando, setCargando] = useState(true);
   const [resultados, setResultados] = useState([]);
   const [clubes, setClubes] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [estadisticas, setEstadisticas] = useState({});
   const [filtros, setFiltros] = useState({
     categoria: '',
@@ -119,26 +80,32 @@ const Reportes = () => {
   const [comboSeleccionado, setComboSeleccionado] = useState(null);
   const [error, setError] = useState('');
 
-  const categorias = [
-    'Sub-8', 'Sub-10', 'Sub-12', 'Sub-14', 'Sub-16', 'Sub-18',
-    'Sub-20', 'Sub-23', 'Mayor', 'Máster'
-  ];
+  // Mejores marcas por disciplina
+  const [mejoresMarcas, setMejoresMarcas] = useState([]);
+  const [cargandoMarcas, setCargandoMarcas] = useState(false);
 
   useEffect(() => {
     if (user) cargarDatos();
   }, [user]);
 
-  // Carga todos los datos necesarios: resultados, clubes y estadísticas
+  useEffect(() => {
+    if (user) cargarMejoresMarcas();
+  }, [user, filtros]);
+
+  // Carga todos los datos necesarios: resultados, clubes, categorías y estadísticas
   const cargarDatos = async () => {
     try {
       setCargando(true);
-      const [resultadosRes, clubesRes] = await Promise.all([
+      const [resultadosRes, clubesRes, categoriasRes] = await Promise.all([
         resultadosAPI.getAll({ limit: 1000 }),
         clubesAPI.getAll(),
+        catalogosAPI.getCategorias(),
       ]);
 
       setResultados(resultadosRes.data.resultados || resultadosRes.data || []);
       setClubes(clubesRes.data.clubes || clubesRes.data || []);
+      const listaCategorias = categoriasRes.data.categorias || categoriasRes.data || [];
+      setCategorias(listaCategorias.map((c) => c.nombre));
 
       try {
         const estadisticasRes = await resultadosAPI.getEstadisticasGenerales();
@@ -154,6 +121,25 @@ const Reportes = () => {
       setClubes([]);
     } finally {
       setCargando(false);
+    }
+  };
+
+  // Carga las mejores marcas por disciplina
+  const cargarMejoresMarcas = async () => {
+    try {
+      setCargandoMarcas(true);
+      const res = await resultadosAPI.getMejoresMarcas({
+        categoria: filtros.categoria || undefined,
+        club: filtros.club || undefined,
+        ano_competitivo: filtros.ano_competitivo || undefined,
+        genero: filtros.genero || undefined,
+      });
+      setMejoresMarcas(res.data.marcas || []);
+    } catch (err) {
+      console.error('Error al cargar mejores marcas:', err);
+      setMejoresMarcas([]);
+    } finally {
+      setCargandoMarcas(false);
     }
   };
 
@@ -196,13 +182,13 @@ const Reportes = () => {
       'CLUB': resultado.club_nombre || 'Independiente',
       'AÑO COMPETITIVO': resultado.ano_competitivo || 'N/A',
       'PRUEBA 1': resultado.pruebas?.[0]?.nombre || 'N/A',
-      'MARCA 1': resultado.pruebas?.[0]?.marca ? `${resultado.pruebas[0].marca} ${resultado.pruebas[0].unidad}` : 'N/A',
+      'MARCA 1': resultado.pruebas?.[0]?.marca ? `${resultado.pruebas[0].marca}${resultado.pruebas[0].unidad ? ' ' + resultado.pruebas[0].unidad : ''}` : 'N/A',
       'PRUEBA 2': resultado.pruebas?.[1]?.nombre || 'N/A',
-      'MARCA 2': resultado.pruebas?.[1]?.marca ? `${resultado.pruebas[1].marca} ${resultado.pruebas[1].unidad}` : 'N/A',
+      'MARCA 2': resultado.pruebas?.[1]?.marca ? `${resultado.pruebas[1].marca}${resultado.pruebas[1].unidad ? ' ' + resultado.pruebas[1].unidad : ''}` : 'N/A',
       'PRUEBA 3': resultado.pruebas?.[2]?.nombre || 'N/A',
-      'MARCA 3': resultado.pruebas?.[2]?.marca ? `${resultado.pruebas[2].marca} ${resultado.pruebas[2].unidad}` : 'N/A',
+      'MARCA 3': resultado.pruebas?.[2]?.marca ? `${resultado.pruebas[2].marca}${resultado.pruebas[2].unidad ? ' ' + resultado.pruebas[2].unidad : ''}` : 'N/A',
       'PRUEBA 4': resultado.pruebas?.[3]?.nombre || 'N/A',
-      'MARCA 4': resultado.pruebas?.[3]?.marca ? `${resultado.pruebas[3].marca} ${resultado.pruebas[3].unidad}` : 'N/A',
+      'MARCA 4': resultado.pruebas?.[3]?.marca ? `${resultado.pruebas[3].marca}${resultado.pruebas[3].unidad ? ' ' + resultado.pruebas[3].unidad : ''}` : 'N/A',
       'NOMBRE ENTRENADOR': resultado.entrenador_nombre ? `${resultado.entrenador_nombre} ${resultado.entrenador_apellido || ''}`.trim() : 'Independiente',
       'LUGAR DE ENTRENAMIENTO': resultado.lugar_entrenamiento || 'N/A'
     }));
@@ -227,35 +213,6 @@ const Reportes = () => {
   };
 
   const resultadosFiltrados = aplicarFiltros();
-
-  // Mejor marca por disciplina+categoría+género (sobre resultados filtrados)
-  const mejoresMarcasPorDisciplina = React.useMemo(() => {
-    const porCombo = new Map();
-    for (const r of resultadosFiltrados) {
-      if (!r.disciplina) continue;
-      const { valor, esDistancia, texto } = obtenerValorComparable(r);
-      if (valor === null) continue;
-
-      const clave = `${r.disciplina}|${r.categoria || '—'}|${r.genero || '—'}`;
-      if (!porCombo.has(clave)) {
-        porCombo.set(clave, {
-          clave, disciplina: r.disciplina, categoria: r.categoria || '—', genero: r.genero || '—',
-          esDistancia, atletas: [],
-        });
-      }
-      porCombo.get(clave).atletas.push({
-        atleta_id: r.atleta_id, nombre: obtenerNombreCompleto(r), club_nombre: r.club_nombre || 'Independiente',
-        evento_titulo: r.evento_titulo, valor, texto,
-      });
-    }
-
-    return [...porCombo.values()]
-      .map((combo) => ({
-        ...combo,
-        atletas: combo.atletas.sort((a, b) => combo.esDistancia ? b.valor - a.valor : a.valor - b.valor),
-      }))
-      .sort((a, b) => a.disciplina.localeCompare(b.disciplina) || a.categoria.localeCompare(b.categoria));
-  }, [resultadosFiltrados]);
 
   if (cargando) {
     return (
@@ -379,7 +336,7 @@ const Reportes = () => {
           </Box>
         </Box>
 
-        {/* Mejor marca por disciplina */}
+        {/* Mejor marca por disciplina (obtenida del backend) */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
             <MedalIcon /> Mejor Marca por Disciplina
@@ -388,7 +345,11 @@ const Reportes = () => {
             El atleta con la mejor marca en cada disciplina/categoría/género, dentro de los filtros de arriba — para saber a quién convocar.
           </Typography>
 
-          {mejoresMarcasPorDisciplina.length === 0 ? (
+          {cargandoMarcas ? (
+            <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
+              <CircularProgress size={28} sx={{ color: COLORS.burgundy }} />
+            </Box>
+          ) : mejoresMarcas.length === 0 ? (
             <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
               <Typography variant="body2" sx={{ color: COLORS.purple, fontWeight: 700 }}>
                 No hay marcas registradas con los filtros actuales.
@@ -411,10 +372,11 @@ const Reportes = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {mejoresMarcasPorDisciplina.map((combo) => {
-                      const mejor = combo.atletas[0];
+                    {mejoresMarcas.map((combo) => {
+                      const mejor = combo.mejorAtleta;
+                      const clave = `${combo.disciplina}|${combo.categoria}|${combo.genero}`;
                       return (
-                        <TableRow key={combo.clave} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                        <TableRow key={clave} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
                           <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{combo.disciplina}</TableCell>
                           <TableCell sx={{ borderColor: COLORS.line }}>
                             <Chip label={combo.categoria} size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }} />
@@ -425,11 +387,11 @@ const Reportes = () => {
                           </TableCell>
                           <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{mejor.nombre}</TableCell>
                           <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{mejor.club_nombre}</TableCell>
-                          <TableCell sx={{ borderColor: COLORS.line }} align="center">{combo.atletas.length}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }} align="center">{combo.totalCandidatos}</TableCell>
                           <TableCell sx={{ borderColor: COLORS.line }} align="center">
-                            {combo.atletas.length > 1 && (
+                            {combo.totalCandidatos > 1 && (
                               <Button size="small" onClick={() => setComboSeleccionado(combo)} sx={{ color: COLORS.burgundy, fontWeight: 700, textTransform: 'none' }}>
-                                Ver top {Math.min(5, combo.atletas.length)}
+                                Ver top {Math.min(5, combo.totalCandidatos)}
                               </Button>
                             )}
                           </TableCell>
@@ -511,7 +473,7 @@ const Reportes = () => {
                           {resultado.pruebas?.map((prueba, index) => (
                             <Chip
                               key={index}
-                              label={`${prueba.nombre}: ${prueba.marca} ${prueba.unidad}`}
+                              label={`${prueba.nombre}: ${prueba.marca}${prueba.unidad ? ' ' + prueba.unidad : ''}`}
                               size="small"
                               sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
                             />
@@ -555,14 +517,6 @@ const Reportes = () => {
               <Box>
                 <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Club</Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{resultadoSeleccionado.club_nombre || 'Independiente'}</Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Entrenador</Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                  {resultadoSeleccionado.entrenador_nombre
-                    ? `${resultadoSeleccionado.entrenador_nombre} ${resultadoSeleccionado.entrenador_apellido || ''}`.trim()
-                    : 'Independiente'}
-                </Typography>
               </Box>
               <Box>
                 <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar de Entrenamiento</Typography>
@@ -613,7 +567,7 @@ const Reportes = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {comboSeleccionado?.atletas.slice(0, 5).map((a, i) => (
+              {comboSeleccionado?.candidatos.map((a, i) => (
                 <TableRow key={`${a.atleta_id}-${i}`}>
                   <TableCell sx={{ fontWeight: 700, color: i === 0 ? COLORS.burgundy : COLORS.ink }}>{i + 1}°</TableCell>
                   <TableCell sx={{ color: COLORS.ink, fontWeight: i === 0 ? 700 : 400 }}>{a.nombre}</TableCell>

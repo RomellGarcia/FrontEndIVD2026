@@ -1,6 +1,11 @@
 import axios from 'axios'
 
-const BASE = 'http://localhost:5000/api'
+// En local, Vite lee VITE_API_URL de tu .env; si no existe, cae en
+// localhost para que el desarrollo siga funcionando igual que siempre.
+// En producción (Vercel), esta variable DEBE estar configurada apuntando
+// a tu backend real — si no, todo el sitio intentará hablar con
+// localhost:5000, que no existe fuera de tu máquina.
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const api = axios.create({
   baseURL: BASE,
@@ -43,6 +48,16 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
+}
+
+// NUEVO: flujo de "olvidé mi contraseña" (correo → código → nueva
+// contraseña) — antes cada pantalla le pegaba directo a
+// http://localhost:5000/api/recuperar/... con axios a mano, en vez de
+// pasar por aquí.
+export const recuperarAPI = {
+  forgotPassword: (data) => api.post('/recuperar/forgot-password', data),
+  verifyCode: (data) => api.post('/recuperar/verify-code', data),
+  resetPassword: (data) => api.post('/recuperar/reset-password', data),
 }
 
 export const perfilEmpresaAPI = {
@@ -89,6 +104,11 @@ export const entrenadorAPI = {
   getAtletas: () => api.get('/entrenador/atletas'),
   getSolicitudes: () => api.get('/entrenador/solicitudes'),
   solicitarClub: (data) => api.post('/entrenador/solicitar-club', data),
+  // NUEVO: sugerencias de certificaciones/especialidades (para el
+  // Autocomplete de Registro.jsx y PerfilEntrenador.jsx) — sacadas de lo
+  // que ya escribieron otros entrenadores, no un catálogo fijo.
+  getCertificacionesSugeridas: () => api.get('/entrenador/certificaciones-sugeridas'),
+  getEspecialidadesSugeridas: () => api.get('/entrenador/especialidades-sugeridas'),
 }
 
 export const entrenadoresAPI = {
@@ -101,6 +121,9 @@ export const entrenadoresAPI = {
   updateClub: (id, data) => api.put(`/entrenadores/${id}/club`, data),
   // NUEVO: el club invita a un entrenador independiente.
   invitarClub: (id, data) => api.post(`/entrenadores/${id}/invitar-club`, data),
+  // NUEVO: eliminar por completo (solo admin) — bloqueado en el backend
+  // si el entrenador tiene resultados registrados.
+  remove: (id) => api.delete(`/entrenadores/${id}`),
 }
 
 export const eventosAPI = {
@@ -153,6 +176,7 @@ export const resultadosAPI = {
   getByClub: (id) => api.get(`/resultados/club/${id}`),
   getByEntrenador: (id) => api.get(`/resultados/entrenador/${id}`),
   getEstadisticasGenerales: () => api.get('/resultados/estadisticas/generales'),
+  getMejoresMarcas: (params) => api.get('/resultados/mejores-marcas', { params }),
   getEstadisticasByClub: (id) => api.get(`/resultados/estadisticas/club/${id}`),
   create: (data) => api.post('/resultados', data),
   update: (id, data) => api.put(`/resultados/${id}`, data),

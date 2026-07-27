@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import zxcvbn from 'zxcvbn';
 import sha1 from 'js-sha1';
+import { authAPI, entrenadorAPI } from '../../api/index.js';
 import {
   Box,
   TextField,
@@ -21,11 +22,9 @@ import {
   Avatar,
   LinearProgress,
   Chip,
-  OutlinedInput,
   Divider,
   CircularProgress,
-  useMediaQuery,
-  useTheme,
+  Autocomplete,
 } from '@mui/material';
 import {
   Visibility,
@@ -44,12 +43,12 @@ import {
 
 const MySwal = withReactContent(Swal);
 
+// Paleta de colores institucional
 const BURGUNDY = '#800020';
 const PURPLE = '#7A4069';
 const CREAM = '#ffffff';
-const API_BASE_URL = 'http://localhost:5000';
 
-/* sx compartido — quita asterisco + autofill fix */
+// Estilos reutilizables para campos de formulario
 const fieldSx = {
   '& .MuiInputLabel-root': { color: PURPLE },
   '& .MuiInputLabel-root.Mui-focused': { color: BURGUNDY },
@@ -67,6 +66,7 @@ const fieldSx = {
   },
 };
 
+// Lista de estados de México
 const ESTADOS_MEXICO = [
   'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
   'Coahuila', 'Colima', 'Chiapas', 'Chihuahua', 'Ciudad de México',
@@ -77,21 +77,7 @@ const ESTADOS_MEXICO = [
   'Nacido en el Extranjero',
 ];
 
-const ESPECIALIDADES = [
-  'Atletismo', 'Carrera de velocidad', 'Carrera de resistencia',
-  'Salto de longitud', 'Salto de altura', 'Lanzamiento de jabalina',
-  'Lanzamiento de disco', 'Lanzamiento de peso', 'Marcha atlética',
-  'Relevos', 'Cross country', 'Maratón', 'Triatlón', 'Pentatlón', 'Decatlón',
-];
-
-const CERTIFICACIONES = [
-  'Federación Mexicana de Atletismo', 'CONADE',
-  'Instituto del Deporte del Estado', 'Escuela Nacional de Entrenadores Deportivos',
-  'Federación Internacional de Atletismo', 'Certificación de Entrenador Personal',
-  'Licenciatura en Ciencias del Deporte', 'Maestría en Entrenamiento Deportivo',
-  'Certificación de Primeros Auxilios', 'Certificación de Nutrición Deportiva',
-];
-
+// Encabezado de sección
 const SectionHeader = ({ icon, title }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, mt: 2 }}>
     <Box sx={{ color: BURGUNDY, display: 'flex' }}>{icon}</Box>
@@ -103,10 +89,9 @@ const SectionHeader = ({ icon, title }) => (
 
 function Registro() {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [formData, setFormData] = useState({
+  // Estado del formulario
+  const [formulario, setFormulario] = useState({
     rol: '',
     nombre: '',
     apellidopa: '',
@@ -117,109 +102,137 @@ function Registro() {
     estadoNacimiento: '',
     municipio: '',
     telefono: '',
-    gmail: '',
+    correo: '',
     password: '',
     repetirPassword: '',
     especialidades: [],
     certificaciones: [],
     añosExperiencia: '',
-    clubId: '',
     direccion: '',
     lugarEntrenamiento: '',
     descripcion: '',
   });
 
-  const [formErrors, setFormErrors] = useState({});
-  const [passwordStrength, setPasswordStrength] = useState(0);
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [repetirPasswordVisible, setRepetirPasswordVisible] = useState(false);
-  const [clubes, setClubes] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [erroresFormulario, setErroresFormulario] = useState({});
+  const [fortalezaContraseña, setFortalezaContraseña] = useState(0);
+  const [contraseñaVisible, setContraseñaVisible] = useState(false);
+  const [repetirContraseñaVisible, setRepetirContraseñaVisible] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [sugerenciasCertificaciones, setSugerenciasCertificaciones] = useState([]);
+  const [sugerenciasEspecialidades, setSugerenciasEspecialidades] = useState([]);
 
-  const rol = formData.rol;
-  const isAtleta = rol === 'atleta';
-  const isClub = rol === 'club';
-  const isEntrenador = rol === 'entrenador';
-  const showPersonalFields = isAtleta || isEntrenador;
+  const rol = formulario.rol;
+  const esAtleta = rol === 'atleta';
+  const esClub = rol === 'club';
+  const esEntrenador = rol === 'entrenador';
+  const mostrarCamposPersonales = esAtleta || esEntrenador;
 
+  const MAX_CERTIFICACIONES = 3;
+  const MAX_ESPECIALIDADES = 3;
+
+  // Sugerencias de certificaciones y especialidades para entrenadores
   useEffect(() => {
-    if (isEntrenador) {
-      axios
-        .get(`${API_BASE_URL}/api/clubes`)
-        .then((res) => setClubes(res.data.clubes || res.data || []))
-        .catch(() => setClubes([]));
+    if (esEntrenador) {
+      entrenadorAPI
+        .getCertificacionesSugeridas()
+        .then((res) => setSugerenciasCertificaciones(res.data.certificaciones || []))
+        .catch((err) => {
+          console.error('Error al cargar certificaciones sugeridas:', err.response?.status, err.response?.data || err.message);
+          setSugerenciasCertificaciones([]);
+        });
+
+      entrenadorAPI
+        .getEspecialidadesSugeridas()
+        .then((res) => setSugerenciasEspecialidades(res.data.especialidades || []))
+        .catch((err) => {
+          console.error('Error al cargar especialidades sugeridas:', err.response?.status, err.response?.data || err.message);
+          setSugerenciasEspecialidades([]);
+        });
     }
-  }, [isEntrenador]);
+  }, [esEntrenador]);
 
-  const validateField = (name, value) => {
-    const errors = { ...formErrors };
-    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]{2,30}$/;
+  // Valida un campo individual
+  const validarCampo = (nombre, valor) => {
+    const errores = { ...erroresFormulario };
+    const regexNombre = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]{2,30}$/;
 
-    switch (name) {
+    switch (nombre) {
       case 'nombre':
       case 'apellidopa':
       case 'apellidoma':
-        if (!nameRegex.test(value)) errors[name] = 'Solo letras, mínimo 2 caracteres.';
-        else delete errors[name];
+        if (!regexNombre.test(valor)) errores[nombre] = 'Solo letras, mínimo 2 caracteres.';
+        else delete errores[nombre];
         break;
       case 'telefono':
-        if (!/^\d{10}$/.test(value)) errors[name] = 'Debe tener exactamente 10 dígitos.';
-        else delete errors[name];
+        if (!/^\d{10}$/.test(valor)) errores[nombre] = 'Debe tener exactamente 10 dígitos.';
+        else delete errores[nombre];
         break;
-      case 'gmail':
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors[name] = 'Correo electrónico inválido.';
-        else delete errors[name];
+      case 'correo':
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) errores[nombre] = 'Correo electrónico inválido.';
+        else delete errores[nombre];
         break;
       case 'curp':
-        if (value && !/^[A-Za-z0-9]{18}$/.test(value)) errors[name] = 'Debe tener 18 caracteres alfanuméricos.';
-        else delete errors[name];
+        if (valor && !/^[A-Za-z0-9]{18}$/.test(valor)) errores[nombre] = 'Debe tener 18 caracteres alfanuméricos.';
+        else delete errores[nombre];
         break;
       case 'fechaNacimiento': {
-        if (!value) { errors[name] = 'Campo obligatorio.'; break; }
-        const age = new Date().getFullYear() - new Date(value).getFullYear();
-        const minAge = isEntrenador ? 18 : 12;
-        if (age < minAge || age > 100) errors[name] = `Edad entre ${minAge} y 100 años.`;
-        else delete errors[name];
+        if (!valor) { errores[nombre] = 'Campo obligatorio.'; break; }
+        const edad = new Date().getFullYear() - new Date(valor).getFullYear();
+        const edadMinima = esEntrenador ? 18 : 12;
+        if (edad < edadMinima || edad > 100) errores[nombre] = `Edad entre ${edadMinima} y 100 años.`;
+        else delete errores[nombre];
         break;
       }
       case 'municipio':
-        if (value && !/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]{2,100}$/.test(value))
-          errors[name] = 'Solo letras, mínimo 2 caracteres.';
-        else delete errors[name];
+        if (valor && !/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]{2,100}$/.test(valor))
+          errores[nombre] = 'Solo letras, mínimo 2 caracteres.';
+        else delete errores[nombre];
         break;
       case 'direccion':
-        if (value && value.length < 3) errors[name] = 'Mínimo 3 caracteres.';
-        else delete errors[name];
+        if (valor && valor.length < 3) errores[nombre] = 'Mínimo 3 caracteres.';
+        else delete errores[nombre];
         break;
       case 'password':
-        if (value.length < 8 || value.length > 15) errors[name] = 'Entre 8 y 15 caracteres.';
-        else delete errors[name];
-        if (formData.repetirPassword && value !== formData.repetirPassword)
-          errors.repetirPassword = 'Las contraseñas no coinciden.';
-        else delete errors.repetirPassword;
+        if (valor.length < 8 || valor.length > 15) errores[nombre] = 'Entre 8 y 15 caracteres.';
+        else delete errores[nombre];
+        if (formulario.repetirPassword && valor !== formulario.repetirPassword)
+          errores.repetirPassword = 'Las contraseñas no coinciden.';
+        else delete errores.repetirPassword;
         break;
       case 'repetirPassword':
-        if (value !== formData.password) errors[name] = 'Las contraseñas no coinciden.';
-        else delete errors[name];
+        if (valor !== formulario.password) errores[nombre] = 'Las contraseñas no coinciden.';
+        else delete errores[nombre];
         break;
       default:
         break;
     }
-    setFormErrors(errors);
+    setErroresFormulario(errores);
   };
 
-  const handleChange = (e) => {
+  // Maneja cambios en los campos del formulario
+  const manejarCambio = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === 'password') setPasswordStrength(zxcvbn(value).score);
-    validateField(name, value);
+    setFormulario((prev) => ({ ...prev, [name]: value }));
+    if (name === 'password') setFortalezaContraseña(zxcvbn(value).score);
+    validarCampo(name, value);
   };
 
-  const handleMultiSelect = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  // Maneja cambios en Autocomplete (certificaciones y especialidades)
+  const manejarCambioChips = (campo, max) => (event, nuevosValores) => {
+    const limpios = [];
+    const vistos = new Set();
+    for (const v of nuevosValores) {
+      const valor = (v || '').trim();
+      const clave = valor.toLowerCase();
+      if (!valor || vistos.has(clave)) continue;
+      vistos.add(clave);
+      limpios.push(valor);
+    }
+    setFormulario((prev) => ({ ...prev, [campo]: limpios.slice(0, max) }));
   };
 
-  const checkPasswordCompromised = async (password) => {
+  // Verifica si la contraseña ha sido filtrada en brechas de seguridad
+  const verificarContraseñaComprometida = async (password) => {
     try {
       const hash = sha1(password);
       const res = await axios.get(`https://api.pwnedpasswords.com/range/${hash.substring(0, 5)}`);
@@ -229,75 +242,74 @@ function Registro() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  // Envía el formulario de registro
+  const manejarEnvio = async (e) => {
     e.preventDefault();
 
-    if (Object.keys(formErrors).length > 0) {
+    if (Object.keys(erroresFormulario).length > 0) {
       MySwal.fire({ icon: 'error', title: 'Errores en el formulario', text: 'Corrige los errores antes de continuar.' });
       return;
     }
 
-    setSubmitting(true);
+    setEnviando(true);
 
-    const isCompromised = await checkPasswordCompromised(formData.password);
-    if (isCompromised) {
-      setSubmitting(false);
+    const comprometida = await verificarContraseñaComprometida(formulario.password);
+    if (comprometida) {
+      setEnviando(false);
       MySwal.fire({ icon: 'error', title: 'Contraseña comprometida', text: 'Esta contraseña ha sido filtrada. Por favor, elige otra.' });
       return;
     }
 
     try {
-      let endpoint = `${API_BASE_URL}/api/auth/register`;
-      let dataToSend;
+      let datosEnviar;
 
-      if (isClub) {
-        dataToSend = {
-          nombre: formData.nombre,
-          direccion: formData.direccion.trim(),
-          telefono: formData.telefono,
-          email: formData.gmail,
-          password: formData.password,
-          descripcion: formData.descripcion.trim(),
-          lugar_entrenamiento: formData.lugarEntrenamiento.trim(),
+      if (esClub) {
+        datosEnviar = {
+          nombre: formulario.nombre,
+          direccion: formulario.direccion.trim(),
+          telefono: formulario.telefono,
+          email: formulario.correo,
+          password: formulario.password,
+          descripcion: formulario.descripcion.trim(),
+          lugar_entrenamiento: formulario.lugarEntrenamiento.trim(),
           rol: 'club',
         };
-      } else if (isEntrenador) {
-        dataToSend = {
-          nombre: formData.nombre,
-          apellido_paterno: formData.apellidopa,
-          apellido_materno: formData.apellidoma,
-          curp: formData.curp,
-          fecha_nacimiento: formData.fechaNacimiento,
-          genero: formData.sexo,
-          estado_nacimiento: formData.estadoNacimiento,
-          municipio: formData.municipio,
-          telefono: formData.telefono,
-          email: formData.gmail,
-          password: formData.password,
+      } else if (esEntrenador) {
+        datosEnviar = {
+          nombre: formulario.nombre,
+          apellido_paterno: formulario.apellidopa,
+          apellido_materno: formulario.apellidoma,
+          curp: formulario.curp,
+          fecha_nacimiento: formulario.fechaNacimiento,
+          genero: formulario.sexo,
+          estado_nacimiento: formulario.estadoNacimiento,
+          municipio: formulario.municipio,
+          telefono: formulario.telefono,
+          email: formulario.correo,
+          password: formulario.password,
           rol: 'entrenador',
-          especialidades: formData.especialidades,
-          certificaciones: formData.certificaciones,
-          anos_experiencia: formData.añosExperiencia,
-          ...(formData.clubId && { club_id: formData.clubId }),
+          especialidades: formulario.especialidades,
+          certificaciones: formulario.certificaciones,
+          anos_experiencia: formulario.añosExperiencia,
         };
       } else {
-        dataToSend = {
-          nombre: formData.nombre,
-          apellido_paterno: formData.apellidopa,
-          apellido_materno: formData.apellidoma,
-          curp: formData.curp,
-          fecha_nacimiento: formData.fechaNacimiento,
-          genero: formData.sexo,
-          estado_nacimiento: formData.estadoNacimiento,
-          municipio: formData.municipio,
-          telefono: formData.telefono,
-          email: formData.gmail,
-          password: formData.password,
+        datosEnviar = {
+          nombre: formulario.nombre,
+          apellido_paterno: formulario.apellidopa,
+          apellido_materno: formulario.apellidoma,
+          curp: formulario.curp,
+          fecha_nacimiento: formulario.fechaNacimiento,
+          genero: formulario.sexo,
+          estado_nacimiento: formulario.estadoNacimiento,
+          municipio: formulario.municipio,
+          telefono: formulario.telefono,
+          email: formulario.correo,
+          password: formulario.password,
           rol: 'atleta',
         };
       }
 
-      await axios.post(endpoint, dataToSend, { headers: { 'Content-Type': 'application/json' } });
+      await authAPI.register(datosEnviar);
 
       MySwal.fire({
         icon: 'success',
@@ -309,12 +321,12 @@ function Registro() {
     } catch (error) {
       MySwal.fire({ icon: 'error', title: 'Error', text: error.response?.data?.error || 'No se pudo completar el registro.' });
     } finally {
-      setSubmitting(false);
+      setEnviando(false);
     }
   };
 
-  const strengthLabel = ['Débil', 'Débil', 'Media', 'Fuerte', 'Muy fuerte'];
-  const strengthColor = ['#D32F2F', '#D32F2F', '#FF9800', '#4CAF50', '#2E7D32'];
+  const etiquetaFortaleza = ['Débil', 'Débil', 'Media', 'Fuerte', 'Muy fuerte'];
+  const colorFortaleza = ['#D32F2F', '#D32F2F', '#FF9800', '#4CAF50', '#2E7D32'];
 
   return (
     <Box
@@ -336,7 +348,7 @@ function Registro() {
           boxShadow: '0 8px 32px rgba(128,0,32,0.12)',
         }}
       >
-        {/* Header */}
+        {/* Cabecera */}
         <Box
           sx={{
             bgcolor: BURGUNDY,
@@ -358,14 +370,13 @@ function Registro() {
           </Typography>
         </Box>
 
-        {/* Form */}
+        {/* Formulario */}
         <CardContent sx={{ px: { xs: 2.5, sm: 4 }, py: { xs: 3, sm: 4 } }}>
-          <Box component="form" onSubmit={handleSubmit}>
-
-            {/* ── 1. Rol ── */}
+          <Box component="form" onSubmit={manejarEnvio}>
+            {/* Selector de rol */}
             <FormControl fullWidth sx={{ mb: 3, ...fieldSx }} required>
               <InputLabel>¿Cómo deseas registrarte?</InputLabel>
-              <Select name="rol" value={rol} onChange={handleChange} label="¿Cómo deseas registrarte?">
+              <Select name="rol" value={rol} onChange={manejarCambio} label="¿Cómo deseas registrarte?">
                 <MenuItem value="atleta">Atleta</MenuItem>
                 <MenuItem value="club">Club</MenuItem>
                 <MenuItem value="entrenador">Entrenador</MenuItem>
@@ -377,34 +388,34 @@ function Registro() {
                 {/* Datos personales / Club */}
                 <SectionHeader
                   icon={<PersonIcon fontSize="small" />}
-                  title={isClub ? 'Datos del Club' : 'Datos Personales'}
+                  title={esClub ? 'Datos del Club' : 'Datos Personales'}
                 />
                 <Divider sx={{ mb: 2.5 }} />
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
                   <TextField
                     fullWidth
-                    label={isClub ? 'Nombre del Club' : 'Nombre'}
+                    label={esClub ? 'Nombre del Club' : 'Nombre'}
                     name="nombre"
-                    value={formData.nombre}
-                    onChange={handleChange}
+                    value={formulario.nombre}
+                    onChange={manejarCambio}
                     required
-                    error={!!formErrors.nombre}
-                    helperText={formErrors.nombre}
-                    sx={{ ...fieldSx, ...(isClub && { gridColumn: '1 / -1' }) }}
+                    error={!!erroresFormulario.nombre}
+                    helperText={erroresFormulario.nombre}
+                    sx={{ ...fieldSx, ...(esClub && { gridColumn: '1 / -1' }) }}
                   />
 
-                  {isClub && (
+                  {esClub && (
                     <>
                       <TextField
                         fullWidth
                         label="Dirección"
                         name="direccion"
-                        value={formData.direccion}
-                        onChange={handleChange}
+                        value={formulario.direccion}
+                        onChange={manejarCambio}
                         required
-                        error={!!formErrors.direccion}
-                        helperText={formErrors.direccion}
+                        error={!!erroresFormulario.direccion}
+                        helperText={erroresFormulario.direccion}
                         sx={{ ...fieldSx, gridColumn: '1 / -1' }}
                         InputProps={{
                           startAdornment: (
@@ -416,8 +427,8 @@ function Registro() {
                         fullWidth
                         label="Lugar de Entrenamiento (Opcional)"
                         name="lugarEntrenamiento"
-                        value={formData.lugarEntrenamiento}
-                        onChange={handleChange}
+                        value={formulario.lugarEntrenamiento}
+                        onChange={manejarCambio}
                         placeholder="Ej: Unidad Deportiva Xalapa, cancha 3"
                         helperText="Si lo dejas en blanco, tus atletas podrán capturar el suyo propio; si lo llenas, se aplica automáticamente a todos ellos"
                         sx={{ ...fieldSx, gridColumn: '1 / -1' }}
@@ -431,8 +442,8 @@ function Registro() {
                         fullWidth
                         label="Descripción (Opcional)"
                         name="descripcion"
-                        value={formData.descripcion}
-                        onChange={handleChange}
+                        value={formulario.descripcion}
+                        onChange={manejarCambio}
                         multiline
                         rows={3}
                         placeholder="Breve descripción de tu club..."
@@ -446,38 +457,38 @@ function Registro() {
                     </>
                   )}
 
-                  {showPersonalFields && (
+                  {mostrarCamposPersonales && (
                     <>
                       <TextField
                         fullWidth
                         label="Apellido Paterno"
                         name="apellidopa"
-                        value={formData.apellidopa}
-                        onChange={handleChange}
+                        value={formulario.apellidopa}
+                        onChange={manejarCambio}
                         required
-                        error={!!formErrors.apellidopa}
-                        helperText={formErrors.apellidopa}
+                        error={!!erroresFormulario.apellidopa}
+                        helperText={erroresFormulario.apellidopa}
                         sx={fieldSx}
                       />
                       <TextField
                         fullWidth
                         label="Apellido Materno"
                         name="apellidoma"
-                        value={formData.apellidoma}
-                        onChange={handleChange}
-                        error={!!formErrors.apellidoma}
-                        helperText={formErrors.apellidoma}
+                        value={formulario.apellidoma}
+                        onChange={manejarCambio}
+                        error={!!erroresFormulario.apellidoma}
+                        helperText={erroresFormulario.apellidoma}
                         sx={fieldSx}
                       />
                       <TextField
                         fullWidth
                         label="CURP"
                         name="curp"
-                        value={formData.curp}
-                        onChange={handleChange}
+                        value={formulario.curp}
+                        onChange={manejarCambio}
                         required
-                        error={!!formErrors.curp}
-                        helperText={formErrors.curp}
+                        error={!!erroresFormulario.curp}
+                        helperText={erroresFormulario.curp}
                         inputProps={{ maxLength: 18, style: { textTransform: 'uppercase' } }}
                         sx={fieldSx}
                       />
@@ -486,17 +497,17 @@ function Registro() {
                         label="Fecha de nacimiento"
                         name="fechaNacimiento"
                         type="date"
-                        value={formData.fechaNacimiento}
-                        onChange={handleChange}
+                        value={formulario.fechaNacimiento}
+                        onChange={manejarCambio}
                         required
-                        error={!!formErrors.fechaNacimiento}
-                        helperText={formErrors.fechaNacimiento}
+                        error={!!erroresFormulario.fechaNacimiento}
+                        helperText={erroresFormulario.fechaNacimiento}
                         slotProps={{ inputLabel: { shrink: true } }}
                         sx={fieldSx}
                       />
                       <FormControl fullWidth required sx={fieldSx}>
                         <InputLabel>Sexo</InputLabel>
-                        <Select name="sexo" value={formData.sexo} onChange={handleChange} label="Sexo">
+                        <Select name="sexo" value={formulario.sexo} onChange={manejarCambio} label="Sexo">
                           <MenuItem value="masculino">Masculino</MenuItem>
                           <MenuItem value="femenino">Femenino</MenuItem>
                         </Select>
@@ -505,8 +516,8 @@ function Registro() {
                         <InputLabel>Estado de Nacimiento</InputLabel>
                         <Select
                           name="estadoNacimiento"
-                          value={formData.estadoNacimiento}
-                          onChange={handleChange}
+                          value={formulario.estadoNacimiento}
+                          onChange={manejarCambio}
                           label="Estado de Nacimiento"
                         >
                           {ESTADOS_MEXICO.map((e) => (
@@ -518,61 +529,73 @@ function Registro() {
                         fullWidth
                         label="Municipio"
                         name="municipio"
-                        value={formData.municipio}
-                        onChange={handleChange}
-                        error={!!formErrors.municipio}
-                        helperText={formErrors.municipio || 'Municipio donde resides actualmente'}
+                        value={formulario.municipio}
+                        onChange={manejarCambio}
+                        error={!!erroresFormulario.municipio}
+                        helperText={erroresFormulario.municipio || 'Municipio donde resides actualmente'}
                         sx={fieldSx}
                       />
                     </>
                   )}
                 </Box>
 
-                {/* Profesional (solo entrenador) */}
-                {isEntrenador && (
+                {/* Información profesional (solo entrenador) */}
+                {esEntrenador && (
                   <>
                     <SectionHeader icon={<SchoolIcon fontSize="small" />} title="Información Profesional" />
                     <Divider sx={{ mb: 2.5 }} />
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
-                      <FormControl fullWidth sx={fieldSx}>
-                        <InputLabel>Especialidades</InputLabel>
-                        <Select
-                          multiple
-                          value={formData.especialidades}
-                          onChange={(e) => handleMultiSelect('especialidades', e.target.value)}
-                          input={<OutlinedInput label="Especialidades" />}
-                          renderValue={(sel) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {sel.map((v) => <Chip key={v} label={v} size="small" />)}
-                            </Box>
-                          )}
-                        >
-                          {ESPECIALIDADES.map((e) => <MenuItem key={e} value={e}>{e}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                      <FormControl fullWidth sx={fieldSx}>
-                        <InputLabel>Certificaciones</InputLabel>
-                        <Select
-                          multiple
-                          value={formData.certificaciones}
-                          onChange={(e) => handleMultiSelect('certificaciones', e.target.value)}
-                          input={<OutlinedInput label="Certificaciones" />}
-                          renderValue={(sel) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {sel.map((v) => <Chip key={v} label={v} size="small" />)}
-                            </Box>
-                          )}
-                        >
-                          {CERTIFICACIONES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        multiple
+                        freeSolo
+                        options={sugerenciasEspecialidades}
+                        value={formulario.especialidades}
+                        onChange={manejarCambioChips('especialidades', MAX_ESPECIALIDADES)}
+                        renderTags={(valores, getTagProps) =>
+                          valores.map((valor, index) => (
+                            <Chip label={valor} size="small" {...getTagProps({ index })} key={valor} />
+                          ))
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Especialidades"
+                            placeholder={formulario.especialidades.length < MAX_ESPECIALIDADES ? 'Escoge de la lista o escribe una nueva...' : ''}
+                            helperText={`Máximo ${MAX_ESPECIALIDADES} — ${formulario.especialidades.length}/${MAX_ESPECIALIDADES}`}
+                            sx={fieldSx}
+                          />
+                        )}
+                        disabled={formulario.especialidades.length >= MAX_ESPECIALIDADES}
+                      />
+                      <Autocomplete
+                        multiple
+                        freeSolo
+                        options={sugerenciasCertificaciones}
+                        value={formulario.certificaciones}
+                        onChange={manejarCambioChips('certificaciones', MAX_CERTIFICACIONES)}
+                        renderTags={(valores, getTagProps) =>
+                          valores.map((valor, index) => (
+                            <Chip label={valor} size="small" {...getTagProps({ index })} key={valor} />
+                          ))
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Certificaciones"
+                            placeholder={formulario.certificaciones.length < MAX_CERTIFICACIONES ? 'Escoge de la lista o escribe una nueva...' : ''}
+                            helperText={`Máximo ${MAX_CERTIFICACIONES} — ${formulario.certificaciones.length}/${MAX_CERTIFICACIONES}`}
+                            sx={fieldSx}
+                          />
+                        )}
+                        disabled={formulario.certificaciones.length >= MAX_CERTIFICACIONES}
+                      />
                       <TextField
                         fullWidth
                         label="Años de Experiencia"
                         name="añosExperiencia"
                         type="number"
-                        value={formData.añosExperiencia}
-                        onChange={handleChange}
+                        value={formulario.añosExperiencia}
+                        onChange={manejarCambio}
                         sx={fieldSx}
                         InputProps={{
                           startAdornment: (
@@ -580,15 +603,6 @@ function Registro() {
                           ),
                         }}
                       />
-                      <FormControl fullWidth sx={fieldSx}>
-                        <InputLabel>Club (Opcional)</InputLabel>
-                        <Select name="clubId" value={formData.clubId} onChange={handleChange} label="Club (Opcional)">
-                          <MenuItem value=""><em>Sin asignar</em></MenuItem>
-                          {clubes.map((c) => (
-                            <MenuItem key={c._id || c.id} value={c._id || c.id}>{c.nombre}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
                     </Box>
                   </>
                 )}
@@ -600,13 +614,13 @@ function Registro() {
                   <TextField
                     fullWidth
                     label="Correo Electrónico"
-                    name="gmail"
+                    name="correo"
                     type="email"
-                    value={formData.gmail}
-                    onChange={handleChange}
+                    value={formulario.correo}
+                    onChange={manejarCambio}
                     required
-                    error={!!formErrors.gmail}
-                    helperText={formErrors.gmail}
+                    error={!!erroresFormulario.correo}
+                    helperText={erroresFormulario.correo}
                     sx={fieldSx}
                     InputProps={{
                       startAdornment: (
@@ -618,11 +632,11 @@ function Registro() {
                     fullWidth
                     label="Teléfono"
                     name="telefono"
-                    value={formData.telefono}
-                    onChange={handleChange}
+                    value={formulario.telefono}
+                    onChange={manejarCambio}
                     required
-                    error={!!formErrors.telefono}
-                    helperText={formErrors.telefono}
+                    error={!!erroresFormulario.telefono}
+                    helperText={erroresFormulario.telefono}
                     inputProps={{ maxLength: 10 }}
                     sx={fieldSx}
                     InputProps={{
@@ -642,12 +656,12 @@ function Registro() {
                       fullWidth
                       label="Contraseña"
                       name="password"
-                      type={passwordVisible ? 'text' : 'password'}
-                      value={formData.password}
-                      onChange={handleChange}
+                      type={contraseñaVisible ? 'text' : 'password'}
+                      value={formulario.password}
+                      onChange={manejarCambio}
                       required
-                      error={!!formErrors.password}
-                      helperText={formErrors.password}
+                      error={!!erroresFormulario.password}
+                      helperText={erroresFormulario.password}
                       sx={fieldSx}
                       slotProps={{
                         input: {
@@ -656,26 +670,26 @@ function Registro() {
                           ),
                           endAdornment: (
                             <InputAdornment position="end">
-                              <IconButton onClick={() => setPasswordVisible(!passwordVisible)} edge="end" sx={{ color: BURGUNDY }}>
-                                {passwordVisible ? <VisibilityOff /> : <Visibility />}
+                              <IconButton onClick={() => setContraseñaVisible(!contraseñaVisible)} edge="end" sx={{ color: BURGUNDY }}>
+                                {contraseñaVisible ? <VisibilityOff /> : <Visibility />}
                               </IconButton>
                             </InputAdornment>
                           ),
                         },
                       }}
                     />
-                    {formData.password && (
+                    {formulario.password && (
                       <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                         <LinearProgress
                           variant="determinate"
-                          value={(passwordStrength / 4) * 100}
+                          value={(fortalezaContraseña / 4) * 100}
                           sx={{
                             flex: 1, height: 5, borderRadius: 3, bgcolor: '#e0e0e0',
-                            '& .MuiLinearProgress-bar': { borderRadius: 3, bgcolor: strengthColor[passwordStrength] },
+                            '& .MuiLinearProgress-bar': { borderRadius: 3, bgcolor: colorFortaleza[fortalezaContraseña] },
                           }}
                         />
-                        <Typography variant="caption" sx={{ color: strengthColor[passwordStrength], fontWeight: 600, minWidth: 70 }}>
-                          {strengthLabel[passwordStrength]}
+                        <Typography variant="caption" sx={{ color: colorFortaleza[fortalezaContraseña], fontWeight: 600, minWidth: 70 }}>
+                          {etiquetaFortaleza[fortalezaContraseña]}
                         </Typography>
                       </Box>
                     )}
@@ -684,12 +698,12 @@ function Registro() {
                     fullWidth
                     label="Repetir Contraseña"
                     name="repetirPassword"
-                    type={repetirPasswordVisible ? 'text' : 'password'}
-                    value={formData.repetirPassword}
-                    onChange={handleChange}
+                    type={repetirContraseñaVisible ? 'text' : 'password'}
+                    value={formulario.repetirPassword}
+                    onChange={manejarCambio}
                     required
-                    error={!!formErrors.repetirPassword}
-                    helperText={formErrors.repetirPassword}
+                    error={!!erroresFormulario.repetirPassword}
+                    helperText={erroresFormulario.repetirPassword}
                     sx={fieldSx}
                     slotProps={{
                       input: {
@@ -698,8 +712,8 @@ function Registro() {
                         ),
                         endAdornment: (
                           <InputAdornment position="end">
-                            <IconButton onClick={() => setRepetirPasswordVisible(!repetirPasswordVisible)} edge="end" sx={{ color: BURGUNDY }}>
-                              {repetirPasswordVisible ? <VisibilityOff /> : <Visibility />}
+                            <IconButton onClick={() => setRepetirContraseñaVisible(!repetirContraseñaVisible)} edge="end" sx={{ color: BURGUNDY }}>
+                              {repetirContraseñaVisible ? <VisibilityOff /> : <Visibility />}
                             </IconButton>
                           </InputAdornment>
                         ),
@@ -708,13 +722,13 @@ function Registro() {
                   />
                 </Box>
 
-                {/* Boton */}
+                {/* Botón de registro */}
                 <Button
                   type="submit"
                   variant="contained"
                   fullWidth
-                  disabled={submitting}
-                  startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <RegisterIcon />}
+                  disabled={enviando}
+                  startIcon={enviando ? <CircularProgress size={20} color="inherit" /> : <RegisterIcon />}
                   sx={{
                     mt: 4,
                     bgcolor: BURGUNDY,
@@ -726,10 +740,10 @@ function Registro() {
                     '&:hover': { bgcolor: '#600018' },
                   }}
                 >
-                  {submitting ? 'Registrando...' : 'Crear Cuenta'}
+                  {enviando ? 'Registrando...' : 'Crear Cuenta'}
                 </Button>
 
-                {/* Link login */}
+                {/* Enlace a login */}
                 <Box sx={{ textAlign: 'center', mt: 2.5 }}>
                   <Typography variant="body2" component="span" sx={{ color: '#888' }}>
                     ¿Ya tienes cuenta?{' '}

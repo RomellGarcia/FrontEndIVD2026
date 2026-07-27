@@ -1,526 +1,479 @@
+import { entrenadorAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Container, Typography, Paper, Grid, TextField, Button, 
-  Alert, CircularProgress, Chip, Avatar, Card, CardContent,
-  FormControl, InputLabel, Select, MenuItem, OutlinedInput
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Container,
+  Alert,
+  CircularProgress,
+  Avatar,
+  Chip,
+  Divider,
+  IconButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import {
-  Person as PersonIcon, Email as EmailIcon, Phone as PhoneIcon,
-  School as SchoolIcon, Work as WorkIcon, Group as GroupIcon,
-  Save as SaveIcon, Edit as EditIcon
-} from '@mui/icons-material';
-import axios from 'axios';
-import { entrenadorAPI } from '../../api/index.js';
+import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import PersonIcon from '@mui/icons-material/Person';
+import BadgeIcon from '@mui/icons-material/Badge';
+import PhoneIcon from '@mui/icons-material/Phone';
+import EmailIcon from '@mui/icons-material/Email';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import GroupIcon from '@mui/icons-material/Group';
+import CancelIcon from '@mui/icons-material/Cancel';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import AddIcon from '@mui/icons-material/Add';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import StarsIcon from '@mui/icons-material/Stars';
+import WorkHistoryIcon from '@mui/icons-material/WorkHistory';
 import { useAuth } from '../../components/common/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
+
+// Paleta de colores institucional — misma que PerfilAtleta.jsx
+const COLORS = {
+  burgundy: '#800020',
+  burgundyDark: '#5C0017',
+  purple: '#7A4069',
+  cream: '#e4e4e5',
+  paper: '#FFFFFF',
+  ink: '#2B1E1E',
+  line: 'rgba(128,0,32,0.18)',
+  lineSoft: 'rgba(128,0,32,0.08)',
+};
+
+const cardSx = {
+  bgcolor: COLORS.paper,
+  borderRadius: '10px',
+  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+};
+
+const fieldFocusSx = {
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: COLORS.burgundy },
+  '& .MuiInputLabel-root.Mui-focused': { color: COLORS.burgundy },
+};
+
+const ReadOnlyField = ({ icon, label, value }) => (
+  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: 2, px: 1 }}>
+    <Box sx={{ color: COLORS.burgundy, mt: 0.4, flexShrink: 0, fontSize: 22 }}>{icon}</Box>
+    <Box sx={{ minWidth: 0 }}>
+      <Typography sx={{ color: COLORS.purple, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', mb: 0.3 }}>
+        {label}
+      </Typography>
+      <Typography sx={{ color: COLORS.ink, fontWeight: 600, wordBreak: 'break-word', fontSize: { xs: '0.95rem', md: '1.05rem' }, lineHeight: 1.4 }}>
+        {value || '—'}
+      </Typography>
+    </Box>
+  </Box>
+);
+
+// Lista de chips editable (certificaciones / especialidades) — texto libre,
+// cada entrenador escribe las suyas, no hay catálogo fijo en el backend.
+const ListaChipsEditable = ({ icon, titulo, valores, onAgregar, onQuitar, editando, nuevoValor, onCambiarNuevoValor, placeholder }) => (
+  <Box>
+    <Typography sx={{ color: COLORS.purple, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {icon} {titulo}
+    </Typography>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: editando ? 1.5 : 0 }}>
+      {valores.length === 0 && (
+        <Typography variant="body2" sx={{ color: COLORS.ink, opacity: 0.55 }}>Sin {titulo.toLowerCase()} registradas.</Typography>
+      )}
+      {valores.map((v) => (
+        <Chip
+          key={v}
+          label={v}
+          onDelete={editando ? () => onQuitar(v) : undefined}
+          sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 600 }}
+        />
+      ))}
+    </Box>
+    {editando && (
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <TextField
+          size="small" fullWidth placeholder={placeholder}
+          value={nuevoValor}
+          onChange={(e) => onCambiarNuevoValor(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAgregar(); } }}
+          sx={fieldFocusSx}
+        />
+        <IconButton onClick={onAgregar} sx={{ color: COLORS.burgundy }}>
+          <AddIcon />
+        </IconButton>
+      </Box>
+    )}
+  </Box>
+);
 
 const PerfilEntrenador = () => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [editMode, setEditMode] = useState(false);
-  const [perfilData, setPerfilData] = useState({
-    nombre: '',
-    apellidopa: '',
-    apellidoma: '',
-    telefono: '',
-    gmail: '',
-    certificaciones: [],
-    especialidades: [],
-    añosExperiencia: '',
-    estado: 'activo'
-  });
-  const [clubInfo, setClubInfo] = useState(null);
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const especialidades = [
-    'Atletismo', 'Carrera de velocidad', 'Carrera de resistencia', 'Salto de longitud',
-    'Salto de altura', 'Lanzamiento de jabalina', 'Lanzamiento de disco', 'Lanzamiento de peso',
-    'Marcha atlética', 'Relevos', 'Decatlón', 'Heptatlón', 'Triatlón', 'Maratón',
-    'Carrera de obstáculos', 'Salto con pértiga', 'Triple salto'
-  ];
+  const [perfil, setPerfil] = useState(null);
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [mensajeError, setMensajeError] = useState('');
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
 
-  const certificaciones = [
-    'Federación Mexicana de Atletismo', 'CONADE', 'Comité Olímpico Mexicano',
-    'Federación Internacional de Atletismo', 'Entrenador Nacional', 'Entrenador Internacional',
-    'Licenciatura en Ciencias del Deporte', 'Maestría en Alto Rendimiento',
-    'Certificación en Nutrición Deportiva', 'Certificación en Psicología Deportiva',
-    'Certificación en Biomecánica', 'Certificación en Fisiología del Ejercicio'
-  ];
+  const [telefono, setTelefono] = useState('');
+  const [anosExperiencia, setAnosExperiencia] = useState('');
+  const [certificaciones, setCertificaciones] = useState([]);
+  const [especialidades, setEspecialidades] = useState([]);
+  const [nuevaCertificacion, setNuevaCertificacion] = useState('');
+  const [nuevaEspecialidad, setNuevaEspecialidad] = useState('');
 
   useEffect(() => {
-    if (user) {
-      cargarPerfil();
+    if (!user || !user.id) {
+      navigate('/login');
+      return;
     }
+    cargarPerfil();
   }, [user]);
 
   const cargarPerfil = async () => {
     try {
-      setLoading(true);
-      console.log('Cargando perfil para usuario:', user);
-      
-      const userId = user._id || user.id;
+      if (!user?.id) return;
+      setCargando(true);
       const response = await entrenadorAPI.getPerfil();
-      
-      console.log('Respuesta del servidor:', response.data);
-      
-      const { entrenador, club } = response.data;
-      
-      setPerfilData({
-        nombre: entrenador.nombre || '',
-        apellidopa: entrenador.apellidopa || '',
-        apellidoma: entrenador.apellidoma || '',
-        telefono: entrenador.telefono || '',
-        gmail: entrenador.gmail || '',
-        certificaciones: entrenador.certificaciones || [],
-        especialidades: entrenador.especialidades || [],
-        añosExperiencia: entrenador.añosExperiencia || '',
-        estado: entrenador.estado || 'activo'
-      });
-      
-      setClubInfo(club);
+      const data = response.data.entrenador;
+      if (data) {
+        setPerfil(data);
+        setTelefono(data.telefono || '');
+        setAnosExperiencia(data.anos_experiencia ?? '');
+        setCertificaciones((data.certificaciones || []).map((c) => c.nombre));
+        setEspecialidades((data.especialidades || []).map((e) => e.nombre));
+        setMensajeError('');
+      }
     } catch (error) {
       console.error('Error al cargar perfil:', error);
-      console.error('Error response:', error.response?.data);
-      setError(`Error al cargar el perfil: ${error.response?.data?.error || error.message}`);
+      setMensajeError('Error al cargar el perfil.');
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setPerfilData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const manejarEditar = () => setModoEdicion(true);
+  const manejarCancelarEdicion = () => {
+    setModoEdicion(false);
+    setNuevaCertificacion('');
+    setNuevaEspecialidad('');
+    cargarPerfil();
   };
 
-  const handleMultiSelectChange = (name, value) => {
-    setPerfilData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleAgregarCertificacion = () => {
+    const valor = nuevaCertificacion.trim();
+    if (!valor || certificaciones.includes(valor)) return;
+    setCertificaciones((prev) => [...prev, valor]);
+    setNuevaCertificacion('');
   };
 
-  const validateForm = () => {
-    const errors = [];
-    
-    if (!perfilData.nombre.trim()) errors.push('Nombre es requerido');
-    if (!perfilData.apellidopa.trim()) errors.push('Apellido paterno es requerido');
-    if (!perfilData.apellidoma.trim()) errors.push('Apellido materno es requerido');
-    if (!perfilData.telefono.trim()) errors.push('Teléfono es requerido');
-    if (!/^\d{10}$/.test(perfilData.telefono)) errors.push('Teléfono debe tener 10 dígitos');
-    if (!perfilData.gmail.trim()) errors.push('Email es requerido');
-    if (!/\S+@\S+\.\S+/.test(perfilData.gmail)) errors.push('Email debe tener formato válido');
-    if (perfilData.añosExperiencia < 0 || perfilData.añosExperiencia > 50) {
-      errors.push('Años de experiencia deben estar entre 0 y 50');
-    }
-    
-    return errors;
+  const handleAgregarEspecialidad = () => {
+    const valor = nuevaEspecialidad.trim();
+    if (!valor || especialidades.includes(valor)) return;
+    setEspecialidades((prev) => [...prev, valor]);
+    setNuevaEspecialidad('');
   };
 
-  const handleSave = async () => {
-    const errors = validateForm();
-    if (errors.length > 0) {
-      setError(errors.join(', '));
-      return;
-    }
-
+  const manejarGuardar = async () => {
     try {
-      setSaving(true);
-      setError('');
-      
-      console.log('Enviando datos actualizados:', perfilData);
-      
-      const userId = user._id || user.id;
-      const response = await axios.put(`http://localhost:5000/api/entrenador/perfil/${userId}`, perfilData);
-      
-      console.log('Respuesta del servidor:', response.data);
-      
-      // Actualizar el contexto de autenticación con los nuevos datos
-      if (response.data.success) {
-        // Actualizar el usuario en el contexto
-        const updatedUser = {
-          ...user,
-          nombre: perfilData.nombre,
-          apellidopa: perfilData.apellidopa,
-          apellidoma: perfilData.apellidoma,
-          telefono: perfilData.telefono,
-          gmail: perfilData.gmail,
-          certificaciones: perfilData.certificaciones,
-          especialidades: perfilData.especialidades,
-          añosExperiencia: perfilData.añosExperiencia,
-          estado: perfilData.estado
-        };
-        
-        // Actualizar en sessionStorage
-        sessionStorage.setItem('user', JSON.stringify(updatedUser));
-        
-        // Forzar recarga de datos del perfil
-        await cargarPerfil();
-      }
-      
-      setSuccess('Perfil actualizado correctamente');
-      setEditMode(false);
-      
+      setGuardando(true);
+      await entrenadorAPI.updatePerfil({
+        telefono,
+        anos_experiencia: anosExperiencia === '' ? null : Number(anosExperiencia),
+        certificaciones,
+        especialidades,
+      });
+      setModoEdicion(false);
+      await cargarPerfil();
       Swal.fire({
         icon: 'success',
-        title: '¡Éxito!',
-        text: 'Perfil actualizado correctamente. Los cambios se han guardado en la base de datos.',
-        confirmButtonColor: '#800020'
+        title: 'Perfil actualizado',
+        text: 'Tus datos se guardaron correctamente.',
+        confirmButtonColor: COLORS.burgundy,
+        timer: 2200,
+        showConfirmButton: false,
       });
-      
     } catch (error) {
-      console.error('Error al actualizar perfil:', error);
-      console.error('Error response:', error.response?.data);
-      setError(`Error al actualizar el perfil: ${error.response?.data?.message || error.message}`);
-      
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: `Error al actualizar el perfil: ${error.response?.data?.message || error.message}`,
-        confirmButtonColor: '#800020'
+        text: error.response?.data?.error || 'Error al actualizar el perfil.',
+        confirmButtonColor: COLORS.burgundy,
       });
     } finally {
-      setSaving(false);
+      setGuardando(false);
     }
   };
 
-  const handleCancel = () => {
-    setEditMode(false);
-    cargarPerfil(); // Recargar datos originales
-    setError('');
-    setSuccess('');
+  const limpiarError = () => setMensajeError('');
+
+  const formatearFecha = (fecha) => {
+    if (!fecha) return '';
+    try {
+      return new Date(fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+      return fecha;
+    }
   };
 
-  if (loading) {
+  const nombreCompleto = perfil ? [perfil.nombre, perfil.apellido_paterno, perfil.apellido_materno].filter(Boolean).join(' ') : '';
+
+  const obtenerIniciales = () => {
+    if (!perfil) return '?';
+    const n = perfil.nombre?.[0] || '';
+    const a = perfil.apellido_paterno?.[0] || '';
+    return (n + a).toUpperCase();
+  };
+
+  const clubNombre = perfil?.club_id ? (perfil.club_nombre || 'Club asignado') : 'Independiente';
+
+  if (cargando) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={60} sx={{ color: '#800020' }} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: COLORS.cream, width: '100%' }}>
+        <CircularProgress size={60} sx={{ color: COLORS.burgundy }} />
+      </Box>
+    );
+  }
+
+  if (!perfil) {
+    return (
+      <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
+        <Container maxWidth="sm" sx={{ py: 8 }}>
+          <Box sx={{ ...cardSx, textAlign: 'center', p: 4 }}>
+            <PersonIcon sx={{ fontSize: 64, color: COLORS.purple, opacity: 0.4, mb: 2 }} />
+            <Typography variant="h5" sx={{ color: COLORS.burgundy, mb: 1, fontWeight: 800 }}>
+              No se pudieron cargar los datos
+            </Typography>
+            <Typography variant="body2" sx={{ color: COLORS.purple, mb: 3 }}>
+              ID de usuario: {user?.id || 'No disponible'}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={cargarPerfil}
+              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+            >
+              Intentar de Nuevo
+            </Button>
+          </Box>
+        </Container>
       </Box>
     );
   }
 
   return (
-    <>
-      <style>
-        {`
-          body {
-            margin: 0;
-            padding: 0;
-          }
-        `}
-      </style>
-      <Container maxWidth="lg" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
-        Perfil del Entrenador
-      </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
-
-      <Grid container spacing={4}>
-        {/* Información Personal */}
-        <Grid item xs={12}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={3}>
-              <Avatar sx={{ mr: 2, bgcolor: '#800020', width: 56, height: 56 }}>
-                <PersonIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="h6" sx={{ color: '#800020', fontWeight: 'bold' }}>
-                  Información Personal
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Datos básicos del entrenador
-                </Typography>
-              </Box>
-            </Box>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Nombre"
-                  name="nombre"
-                  value={perfilData.nombre}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Apellido Paterno"
-                  name="apellidopa"
-                  value={perfilData.apellidopa}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Apellido Materno"
-                  name="apellidoma"
-                  value={perfilData.apellidoma}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Teléfono"
-                  name="telefono"
-                  value={perfilData.telefono}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                  sx={{ mb: 2 }}
-                  inputProps={{ maxLength: 10 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  name="gmail"
-                  value={perfilData.gmail}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
-
-        {/* Información Profesional */}
-        <Grid item xs={12}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={3}>
-              <Avatar sx={{ mr: 2, bgcolor: '#7A4069', width: 56, height: 56 }}>
-                <SchoolIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="h6" sx={{ color: '#7A4069', fontWeight: 'bold' }}>
-                  Información Profesional
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Credenciales y experiencia
-                </Typography>
-              </Box>
-            </Box>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Especialidades</InputLabel>
-                  <Select
-                    multiple
-                    name="especialidades"
-                    value={perfilData.especialidades}
-                    onChange={(e) => handleMultiSelectChange('especialidades', e.target.value)}
-                    disabled={!editMode}
-                    input={<OutlinedInput label="Especialidades" />}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip key={value} label={value} size="small" />
-                        ))}
-                      </Box>
-                    )}
-                  >
-                    {especialidades.map((especialidad) => (
-                      <MenuItem key={especialidad} value={especialidad}>
-                        {especialidad}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Certificaciones</InputLabel>
-                  <Select
-                    multiple
-                    name="certificaciones"
-                    value={perfilData.certificaciones}
-                    onChange={(e) => handleMultiSelectChange('certificaciones', e.target.value)}
-                    disabled={!editMode}
-                    input={<OutlinedInput label="Certificaciones" />}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip key={value} label={value} size="small" />
-                        ))}
-                      </Box>
-                    )}
-                  >
-                    {certificaciones.map((certificacion) => (
-                      <MenuItem key={certificacion} value={certificacion}>
-                        {certificacion}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Años de Experiencia"
-                  name="añosExperiencia"
-                  type="number"
-                  value={perfilData.añosExperiencia}
-                  onChange={handleChange}
-                  disabled={!editMode}
-                  sx={{ mb: 2 }}
-                  inputProps={{ min: 0, max: 50 }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Estado</InputLabel>
-                  <Select
-                    name="estado"
-                    value={perfilData.estado}
-                    onChange={handleChange}
-                    disabled={!editMode}
-                    label="Estado"
-                  >
-                    <MenuItem value="activo">Activo</MenuItem>
-                    <MenuItem value="inactivo">Inactivo</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
-
-        {/* Información del Club */}
-        {clubInfo && (
-          <Grid item xs={12}>
-            <Paper elevation={3} sx={{ p: 3 }}>
-              <Box display="flex" alignItems="center" mb={3}>
-                <Avatar sx={{ mr: 2, bgcolor: '#2E7D32', width: 56, height: 56 }}>
-                  <GroupIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="h6" sx={{ color: '#2E7D32', fontWeight: 'bold' }}>
-                    Club Asignado
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Información del club donde trabaja
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2E7D32' }}>
-                    Nombre del Club:
-                  </Typography>
-                  <Typography variant="body1" sx={{ mb: 2 }}>
-                    {clubInfo.nombre}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2E7D32' }}>
-                    Email del Club:
-                  </Typography>
-                  <Typography variant="body1" sx={{ mb: 2 }}>
-                    {clubInfo.email}
-                  </Typography>
-                </Grid>
-                {clubInfo.telefono && (
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2E7D32' }}>
-                      Teléfono del Club:
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 2 }}>
-                      {clubInfo.telefono}
-                    </Typography>
-                  </Grid>
-                )}
-                {clubInfo.descripcion && (
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2E7D32' }}>
-                      Descripción del Club:
-                    </Typography>
-                    <Typography variant="body1">
-                      {clubInfo.descripcion}
-                    </Typography>
-                  </Grid>
-                )}
-              </Grid>
-            </Paper>
-          </Grid>
+    <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', width: '100%' }}>
+      <Container maxWidth="md" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
+        {mensajeError && (
+          <Alert
+            severity={mensajeError.includes('exitosamente') || mensajeError.includes('enviada') ? 'success' : 'error'}
+            onClose={limpiarError}
+            sx={{ mb: 2, borderRadius: '8px' }}
+          >
+            {mensajeError}
+          </Alert>
         )}
 
-        {/* Botones de Acción */}
-        <Grid item xs={12}>
-          <Box display="flex" justifyContent="center" gap={2}>
-            {!editMode ? (
+        <Box sx={{ ...cardSx, mb: 3, overflow: 'visible', position: 'relative' }}>
+          <Box sx={{ bgcolor: COLORS.burgundy, height: { xs: 80, md: 100 }, borderRadius: '10px 10px 0 0' }} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: { xs: '-40px', md: '-48px' }, pb: 3 }}>
+            <Avatar
+              sx={{
+                width: { xs: 80, md: 96 }, height: { xs: 80, md: 96 },
+                bgcolor: COLORS.purple, fontSize: { xs: '1.6rem', md: '2rem' }, fontWeight: 800,
+                border: '4px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,0.15)', mb: 1.5,
+              }}
+            >
+              {obtenerIniciales()}
+            </Avatar>
+
+            <Typography variant="h5" sx={{ color: COLORS.burgundy, fontWeight: 800, textAlign: 'center', fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
+              {nombreCompleto}
+            </Typography>
+
+            <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <Chip
+                icon={<GroupIcon sx={{ fontSize: 16, color: `${COLORS.burgundy} !important` }} />}
+                label={clubNombre}
+                size="small"
+                sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.burgundy}`, color: COLORS.burgundy, fontWeight: 700 }}
+              />
+              {perfil.anos_experiencia != null && (
+                <Chip
+                  icon={<WorkHistoryIcon sx={{ fontSize: 16, color: `${COLORS.purple} !important` }} />}
+                  label={`${perfil.anos_experiencia} años de experiencia`}
+                  size="small"
+                  sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
+                />
+              )}
+            </Box>
+          </Box>
+        </Box>
+
+        <Box sx={{ ...cardSx, mb: 3, p: { xs: 2.5, md: 3.5 } }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
+              Información Personal
+            </Typography>
+            {!modoEdicion ? (
               <Button
-                variant="contained"
+                variant="outlined"
+                size="small"
                 startIcon={<EditIcon />}
-                onClick={() => setEditMode(true)}
-                sx={{ 
-                  backgroundColor: '#800020',
-                  '&:hover': { backgroundColor: '#600018' }
-                }}
+                onClick={manejarEditar}
+                sx={{ borderColor: COLORS.burgundy, color: COLORS.burgundy, fontWeight: 700, '&:hover': { borderColor: COLORS.burgundyDark, bgcolor: COLORS.lineSoft } }}
               >
-                Editar Perfil
+                Editar
               </Button>
             ) : (
-              <>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSave}
-                  disabled={saving}
-                  sx={{ 
-                    backgroundColor: '#2E7D32',
-                    '&:hover': { backgroundColor: '#1B5E20' }
-                  }}
-                >
-                  {saving ? <CircularProgress size={20} color="inherit" /> : 'Guardar Cambios'}
-                </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   variant="outlined"
-                  onClick={handleCancel}
-                  sx={{ 
-                    borderColor: '#7A4069',
-                    color: '#7A4069',
-                    '&:hover': { borderColor: '#5A3049', backgroundColor: '#F5E8C7' }
-                  }}
+                  size="small"
+                  startIcon={<CancelIcon />}
+                  onClick={manejarCancelarEdicion}
+                  disabled={guardando}
+                  sx={{ borderColor: COLORS.purple, color: COLORS.purple, fontWeight: 700, '&:hover': { bgcolor: COLORS.lineSoft } }}
                 >
                   Cancelar
                 </Button>
-              </>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  onClick={manejarGuardar}
+                  disabled={guardando}
+                  sx={{ bgcolor: COLORS.burgundy, fontWeight: 700, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+                >
+                  {guardando ? 'Guardando...' : 'Guardar'}
+                </Button>
+              </Box>
             )}
           </Box>
-        </Grid>
-      </Grid>
-    </Container>
-    </>
+
+          <Divider sx={{ mb: 2, borderColor: COLORS.line }} />
+
+          {modoEdicion ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Chip label="Campos editables" size="small" sx={{ alignSelf: 'flex-start', bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontSize: '0.75rem' }} />
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <TextField label="Teléfono" value={telefono} onChange={(e) => setTelefono(e.target.value)} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Años de experiencia" type="number" value={anosExperiencia} onChange={(e) => setAnosExperiencia(e.target.value)} fullWidth size="small" inputProps={{ min: 0 }} sx={fieldFocusSx} />
+              </Box>
+
+              <ListaChipsEditable
+                icon={<EmojiEventsIcon sx={{ fontSize: 15 }} />}
+                titulo="Certificaciones"
+                valores={certificaciones}
+                onAgregar={handleAgregarCertificacion}
+                onQuitar={(v) => setCertificaciones((prev) => prev.filter((x) => x !== v))}
+                editando
+                nuevoValor={nuevaCertificacion}
+                onCambiarNuevoValor={setNuevaCertificacion}
+                placeholder="Nueva certificación..."
+              />
+
+              <ListaChipsEditable
+                icon={<StarsIcon sx={{ fontSize: 15 }} />}
+                titulo="Especialidades"
+                valores={especialidades}
+                onAgregar={handleAgregarEspecialidad}
+                onQuitar={(v) => setEspecialidades((prev) => prev.filter((x) => x !== v))}
+                editando
+                nuevoValor={nuevaEspecialidad}
+                onCambiarNuevoValor={setNuevaEspecialidad}
+                placeholder="Nueva especialidad..."
+              />
+
+              <Divider sx={{ my: 1, borderColor: COLORS.line }}>
+                <Chip label="Datos no editables" size="small" sx={{ color: COLORS.ink, bgcolor: COLORS.cream, fontSize: '0.75rem' }} />
+              </Divider>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <TextField label="Nombre completo" value={nombreCompleto} fullWidth disabled size="small" />
+                <TextField label="CURP" value={perfil.curp || ''} fullWidth disabled size="small" />
+                <TextField
+                  label="Fecha de Nacimiento"
+                  type="date"
+                  value={perfil.fecha_nacimiento ? perfil.fecha_nacimiento.slice(0, 10) : ''}
+                  fullWidth disabled size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                <TextField label="Género" value={perfil.genero || ''} fullWidth disabled size="small" />
+                <TextField label="Correo Electrónico" value={perfil.email || ''} fullWidth disabled size="small" sx={{ gridColumn: { sm: '1 / -1' } }} />
+              </Box>
+              <Typography variant="caption" sx={{ color: COLORS.purple, opacity: 0.8 }}>
+                Estos datos vienen de tu cuenta de usuario. Si necesitas corregir alguno, contacta al administrador.
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+                <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Nombre completo" value={nombreCompleto} />
+                <ReadOnlyField icon={<BadgeIcon fontSize="small" />} label="CURP" value={perfil.curp} />
+                <ReadOnlyField icon={<CalendarTodayIcon fontSize="small" />} label="Fecha de nacimiento" value={formatearFecha(perfil.fecha_nacimiento)} />
+                <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Género" value={perfil.genero} />
+                <ReadOnlyField icon={<PhoneIcon fontSize="small" />} label="Teléfono" value={telefono} />
+                <ReadOnlyField icon={<EmailIcon fontSize="small" />} label="Correo electrónico" value={perfil.email} />
+                <ReadOnlyField icon={<WorkHistoryIcon fontSize="small" />} label="Años de experiencia" value={anosExperiencia !== '' ? `${anosExperiencia} años` : null} />
+              </Box>
+
+              <Divider sx={{ my: 2, borderColor: COLORS.line }} />
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <ListaChipsEditable
+                  icon={<EmojiEventsIcon sx={{ fontSize: 15 }} />}
+                  titulo="Certificaciones"
+                  valores={certificaciones}
+                  editando={false}
+                />
+                <ListaChipsEditable
+                  icon={<StarsIcon sx={{ fontSize: 15 }} />}
+                  titulo="Especialidades"
+                  valores={especialidades}
+                  editando={false}
+                />
+              </Box>
+            </>
+          )}
+        </Box>
+
+        <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3.5 } }}>
+          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
+            Mi Club
+          </Typography>
+          <Divider sx={{ mb: 2.5, borderColor: COLORS.line }} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Avatar sx={{ bgcolor: perfil.club_id ? COLORS.burgundy : COLORS.lineSoft, color: perfil.club_id ? '#fff' : COLORS.purple, width: 44, height: 44 }}>
+                <GroupIcon />
+              </Avatar>
+              <Box>
+                <Typography sx={{ color: COLORS.purple, fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                  {perfil.club_id ? 'Club actual' : 'Estado'}
+                </Typography>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink }}>
+                  {clubNombre}
+                </Typography>
+              </Box>
+            </Box>
+            <Button
+              variant="contained"
+              endIcon={<ArrowForwardIcon fontSize="small" />}
+              onClick={() => navigate('/entrenador/buscar-clubes')}
+              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
+            >
+              {perfil.club_id ? 'Ver clubes' : 'Buscar club'}
+            </Button>
+          </Box>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

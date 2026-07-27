@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import {
@@ -8,9 +7,9 @@ import {
 import {
   VpnKey as PinIcon, ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
+import { recuperarAPI } from '../../api/index.js';
 
-const API_BASE_URL = 'http://localhost:5000';
-
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
@@ -21,17 +20,18 @@ const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 
 
 const VerificarCodigo = () => {
   const [codigo, setCodigo] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [cargando, setCargando] = useState(false);
   const [reenviando, setReenviando] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { gmail } = location.state || {};
 
-  const handleSubmit = async (e) => {
+  // Verifica el código de recuperación
+  const manejarEnvio = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setCargando(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/recuperar/verify-code`, { gmail, code: codigo });
+      await recuperarAPI.verifyCode({ gmail, code: codigo });
       Swal.fire({
         icon: 'success',
         title: 'Código verificado',
@@ -49,15 +49,16 @@ const VerificarCodigo = () => {
         confirmButtonColor: COLORS.burgundy,
       });
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
-  const handleReenviar = async () => {
+  // Reenvía el código de recuperación
+  const manejarReenviar = async () => {
     if (!gmail) return;
     setReenviando(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/recuperar/forgot-password`, { gmail });
+      await recuperarAPI.forgotPassword({ gmail });
       Swal.fire({ icon: 'success', title: 'Código reenviado', confirmButtonColor: COLORS.burgundy, timer: 1600, showConfirmButton: false });
     } catch {
       Swal.fire({ icon: 'error', title: 'No se pudo reenviar', text: 'Intenta de nuevo en unos minutos.', confirmButtonColor: COLORS.burgundy });
@@ -125,7 +126,7 @@ const VerificarCodigo = () => {
             {gmail}
           </Typography>
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ textAlign: 'left' }}>
+          <Box component="form" onSubmit={manejarEnvio} sx={{ textAlign: 'left' }}>
             <TextField
               fullWidth
               label="Código de recuperación"
@@ -140,10 +141,10 @@ const VerificarCodigo = () => {
               type="submit"
               fullWidth
               variant="contained"
-              disabled={loading || codigo.length !== 6}
+              disabled={cargando || codigo.length !== 6}
               sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700, textTransform: 'none', py: 1.4, mb: 2 }}
             >
-              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Verificar código'}
+              {cargando ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Verificar código'}
             </Button>
 
             <Box sx={{ textAlign: 'center' }}>
@@ -151,7 +152,7 @@ const VerificarCodigo = () => {
                 ¿No te llegó?{' '}
               </Typography>
               <Button
-                onClick={handleReenviar}
+                onClick={manejarReenviar}
                 disabled={reenviando}
                 sx={{ color: COLORS.purple, fontWeight: 700, textTransform: 'none', p: 0, minWidth: 0, verticalAlign: 'baseline' }}
               >

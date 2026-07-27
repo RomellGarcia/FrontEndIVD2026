@@ -130,10 +130,10 @@ const API_POR_ROL = {
   entrenador: {
     updateAdmin: entrenadoresAPI.updateAdmin,
     updateClub:  entrenadoresAPI.updateClub,
-    remove:      null,
+    remove:      entrenadoresAPI.remove,
     soportaEdicion: true,
     soportaClub: true,
-    soportaEliminar: false,
+    soportaEliminar: true,
   },
   admin: {
     updateAdmin: null,
@@ -345,7 +345,7 @@ const GestionarUsuarios = () => {
     setUsuarioAEditar(null);
   };
 
-  // Formatea fecha a formato largo en español
+  // Formatea fecha a formato largo
   const formatearFecha = (fecha) => {
     if (!fecha) return 'N/A';
     try {
@@ -585,7 +585,7 @@ const GestionarUsuarios = () => {
         </Paper>
 
         {/* Modal de confirmación de eliminación */}
-        <Dialog open={modalEliminarAbierto} onClose={manejarEliminarCancelar} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <Dialog open={modalEliminarAbierto} onClose={manejarEliminarCancelar} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
           <DialogTitle sx={{ bgcolor: C.primarys }}>
             <Typography component="span" variant="h6" sx={{ color: C.primary, fontWeight: 'bold' }}>
               Confirmar Eliminación
@@ -613,7 +613,7 @@ const GestionarUsuarios = () => {
         </Dialog>
 
         {/* Modal de confirmación de expulsión del club */}
-        <Dialog open={modalExpulsarAbierto} onClose={manejarExpulsarCancelar} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <Dialog open={modalExpulsarAbierto} onClose={manejarExpulsarCancelar} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
           <DialogTitle sx={{ bgcolor: C.primary }}>
             <Typography component="span" variant="h6" sx={{ color: C.primary, fontWeight: 'bold' }}>
               Confirmar Expulsión del Club
@@ -641,7 +641,7 @@ const GestionarUsuarios = () => {
         </Dialog>
 
         {/* Modal de edición de usuario */}
-        <Dialog open={modalEditarAbierto} onClose={manejarEditarCancelar} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <Dialog open={modalEditarAbierto} onClose={manejarEditarCancelar} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
           <DialogTitle sx={{ backgroundColor: C.primary, color: 'white', py: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Avatar sx={{ width: 44, height: 44, bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }}>

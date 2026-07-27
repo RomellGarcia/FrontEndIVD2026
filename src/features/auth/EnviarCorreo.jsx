@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import {
@@ -8,9 +7,9 @@ import {
 import {
   MailLock as MailLockIcon, ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
+import { recuperarAPI } from '../../api/index.js';
 
-const API_BASE_URL = 'http://localhost:5000';
-
+// Paleta de colores institucional
 const COLORS = {
   burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
@@ -20,22 +19,23 @@ const COLORS = {
 const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
 
 const RecuperarCorreo = () => {
-  const [gmail, setGmail] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [correo, setCorreo] = useState('');
+  const [cargando, setCargando] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  // Envía el correo para recuperar contraseña
+  const manejarEnvio = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setCargando(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/recuperar/forgot-password`, { gmail });
+      await recuperarAPI.forgotPassword({ gmail: correo });
       Swal.fire({
         icon: 'success',
         title: 'Código enviado',
         text: 'Si el correo está registrado, revisa tu bandeja de entrada (y spam) para obtener el código.',
         confirmButtonColor: COLORS.burgundy,
       });
-      navigate('/verificar-codigo', { state: { gmail } });
+      navigate('/verificar-codigo', { state: { gmail: correo } });
     } catch (error) {
       Swal.fire({
         icon: 'error',
@@ -44,7 +44,7 @@ const RecuperarCorreo = () => {
         confirmButtonColor: COLORS.burgundy,
       });
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
 
@@ -84,13 +84,13 @@ const RecuperarCorreo = () => {
             Escribe el correo con el que te registraste. Te mandaremos un código de 6 dígitos para poder cambiar tu contraseña.
           </Typography>
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ textAlign: 'left' }}>
+          <Box component="form" onSubmit={manejarEnvio} sx={{ textAlign: 'left' }}>
             <TextField
               fullWidth
               type="email"
               label="Correo electrónico"
-              value={gmail}
-              onChange={(e) => setGmail(e.target.value)}
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
               required
               autoFocus
               sx={{ mb: 3 }}
@@ -99,10 +99,10 @@ const RecuperarCorreo = () => {
               type="submit"
               fullWidth
               variant="contained"
-              disabled={loading}
+              disabled={cargando}
               sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700, textTransform: 'none', py: 1.4 }}
             >
-              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Enviar código'}
+              {cargando ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Enviar código'}
             </Button>
           </Box>
         </Box>

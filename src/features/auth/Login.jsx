@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import { useAuth } from '../../components/common/AuthContext.jsx';
+import { authAPI } from '../../api/index.js';
 import {
   Box,
   TextField,
@@ -30,13 +30,12 @@ import {
 
 const MySwal = withReactContent(Swal);
 
+// Paleta de colores institucional
 const BURGUNDY = '#800020';
 const PURPLE = '#7A4069';
 const CREAM = '#e4e4e5';
 
-const API_BASE_URL = 'http://localhost:5000';
-
-/* MUI sx reutilizable para TextFields */
+// Estilos reutilizables para campos de formulario
 const fieldSx = {
   '& .MuiInputLabel-root': { color: PURPLE },
   '& .MuiInputLabel-root.Mui-focused': { color: BURGUNDY },
@@ -62,21 +61,20 @@ function Login() {
   const [rol, setRol] = useState('atleta');
   const [curp, setCurp] = useState('');
   const [correo, setCorreo] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [contraseña, setContraseña] = useState('');
+  const [mostrarContraseña, setMostrarContraseña] = useState(false);
 
-  const handleSubmit = async (e) => {
+  // Maneja el envío del formulario de inicio de sesión
+  const manejarEnvio = async (e) => {
     e.preventDefault();
 
     try {
       const payload =
         rol === 'atleta'
-          ? { curp: curp.toUpperCase(), password, rol }
-          : { email: correo, password, rol };
+          ? { curp: curp.toUpperCase(), password: contraseña, rol }
+          : { email: correo, password: contraseña, rol };
 
-      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, payload, {
-        withCredentials: true,
-      });
+      const response = await authAPI.login(payload);
 
       const { access_token, usuario } = response.data;
 
@@ -124,7 +122,7 @@ function Login() {
           overflow: 'visible',
         }}
       >
-        {/* ── Header burgundy ── */}
+        {/* Cabecera con el nombre de la institución */}
         <Box
           sx={{
             bgcolor: BURGUNDY,
@@ -163,7 +161,7 @@ function Login() {
           </Typography>
         </Box>
 
-        {/* ── Form ── */}
+        {/* Formulario de inicio de sesión */}
         <CardContent sx={{ px: { xs: 3, sm: 4 }, py: { xs: 3, sm: 4 } }}>
           <Typography
             variant="h6"
@@ -177,7 +175,7 @@ function Login() {
             Iniciar Sesión
           </Typography>
 
-          <Box component="form" onSubmit={handleSubmit}>
+          <Box component="form" onSubmit={manejarEnvio}>
             {/* Selector de rol */}
             <FormControl fullWidth sx={{ mb: 2.5, ...fieldSx }}>
               <InputLabel>Rol</InputLabel>
@@ -193,47 +191,47 @@ function Login() {
               </Select>
             </FormControl>
 
-            {/* CURP o Correo según rol */}
+            {/* CURP o Correo según el rol */}
             {rol === 'atleta' ? (
-              < TextField 
-              fullWidth
-            label="CURP"
-            value={curp}
-            onChange={(e) => setCurp(e.target.value)}
-            sx={{ mb: 2.5, ...fieldSx }}
-            slotProps={{
-              htmlInput: { style: { textTransform: 'uppercase' } } // Usa htmlInput dentro de slotProps
-            }}
-/>
+              <TextField
+                fullWidth
+                label="CURP"
+                value={curp}
+                onChange={(e) => setCurp(e.target.value)}
+                sx={{ mb: 2.5, ...fieldSx }}
+                slotProps={{
+                  htmlInput: { style: { textTransform: 'uppercase' } }
+                }}
+              />
             ) : (
-            <TextField
-              fullWidth
-              label="Correo electrónico"
-              type="email"
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
-              sx={{ mb: 2.5, ...fieldSx }}
-            />
+              <TextField
+                fullWidth
+                label="Correo electrónico"
+                type="email"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                sx={{ mb: 2.5, ...fieldSx }}
+              />
             )}
 
-            {/* Contraseña */}
+            {/* Campo de contraseña */}
             <TextField
               fullWidth
               label="Contraseña"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type={mostrarContraseña ? 'text' : 'password'}
+              value={contraseña}
+              onChange={(e) => setContraseña(e.target.value)}
               sx={{ mb: 3, ...fieldSx }}
               slotProps={{
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={() => setMostrarContraseña(!mostrarContraseña)}
                         edge="end"
                         sx={{ color: BURGUNDY }}
                       >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                        {mostrarContraseña ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -241,7 +239,7 @@ function Login() {
               }}
             />
 
-            {/* Botón */}
+            {/* Botón de inicio de sesión */}
             <Button
               type="submit"
               variant="contained"
@@ -260,7 +258,7 @@ function Login() {
               Iniciar Sesión
             </Button>
 
-            {/* Links */}
+            {/* Enlace para recuperar contraseña */}
             <Box sx={{ textAlign: 'center', mt: 2.5 }}>
               <Link
                 to="/recuperar-correo"
@@ -275,6 +273,7 @@ function Login() {
               </Link>
             </Box>
 
+            {/* Enlace para registro */}
             <Box sx={{ textAlign: 'center', mt: 1.5 }}>
               <Typography variant="body2" component="span" sx={{ color: '#888' }}>
                 ¿No tienes cuenta?{' '}
