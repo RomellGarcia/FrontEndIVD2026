@@ -67,7 +67,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       overflow: 'hidden',
     }}
   >
-    <Box sx={{ p: 3, pb: 2 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1.5, sm: 2 } }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
           <Typography
@@ -88,7 +88,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       </Box>
     </Box>
     <Divider sx={{ borderColor: COLORS.line }} />
-    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, flex: 1 }}>{children}</Box>
   </Box>
 );
 
@@ -335,7 +335,7 @@ const PaginaPrincipalClub = () => {
           >
             <GroupIcon sx={{ fontSize: 34 }} />
           </Avatar>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             {club?.nombre || 'Club Deportivo'}
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -356,7 +356,7 @@ const PaginaPrincipalClub = () => {
         {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
-            mt: notificaciones.length ? 0 : { xs: -5, md: -6 }, mb: 5,
+            mt: notificaciones.length ? 0 : { xs: -5, md: -6 }, mb: { xs: 3, md: 5 },
             bgcolor: COLORS.paper, borderRadius: '10px',
             boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
             display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
@@ -391,7 +391,7 @@ const PaginaPrincipalClub = () => {
         </Box>
 
         {/* Contenido principal */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: { xs: 2, md: 3 } }}>
           {/* Atletas recientes */}
           <SectionCard
             icon={<PeopleIcon sx={{ fontSize: 16 }} />}
@@ -544,7 +544,7 @@ const PaginaPrincipalClub = () => {
             <Box>
               <Typography variant="h5" gutterBottom sx={{ color: COLORS.burgundy, fontWeight: 700 }}>{eventoSeleccionado.titulo}</Typography>
               <Divider sx={{ my: 2, borderColor: COLORS.line }} />
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 } }}>
                 <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.burgundy }}>Información General</Typography>
                   <Typography variant="body2" sx={{ mt: 1 }}><strong>Fecha:</strong> {formatearFecha(eventoSeleccionado.fecha)}</Typography>

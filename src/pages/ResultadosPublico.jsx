@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { eventosAPI, resultadosAPI } from '../api/index.js';
-import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Box, Typography,
   Container, Button, CircularProgress, Avatar, Pagination, Chip,
@@ -11,7 +12,7 @@ import {
   Event as EventIcon, DoneAll as DoneAllIcon,
   ArrowBack as ArrowBackIcon, EmojiEvents as TrophyIcon,
   HourglassEmpty as PendingIcon, Clear as ClearIcon,
-  TableChart as ExcelIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import EncabezadoPublico from '../components/layout/EncabezadoPublico.jsx';
 
@@ -45,12 +46,6 @@ const DISCIPLINAS_DISTANCIA = new Set([
 ]);
 
 const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
-
-// Genera un slug a partir de un texto (para nombres de archivo)
-const generarSlug = (texto) => (texto || '')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-zA-Z0-9]+/g, '_');
 
 // Obtiene el nombre completo de un participante
 const obtenerNombreCompleto = (registro) => 
@@ -160,8 +155,10 @@ const ResultadosPublico = () => {
     setFiltroCategoria('');
   };
 
-  // Genera y descarga un archivo Excel con los resultados de una convocatoria
-  const descargarExcelResultados = (convocatoria) => {
+  // Genera un PDF con los resultados de una convocatoria y lo abre en una
+  // pestaña nueva — no se descarga, se ve directo con el visor de PDF
+  // que ya trae el navegador, así cualquiera puede verlo sin instalar nada.
+  const verPdfResultados = (convocatoria) => {
     const resultadosCategoria = resultadosPorConvocatoria[convocatoria.id] || [];
     if (resultadosCategoria.length === 0) return;
 
@@ -176,28 +173,40 @@ const ResultadosPublico = () => {
       const marca = registro.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
       const chip = registro.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
       const gun = registro.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
-      const base = {
-        'Pl.': registro.posicion ? `${registro.posicion}°` : '—',
-        Bib: registro.bib ? String(registro.bib).padStart(3, '0') : '—',
-        Nombre: obtenerNombreCompleto(registro),
-        Club: registro.club_nombre || 'Libre',
-      };
-      return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
+      const base = [
+        registro.posicion ? `${registro.posicion}°` : '—',
+        registro.bib ? String(registro.bib).padStart(3, '0') : '—',
+        obtenerNombreCompleto(registro),
+        registro.club_nombre || 'Libre',
+      ];
+      return esDistancia ? [...base, marca || '—'] : [...base, chip || '—', gun || '—'];
     });
 
     const headers = esDistancia
       ? ['Pl.', 'Bib', 'Nombre', 'Club', 'Marca']
       : ['Pl.', 'Bib', 'Nombre', 'Club', 'ChipTime', 'GunTime'];
 
-    const hoja = XLSX.utils.json_to_sheet(filas, { header: headers });
-    hoja['!cols'] = esDistancia
-      ? [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 14 }]
-      : [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+    const doc = new jsPDF({ orientation: 'landscape' });
 
-    const libro = XLSX.utils.book_new();
-    const nombreHoja = `${convocatoria.disciplina || ''} ${convocatoria.categoria || ''}`.slice(0, 31);
-    XLSX.utils.book_append_sheet(libro, hoja, nombreHoja || 'Resultados');
-    XLSX.writeFile(libro, `Resultados_${generarSlug(convocatoria.disciplina)}_${generarSlug(convocatoria.categoria)}.xlsx`);
+    doc.setFontSize(14);
+    doc.setTextColor(COLORS.burgundy);
+    doc.text(`${convocatoria.disciplina || ''} — ${convocatoria.categoria || ''}`, 14, 16);
+
+    doc.setFontSize(10);
+    doc.setTextColor('#666666');
+    doc.text(eventoSeleccionado?.titulo || '', 14, 22);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [headers],
+      body: filas,
+      headStyles: { fillColor: [128, 0, 32] },
+      styles: { fontSize: 10 },
+    });
+
+    // bloburl abre el PDF directo en una pestaña nueva del navegador,
+    // en vez de guardarlo en el dispositivo como hacía XLSX.writeFile.
+    window.open(doc.output('bloburl'), '_blank');
   };
 
   if (cargando) {
@@ -233,14 +242,14 @@ const ResultadosPublico = () => {
             <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               IVD · Consulta Pública
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
               {eventoSeleccionado.titulo}
             </Typography>
           </Container>
         </Box>
 
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'flex-start' }}>
+          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
 
             {/* Columna izquierda: imagen y datos del evento */}
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
@@ -354,11 +363,11 @@ const ResultadosPublico = () => {
 
                           {(resultadosPorConvocatoria[conv.id] || []).length > 0 ? (
                             <Button
-                              size="small" variant="contained" startIcon={<ExcelIcon />}
-                              onClick={() => descargarExcelResultados(conv)}
-                              sx={{ bgcolor: '#1D6F42', '&:hover': { bgcolor: '#155632' }, textTransform: 'none', fontWeight: 700 }}
+                              size="small" variant="contained" startIcon={<PdfIcon />}
+                              onClick={() => verPdfResultados(conv)}
+                              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
                             >
-                              Ver Excel
+                              Ver PDF
                             </Button>
                           ) : (
                             <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Resultados pendientes" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
@@ -387,7 +396,7 @@ const ResultadosPublico = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Consulta Pública
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
             Resultados
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -400,7 +409,7 @@ const ResultadosPublico = () => {
         {/* Resumen de conteo */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
+            mt: { xs: -5, md: -6 }, mb: 4,
             bgcolor: COLORS.paper, borderRadius: '10px',
             boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
             display: 'grid', gridTemplateColumns: '1fr',
