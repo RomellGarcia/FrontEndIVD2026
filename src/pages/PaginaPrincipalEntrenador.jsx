@@ -40,7 +40,7 @@ const TarjetaSeccion = ({ icon, eyebrow, title, action, children }) => (
       overflow: 'hidden',
     }}
   >
-    <Box sx={{ p: 3, pb: 2 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1.5, sm: 2 } }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
           <Typography
@@ -61,7 +61,7 @@ const TarjetaSeccion = ({ icon, eyebrow, title, action, children }) => (
       </Box>
     </Box>
     <Divider sx={{ borderColor: COLORS.line }} />
-    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, flex: 1 }}>{children}</Box>
   </Box>
 );
 
@@ -199,7 +199,7 @@ const PaginaPrincipalEntrenador = () => {
           >
             {user?.nombre?.[0]}{user?.apellido_paterno?.[0] || ''}
           </Avatar>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             ¡Bienvenido, {user?.nombre}!
           </Typography>
           {infoClub && (
@@ -221,7 +221,7 @@ const PaginaPrincipalEntrenador = () => {
         {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: 4,
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper, borderRadius: '10px',
             boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
             display: 'grid', gridTemplateColumns: '1fr 1fr',
@@ -250,7 +250,7 @@ const PaginaPrincipalEntrenador = () => {
         </Box>
 
         {/* Acciones rápidas */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: { xs: 3, md: 4 } }}>
           <TarjetaAccion
             icon={<GroupIcon />}
             title="Gestionar Atletas"
@@ -275,7 +275,7 @@ const PaginaPrincipalEntrenador = () => {
         </Box>
 
         {/* Contenido principal */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 } }}>
           {/* Atletas del club */}
           <TarjetaSeccion icon={<PeopleIcon sx={{ fontSize: 16 }} />} eyebrow="Plantilla" title="Atletas del Club">
             {atletasDelClub.length === 0 ? (
@@ -344,7 +344,7 @@ const PaginaPrincipalEntrenador = () => {
 
         {/* Información profesional */}
         <TarjetaSeccion icon={<SchoolIcon sx={{ fontSize: 16 }} />} eyebrow="Perfil" title="Información Profesional">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 } }}>
             <Box>
               <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: 1 }}>
                 Especialidades

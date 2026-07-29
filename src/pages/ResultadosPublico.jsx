@@ -233,14 +233,14 @@ const ResultadosPublico = () => {
             <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               IVD · Consulta Pública
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
               {eventoSeleccionado.titulo}
             </Typography>
           </Container>
         </Box>
 
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
+          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'flex-start' }}>
 
             {/* Columna izquierda: imagen y datos del evento */}
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
@@ -387,7 +387,7 @@ const ResultadosPublico = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Consulta Pública
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Resultados
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -400,7 +400,7 @@ const ResultadosPublico = () => {
         {/* Resumen de conteo */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: 4,
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper, borderRadius: '10px',
             boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
             display: 'grid', gridTemplateColumns: '1fr',

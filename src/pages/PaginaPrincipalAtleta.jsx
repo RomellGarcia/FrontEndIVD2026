@@ -46,7 +46,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children, filled }) => (
       overflow: 'hidden',
     }}
   >
-    <Box sx={{ p: 3, pb: 2 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1.5, sm: 2 } }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
           <Typography
@@ -73,7 +73,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children, filled }) => (
       </Box>
     </Box>
     <Divider sx={{ borderColor: filled ? 'rgba(255,255,255,0.18)' : COLORS.line }} />
-    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, flex: 1 }}>{children}</Box>
   </Box>
 );
 
@@ -391,7 +391,7 @@ const PaginaPrincipalAtleta = () => {
           >
             {atletaData?.nombre?.[0]}{atletaData?.apellido_paterno?.[0] || ''}
           </Avatar>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             ¡Bienvenido, {atletaData?.nombre}!
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -413,7 +413,7 @@ const PaginaPrincipalAtleta = () => {
         <Box
           sx={{
             mt: notificaciones.length ? 0 : { xs: -5, md: -6 },
-            mb: 5,
+            mb: { xs: 3, md: 5 },
             bgcolor: COLORS.paper,
             borderRadius: '10px',
             boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
@@ -455,7 +455,7 @@ const PaginaPrincipalAtleta = () => {
         </Box>
 
         {/* Secciones principales */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: { xs: 2, md: 3 } }}>
           {/* Mi Club */}
           <SectionCard filled icon={<GroupIcon sx={{ fontSize: 16 }} />} eyebrow="Membresía" title="Mi Club">
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 1.5, py: 2 }}>

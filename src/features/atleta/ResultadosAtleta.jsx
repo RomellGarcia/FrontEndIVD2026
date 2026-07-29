@@ -2,14 +2,13 @@ import { resultadosAPI, atletasAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableHead, TableRow,
-  Container, Button, IconButton, Alert, CircularProgress, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Divider,
+  Container, Button, IconButton, Alert, CircularProgress, Chip, Avatar, Divider,
 } from '@mui/material';
 import {
   Visibility as ViewIcon, PictureAsPdf as PdfIcon,
   EmojiEvents as TrophyIcon, Person as PersonIcon,
   CalendarToday as CalendarIcon,
-  Close as CloseIcon, SportsScore as SportsIcon,
+  SportsScore as SportsIcon,
   BarChart as BarChartIcon, Event as EventIcon,
   LocationOn as LocationIcon, ArrowBack as ArrowBackIcon,
   TableChart as ExcelIcon,
@@ -94,7 +93,6 @@ const ResultadosAtleta = () => {
   const [resultados, setResultados] = useState([]);
   const [mensajeError, setMensajeError] = useState('');
   const [cargando, setCargando] = useState(true);
-  const [modalAbierto, setModalAbierto] = useState(false);
   const [seleccionado, setSeleccionado] = useState(null);
   const [logoUrl, setLogoUrl] = useState('');
   const [logoRatio, setLogoRatio] = useState(3);
@@ -157,8 +155,8 @@ const ResultadosAtleta = () => {
     return `${pruebas[0]?.marca || '0'} ${pruebas[0]?.unidad || ''}`.trim();
   };
 
-  const manejarVerDetalle = (resultado) => { setSeleccionado(resultado); setModalAbierto(true); };
-  const manejarCerrarModal = () => { setModalAbierto(false); setSeleccionado(null); };
+  const manejarVerDetalle = (resultado) => { setSeleccionado(resultado); setVista('detalle'); };
+  const manejarVolverAResultados = () => { setVista('evento'); setSeleccionado(null); };
 
   const totalPruebas = resultados.reduce((acc, r) => acc + (r.pruebas?.length || 0), 0);
   const disciplinasDistintas = new Set(resultados.map((r) => r.disciplina).filter(Boolean)).size;
@@ -495,14 +493,14 @@ const ResultadosAtleta = () => {
       {/* Cabecera superior */}
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
-          {vista === 'evento' && (
+          {(vista === 'evento' || vista === 'detalle') && (
             <Box sx={{ textAlign: 'left', mb: 1 }}>
               <Button
                 startIcon={<ArrowBackIcon />}
-                onClick={manejarVolverAEventos}
+                onClick={vista === 'detalle' ? manejarVolverAResultados : manejarVolverAEventos}
                 sx={{ color: '#fff', textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
               >
-                Volver a mis eventos
+                {vista === 'detalle' ? 'Volver a resultados' : 'Volver a mis eventos'}
               </Button>
             </Box>
           )}
@@ -510,12 +508,18 @@ const ResultadosAtleta = () => {
             IVD · Panel de Atleta
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
-            {vista === 'eventos' ? 'Mis Resultados' : (eventoSeleccionado?.evento_titulo || 'Resultados del evento')}
+            {vista === 'eventos'
+              ? 'Mis Resultados'
+              : vista === 'detalle'
+                ? (seleccionado?.disciplina || 'Detalle del resultado')
+                : (eventoSeleccionado?.evento_titulo || 'Resultados del evento')}
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
             {vista === 'eventos'
               ? 'Eventos en los que has participado'
-              : `${resultadosDelEvento.length} disciplina${resultadosDelEvento.length !== 1 ? 's' : ''} registrada${resultadosDelEvento.length !== 1 ? 's' : ''}`}
+              : vista === 'detalle'
+                ? (seleccionado?.categoria || eventoSeleccionado?.evento_titulo || '')
+                : `${resultadosDelEvento.length} disciplina${resultadosDelEvento.length !== 1 ? 's' : ''} registrada${resultadosDelEvento.length !== 1 ? 's' : ''}`}
           </Typography>
         </Container>
       </Box>
@@ -540,6 +544,18 @@ const ResultadosAtleta = () => {
               <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
                 <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
                 <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+              </Box>
+            ))
+          ) : vista === 'detalle' ? (
+            [
+              { icon: <CalendarIcon sx={{ fontSize: 24 }} />, value: formatearFechaCorta(seleccionado?.evento_fecha), label: 'Fecha', accent: COLORS.burgundy },
+              { icon: <LocationIcon sx={{ fontSize: 24 }} />, value: seleccionado?.evento_lugar || '—', label: 'Lugar', accent: COLORS.purple, small: true },
+              { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: seleccionado?.posicion ? `${seleccionado.posicion}°` : '—', label: 'Lugar obtenido', accent: COLORS.burgundy },
+            ].map((s, i) => (
+              <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
+                <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: s.small ? '0.95rem' : { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
                 <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
               </Box>
             ))
@@ -620,7 +636,7 @@ const ResultadosAtleta = () => {
               );
             })}
           </Box>
-        ) : (
+        ) : vista === 'evento' ? (
           /* Detalle de un evento: disciplinas/resultados */
           <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
             <Table>
@@ -705,178 +721,162 @@ const ResultadosAtleta = () => {
               </TableBody>
             </Table>
           </Box>
+        ) : (
+          /* Detalle de un resultado individual (vista === 'detalle') */
+          seleccionado && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: { xs: 2.5, md: 3.5 } }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                  {/* Evento */}
+                  <Box>
+                    {seleccionado.evento_imagen_url && (
+                      <Box component="img" src={seleccionado.evento_imagen_url} alt={seleccionado.evento_titulo}
+                        sx={{ width: '100%', height: { xs: 200, md: 260 }, objectFit: 'cover', borderRadius: '8px', mb: 2 }} />
+                    )}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                      <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
+                        <CalendarIcon sx={{ fontSize: 18, color: COLORS.burgundy }} />
+                      </Avatar>
+                      <Typography variant="subtitle1" sx={{ color: COLORS.burgundy, fontWeight: 700 }}>
+                        Información del Evento
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, pl: { sm: 5.5 } }}>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Evento</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                          {seleccionado.evento_titulo || '—'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                          {formatearFechaLarga(seleccionado.evento_fecha)}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar del evento</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{seleccionado.evento_lugar || '—'}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{seleccionado.categoria || '—'}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Año competitivo</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                          {seleccionado.ano_competitivo || '—'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Bib</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                          {seleccionado.bib ? String(seleccionado.bib).padStart(3, '0') : '—'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar obtenido</Typography>
+                        <Box sx={{ mt: .3 }}><ChipPosicion posicion={seleccionado.posicion} /></Box>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Divider sx={{ borderColor: COLORS.line }} />
+
+                  {/* Pruebas */}
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                      <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
+                        <TrophyIcon sx={{ fontSize: 18, color: COLORS.burgundy }} />
+                      </Avatar>
+                      <Typography variant="subtitle1" sx={{ color: COLORS.burgundy, fontWeight: 700 }}>
+                        Pruebas y Marcas
+                      </Typography>
+                    </Box>
+                    {seleccionado.pruebas?.length > 0 ? (
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, pl: { sm: 5.5 } }}>
+                        {seleccionado.pruebas.map((p, i) => (
+                          <Box key={i} sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}`, textAlign: 'center' }}>
+                            <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>{p.nombre || `Prueba ${i + 1}`}</Typography>
+                            <Typography variant="h5" sx={{ color: COLORS.burgundy, fontWeight: 800, mt: .5 }}>
+                              {p.marca || '0'}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: COLORS.purple }}>{p.unidad || ''}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: COLORS.purple, pl: { sm: 5.5 } }}>Sin pruebas registradas</Typography>
+                    )}
+                  </Box>
+
+                  <Divider sx={{ borderColor: COLORS.line }} />
+
+                  {/* Información adicional */}
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                      <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
+                        <PersonIcon sx={{ fontSize: 18, color: COLORS.purple }} />
+                      </Avatar>
+                      <Typography variant="subtitle1" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+                        Información Adicional
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, pl: { sm: 5.5 } }}>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Municipio</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                          {seleccionado.municipio || '—'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Club</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                          {seleccionado.club_nombre || 'Libre'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ gridColumn: { sm: '1 / -1' } }}>
+                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar de entrenamiento</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
+                          {seleccionado.lugar_entrenamiento || '—'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Acciones — mismos botones que antes tenía el modal */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                <Button
+                  onClick={() => manejarVerResultadosPDF(seleccionado)}
+                  variant="outlined"
+                  startIcon={<OpenInNewIcon />}
+                  sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: COLORS.lineSoft } }}
+                >
+                  Ver resultados
+                </Button>
+                <Button
+                  onClick={() => manejarDescargarExcelCategoria(seleccionado)}
+                  variant="outlined"
+                  startIcon={<ExcelIcon />}
+                  sx={{ color: '#1D6F42', borderColor: '#1D6F42', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: 'rgba(29,111,66,0.08)' } }}
+                >
+                  Excel de la categoría
+                </Button>
+                <Button
+                  onClick={() => manejarDescargarPDF(seleccionado)}
+                  variant="contained"
+                  startIcon={<PdfIcon />}
+                  sx={{ bgcolor: COLORS.burgundy, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: COLORS.burgundyDark } }}
+                >
+                  Descargar PDF
+                </Button>
+              </Box>
+            </Box>
+          )
         )}
       </Container>
-
-      {/* Modal de detalle del resultado */}
-      <Dialog open={modalAbierto} onClose={manejarCerrarModal} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff', py: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TrophyIcon />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Detalle del Resultado</Typography>
-            </Box>
-            <IconButton onClick={manejarCerrarModal} size="small" sx={{ color: '#fff' }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 3 }}>
-          {seleccionado && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              {/* Evento */}
-              <Box>
-                {seleccionado.evento_imagen_url && (
-                  <Box component="img" src={seleccionado.evento_imagen_url} alt={seleccionado.evento_titulo}
-                    sx={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: '8px', mb: 2 }} />
-                )}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
-                    <CalendarIcon sx={{ fontSize: 18, color: COLORS.burgundy }} />
-                  </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: COLORS.burgundy, fontWeight: 700 }}>
-                    Información del Evento
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pl: 5.5 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Evento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.evento_titulo || '—'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Fecha</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {formatearFechaLarga(seleccionado.evento_fecha)}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar del evento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{seleccionado.evento_lugar || '—'}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Categoría</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>{seleccionado.categoria || '—'}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Año competitivo</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.ano_competitivo || '—'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Bib</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.bib ? String(seleccionado.bib).padStart(3, '0') : '—'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar obtenido</Typography>
-                    <Box sx={{ mt: .3 }}><ChipPosicion posicion={seleccionado.posicion} /></Box>
-                  </Box>
-                </Box>
-              </Box>
-
-              <Divider sx={{ borderColor: COLORS.line }} />
-
-              {/* Pruebas */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
-                    <TrophyIcon sx={{ fontSize: 18, color: COLORS.burgundy }} />
-                  </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: COLORS.burgundy, fontWeight: 700 }}>
-                    Pruebas y Marcas
-                  </Typography>
-                </Box>
-                {seleccionado.pruebas?.length > 0 ? (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5, pl: 5.5 }}>
-                    {seleccionado.pruebas.map((p, i) => (
-                      <Box key={i} sx={{ p: 2, borderRadius: '8px', border: `1px solid ${COLORS.line}`, textAlign: 'center' }}>
-                        <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>{p.nombre || `Prueba ${i + 1}`}</Typography>
-                        <Typography variant="h5" sx={{ color: COLORS.burgundy, fontWeight: 800, mt: .5 }}>
-                          {p.marca || '0'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: COLORS.purple }}>{p.unidad || ''}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                ) : (
-                  <Typography variant="body2" sx={{ color: COLORS.purple, pl: 5.5 }}>Sin pruebas registradas</Typography>
-                )}
-              </Box>
-
-              <Divider sx={{ borderColor: COLORS.line }} />
-
-              {/* Información adicional */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 32, height: 32 }}>
-                    <PersonIcon sx={{ fontSize: 18, color: COLORS.purple }} />
-                  </Avatar>
-                  <Typography variant="subtitle1" sx={{ color: COLORS.purple, fontWeight: 700 }}>
-                    Información Adicional
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pl: 5.5 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Municipio</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.municipio || '—'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Club</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.club_nombre || 'Libre'}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ gridColumn: '1 / -1' }}>
-                    <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Lugar de entrenamiento</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.ink }}>
-                      {seleccionado.lugar_entrenamiento || '—'}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button
-            onClick={manejarCerrarModal}
-            variant="outlined"
-            sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 600 }}
-          >
-            Cerrar
-          </Button>
-          <Button
-            onClick={() => manejarVerResultadosPDF(seleccionado)}
-            variant="outlined"
-            startIcon={<OpenInNewIcon />}
-            sx={{ color: COLORS.burgundy, borderColor: COLORS.burgundy, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: COLORS.lineSoft } }}
-          >
-            Ver resultados
-          </Button>
-          <Button
-            onClick={() => manejarDescargarExcelCategoria(seleccionado)}
-            variant="outlined"
-            startIcon={<ExcelIcon />}
-            sx={{ color: '#1D6F42', borderColor: '#1D6F42', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: 'rgba(29,111,66,0.08)' } }}
-          >
-            Excel de la categoría
-          </Button>
-          <Button
-            onClick={() => manejarDescargarPDF(seleccionado)}
-            variant="contained"
-            startIcon={<PdfIcon />}
-            sx={{ bgcolor: COLORS.burgundy, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: COLORS.burgundyDark } }}
-          >
-            Descargar PDF
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

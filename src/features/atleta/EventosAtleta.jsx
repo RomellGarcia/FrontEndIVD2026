@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { eventosAPI, resultadosAPI } from '../../api/index.js';
-import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Box, Typography,
   Container, Button, CircularProgress, Avatar, Pagination, Chip, Divider,
@@ -15,7 +16,7 @@ import {
   DoneAll as DoneAllIcon, Visibility as VisibilityIcon,
   HourglassEmpty as PendingIcon, Clear as ClearIcon,
   HowToReg as RegisterIcon, Warning as WarningIcon, CheckCircle as CheckIcon,
-  Download as DownloadIcon,
+  Download as DownloadIcon, PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -82,9 +83,6 @@ const DISCIPLINAS_DISTANCIA = new Set([
   'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
 ]);
 const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
-
-// Genera un slug para nombres de archivo
-const slug = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
 
 // Obtiene el nombre completo de un registro
 const nombreCompleto = (r) => [r?.nombre, r?.apellido_paterno, r?.apellido_materno].filter(Boolean).join(' ');
@@ -301,8 +299,10 @@ const EventosAtleta = () => {
     }
   };
 
-  // Descarga un Excel con los resultados de una convocatoria
-  const manejarDescargarExcelResultados = (conv) => {
+  // Genera un PDF con los resultados de una convocatoria y lo abre en una
+  // pestaña nueva — no se descarga, se ve directo con el visor de PDF
+  // que ya trae el navegador, así cualquiera puede verlo sin instalar nada.
+  const manejarVerPdfResultados = (conv) => {
     const resultadosCategoria = resultadosPorConvocatoria[conv.id] || [];
     if (resultadosCategoria.length === 0) return;
 
@@ -317,28 +317,40 @@ const EventosAtleta = () => {
       const marca = r.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
       const chip = r.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
       const gun = r.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
-      const base = {
-        'Pl.': r.posicion ? `${r.posicion}°` : '—',
-        Bib: r.bib ? String(r.bib).padStart(3, '0') : '—',
-        Nombre: nombreCompleto(r),
-        Club: r.club_nombre || 'Libre',
-      };
-      return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
+      const base = [
+        r.posicion ? `${r.posicion}°` : '—',
+        r.bib ? String(r.bib).padStart(3, '0') : '—',
+        nombreCompleto(r),
+        r.club_nombre || 'Libre',
+      ];
+      return esDistancia ? [...base, marca || '—'] : [...base, chip || '—', gun || '—'];
     });
 
     const headers = esDistancia
       ? ['Pl.', 'Bib', 'Nombre', 'Club', 'Marca']
       : ['Pl.', 'Bib', 'Nombre', 'Club', 'ChipTime', 'GunTime'];
 
-    const ws = XLSX.utils.json_to_sheet(filas, { header: headers });
-    ws['!cols'] = esDistancia
-      ? [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 14 }]
-      : [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+    const doc = new jsPDF({ orientation: 'landscape' });
 
-    const wb = XLSX.utils.book_new();
-    const nombreHoja = `${conv.disciplina || ''} ${conv.categoria || ''}`.slice(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, nombreHoja || 'Resultados');
-    XLSX.writeFile(wb, `Resultados_${slug(conv.disciplina)}_${slug(conv.categoria)}.xlsx`);
+    doc.setFontSize(14);
+    doc.setTextColor(COLORS.burgundy);
+    doc.text(`${conv.disciplina || ''} — ${conv.categoria || ''}`, 14, 16);
+
+    doc.setFontSize(10);
+    doc.setTextColor('#666666');
+    doc.text(eventoSeleccionado?.titulo || '', 14, 22);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [headers],
+      body: filas,
+      headStyles: { fillColor: [128, 0, 32] },
+      styles: { fontSize: 10 },
+    });
+
+    // bloburl abre el PDF directo en una pestaña nueva del navegador,
+    // en vez de guardarlo en el dispositivo como hacía XLSX.writeFile.
+    window.open(doc.output('bloburl'), '_blank');
   };
 
   if (cargando) {
@@ -541,14 +553,14 @@ const EventosAtleta = () => {
                             {terminado ? (
                               (resultadosPorConvocatoria[conv.id] || []).length > 0 ? (
                                 <Button
-                                  size="small" variant="contained" startIcon={<TrophyIcon />}
-                                  onClick={() => manejarDescargarExcelResultados(conv)}
+                                  size="small" variant="contained" startIcon={<PdfIcon />}
+                                  onClick={() => manejarVerPdfResultados(conv)}
                                   sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
                                 >
-                                  Ver Excel
+                                  Ver PDF
                                 </Button>
                               ) : (
-                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Excel de resultados pendiente" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Resultados pendientes" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
                               )
                             ) : inscrito ? (
                               <Chip icon={<CheckIcon sx={{ fontSize: 16 }} />} label="Ya estás inscrito" size="small" sx={{ bgcolor: COLORS.lineSoft, color: COLORS.burgundy, fontWeight: 700 }} />

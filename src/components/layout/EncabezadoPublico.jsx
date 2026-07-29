@@ -46,6 +46,13 @@ const EncabezadoPublico = () => {
 
   const activo = (ruta) => location.pathname === ruta;
 
+  React.useEffect(() => {
+    document.body.style.overflow = mobileMenu ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenu]);
+
   return (
     <>
       <style>{`
@@ -137,16 +144,74 @@ const EncabezadoPublico = () => {
           background: #800020;
         }
 
+        .ivd-menu-close {
+          display: none;
+        }
+
+        /* Botón hamburguesa: 3 líneas que se transforman en X */
         .mobile-button {
           display: none;
+          position: relative;
           border: none;
           background: none;
-          color: white;
-          font-size: 26px;
-          padding: 14px 20px;
+          padding: 0;
+          margin: 14px 20px;
+          width: 28px;
+          height: 22px;
           cursor: pointer;
+          z-index: 1002;
+        }
+
+        .mobile-button span {
+          position: absolute;
+          left: 0;
           width: 100%;
-          text-align: left;
+          height: 2.5px;
+          background: #ffffff;
+          border-radius: 2px;
+          transition: transform .3s ease, opacity .3s ease, top .3s ease;
+        }
+
+        .mobile-button span:nth-child(1) { top: 0; }
+        .mobile-button span:nth-child(2) { top: 9.5px; }
+        .mobile-button span:nth-child(3) { top: 19px; }
+
+        .mobile-button.open span:nth-child(1) {
+          top: 9.5px;
+          transform: rotate(45deg);
+        }
+
+        .mobile-button.open span:nth-child(2) {
+          opacity: 0;
+        }
+
+        .mobile-button.open span:nth-child(3) {
+          top: 9.5px;
+          transform: rotate(-45deg);
+        }
+
+        /* Cuando el drawer está abierto, el botón de la barra desaparece
+           (ya no compite en z-index con el contenido del drawer);
+           el cierre se hace desde el botón × dentro del propio drawer */
+        .mobile-button.open {
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        /* Fondo oscuro detrás del drawer */
+        .ivd-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity .3s ease;
+          z-index: 999;
+        }
+
+        .ivd-overlay.open {
+          opacity: 1;
+          pointer-events: auto;
         }
 
         /* RESPONSIVE */
@@ -167,28 +232,69 @@ const EncabezadoPublico = () => {
           }
 
           .ivd-nav-container {
-            justify-content: flex-start;
+            justify-content: flex-end;
           }
 
           .mobile-button {
             display: block;
           }
 
+          /* Fila de cierre, primer elemento del drawer, en flujo normal:
+             siempre queda arriba de "Inicio" sin importar coordenadas */
+          .ivd-menu-close {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 14px 16px;
+          }
+
+          .ivd-menu-close button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 6px;
+          }
+
+          /* Drawer deslizante desde la derecha */
           .ivd-menu {
-            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: min(78vw, 320px);
             flex-direction: column;
-            width: 100%;
             background: ${PRIMARY};
+            box-shadow: -8px 0 24px rgba(0, 0, 0, .25);
+            transform: translateX(100%);
+            transition: transform .35s cubic-bezier(.4, 0, .2, 1);
+            z-index: 1001;
+            overflow-y: auto;
           }
 
           .ivd-menu.open {
-            display: flex;
+            transform: translateX(0);
           }
 
           .ivd-item {
             width: 100%;
             border-top: 1px solid rgba(255, 255, 255, .08);
+            opacity: 0;
+            transform: translateX(24px);
+            transition: opacity .3s ease, transform .3s ease;
           }
+
+          .ivd-menu.open .ivd-item {
+            opacity: 1;
+            transform: translateX(0);
+          }
+
+          .ivd-menu.open .ivd-item:nth-child(2) { transition-delay: .08s; }
+          .ivd-menu.open .ivd-item:nth-child(3) { transition-delay: .14s; }
+          .ivd-menu.open .ivd-item:nth-child(4) { transition-delay: .20s; }
+          .ivd-menu.open .ivd-item:nth-child(5) { transition-delay: .26s; }
 
           .ivd-link,
           .ivd-login-btn {
@@ -226,6 +332,15 @@ const EncabezadoPublico = () => {
         <nav className="ivd-nav">
           <div className="ivd-nav-container">
             <ul className={`ivd-menu ${mobileMenu ? "open" : ""}`}>
+              <li className="ivd-menu-close">
+                <button
+                  onClick={() => setMobileMenu(false)}
+                  aria-label="Cerrar menú"
+                >
+                  ×
+                </button>
+              </li>
+
               {menu.map((item) => (
                 <li
                   key={item.ruta}
@@ -245,15 +360,22 @@ const EncabezadoPublico = () => {
             </ul>
 
             <button
-              className="mobile-button"
+              className={`mobile-button ${mobileMenu ? "open" : ""}`}
               onClick={() => setMobileMenu(!mobileMenu)}
+              aria-label={mobileMenu ? "Cerrar menú" : "Abrir menú"}
+              aria-expanded={mobileMenu}
             >
-              <ion-icon
-                name={mobileMenu ? "close-outline" : "menu-outline"}
-              ></ion-icon>
+              <span></span>
+              <span></span>
+              <span></span>
             </button>
           </div>
         </nav>
+
+        <div
+          className={`ivd-overlay ${mobileMenu ? "open" : ""}`}
+          onClick={() => setMobileMenu(false)}
+        />
       </header>
     </>
   );

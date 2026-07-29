@@ -285,13 +285,15 @@ const ConvocatoriasAtleta = () => {
       <Box sx={{ bgcolor: COLORS.burgundy, color: '#fff', pt: { xs: 4, md: 5 }, pb: { xs: 7, md: 8 } }}>
         <Container maxWidth="lg" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           {vista === 'detalle' && (
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => setVista('lista')}
-              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
-            >
-              Volver a la lista
-            </Button>
+            <Box sx={{ textAlign: 'left', mb: 1 }}>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                onClick={() => setVista('lista')}
+                sx={{ color: '#fff', textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              >
+                Volver a la lista
+              </Button>
+            </Box>
           )}
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Atleta

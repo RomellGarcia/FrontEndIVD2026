@@ -52,7 +52,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       overflow: 'hidden',
     }}
   >
-    <Box sx={{ p: 3, pb: 2 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1.5, sm: 2 } }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
           <Typography
@@ -73,7 +73,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       </Box>
     </Box>
     <Divider sx={{ borderColor: COLORS.line }} />
-    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, flex: 1 }}>{children}</Box>
   </Box>
 );
 
@@ -177,7 +177,7 @@ const PaginaPrincipalAdministrativa = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             Instituto Veracruzano del Deporte
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Panel Administrativo
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -192,7 +192,7 @@ const PaginaPrincipalAdministrativa = () => {
         {/* Tarjeta de estadísticas flotante */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: 5,
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 5 },
             bgcolor: COLORS.paper, borderRadius: '10px',
             boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
             display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
@@ -224,7 +224,7 @@ const PaginaPrincipalAdministrativa = () => {
         </Box>
 
         {/* Fila 1: Atletas y Clubes recientes */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 } }}>
           {/* Atletas recientes */}
           <SectionCard icon={<PeopleIcon sx={{ fontSize: 16 }} />} eyebrow="Recién ingresados" title="Atletas Recientes">
             {actividadReciente.atletas.length === 0 ? (
@@ -279,7 +279,7 @@ const PaginaPrincipalAdministrativa = () => {
         </Box>
 
         {/* Fila 2: Próximos Eventos y Resultados recientes */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 } }}>
           {/* Próximos eventos */}
           <SectionCard icon={<CalendarIcon sx={{ fontSize: 16 }} />} eyebrow="Agenda" title="Próximos Eventos">
             {actividadReciente.eventos.length === 0 ? (

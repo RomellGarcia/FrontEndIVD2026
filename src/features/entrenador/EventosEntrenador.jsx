@@ -612,7 +612,7 @@ const EventosEntrenador = () => {
                     >
                       {evento.imagen_url ? (
                         <Box component="img" src={evento.imagen_url} alt={evento.titulo}
-                          sx={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+                          sx={{ width: '100%', height: 520, objectFit: 'cover', display: 'block' }} />
                       ) : (
                         <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
                           <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
@@ -678,7 +678,7 @@ const EventosEntrenador = () => {
                   >
                     {evento.imagen_url ? (
                       <Box component="img" src={evento.imagen_url} alt={evento.titulo}
-                        sx={{ width: '100%', height: 160, objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
+                        sx={{ width: '100%', height: 520, objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
                     ) : (
                       <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
                         <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />

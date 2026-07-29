@@ -134,7 +134,7 @@ const PieDePagina = () => {
         style={{
           backgroundColor: '#720F3C',
           textAlign: 'center',
-          padding: '40px 20px',
+          padding: 'clamp(24px, 6vw, 40px) clamp(16px, 5vw, 20px)',
           width: '100%',
           boxSizing: 'border-box',
           display: 'flex',
@@ -148,14 +148,14 @@ const PieDePagina = () => {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             width: '100%',
-            gap: '20px',
+            gap: 'clamp(16px, 4vw, 20px)',
             marginBottom: '20px',
             maxWidth: '1200px',
           }}
         >
           {/* Sección Redes Sociales */}
           <div>
-            <Title level={4} style={{ color: '#FFFFFF', fontSize: '18px', marginBottom: '15px', fontWeight: 600 }}>
+            <Title level={4} style={{ color: '#FFFFFF', fontSize: 'clamp(16px, 4vw, 18px)', marginBottom: '15px', fontWeight: 600 }}>
               Síguenos en nuestras redes sociales
             </Title>
             {datosEmpresa.facebook ? (
@@ -204,11 +204,11 @@ const PieDePagina = () => {
 
           {/* Sección Contacto */}
           <div>
-            <Title level={4} style={{ color: '#FFFFFF', fontSize: '18px', marginBottom: '15px', fontWeight: 600 }}>
+            <Title level={4} style={{ color: '#FFFFFF', fontSize: 'clamp(16px, 4vw, 18px)', marginBottom: '15px', fontWeight: 600 }}>
               Contacto
             </Title>
             {datosEmpresa.mostrarWhatsapp !== false && (
-              <Text style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px' }}>
+              <Text style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                 <FaWhatsapp style={{ fontSize: '18px', marginRight: '5px', color: '#25D366', verticalAlign: 'middle' }} />
                 WhatsApp: {datosEmpresa.telefono ? (
                   <a
@@ -225,7 +225,7 @@ const PieDePagina = () => {
             {datosEmpresa.correo ? (
               <a
                 href={`mailto:${datosEmpresa.correo}`}
-                style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none' }}
+                style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none', overflowWrap: 'break-word', wordBreak: 'break-word' }}
               >
                 <MailOutlined style={{ fontSize: '18px', marginRight: '5px', color: '#F5E8C7' }} /> Correo electrónico: {datosEmpresa.correo}
               </a>
@@ -239,7 +239,7 @@ const PieDePagina = () => {
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(datosEmpresa.direccion)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none' }}
+                style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none', overflowWrap: 'break-word', wordBreak: 'break-word' }}
               >
                 <EnvironmentOutlined style={{ fontSize: '18px', marginRight: '5px', color: '#F5E8C7' }} /> Ubicación: {datosEmpresa.direccion}
               </a>
@@ -265,7 +265,7 @@ const PieDePagina = () => {
 
           {/* Sección Información */}
           <div>
-            <Title level={4} style={{ color: '#FFFFFF', fontSize: '18px', marginBottom: '15px', fontWeight: 600 }}>
+            <Title level={4} style={{ color: '#FFFFFF', fontSize: 'clamp(16px, 4vw, 18px)', marginBottom: '15px', fontWeight: 600 }}>
               Información
             </Title>
             <Link to="/politicaspca" style={{ color: '#F5E8C7', fontSize: '16px', display: 'block', marginBottom: '10px', textDecoration: 'none' }}>

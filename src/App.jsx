@@ -62,8 +62,12 @@ import MisConvocatoriasClub from './features/club/MisConvocatoriasClub.jsx'
 import GestionarAtletasEntrenador from './features/entrenador/GestionarAtletas.jsx'
 import PerfilEntrenador from './features/entrenador/PerfilEntrenador.jsx'
 import EventosEntrenador from './features/entrenador/EventosEntrenador.jsx'
-import ReportesEntrenador from './features/entrenador/Reportes.jsx'
+import ReportesEntrenador from './features/entrenador/ReportesEntrenador.jsx'
 import BuscarClubes from './features/entrenador/BuscarClubes.jsx'
+import ConvocatoriaEntrenador from "./features/entrenador/ConvocatoriaEntrenador.jsx";
+import ConvocatoriasClubEntrenador from "./features/entrenador/ConvocatoriasClubEntrenador.jsx";
+import ResultadosEntrenador from "./features/entrenador/ResultadosEntrenador.jsx";
+
 
 const App = () => {
   return (
@@ -136,6 +140,9 @@ const App = () => {
           <Route path="/entrenador/terminospca" element={<LayoutConEncabezado><TerminosPCA /></LayoutConEncabezado>} />
           <Route path="/entrenador/visionpca" element={<LayoutConEncabezado><VisionPCA /></LayoutConEncabezado>} />
           <Route path="/entrenador/misionpca" element={<LayoutConEncabezado><MisionPCA /></LayoutConEncabezado>} />
+          <Route path="/entrenador/convocatorias" element={<LayoutConEncabezado><ConvocatoriaEntrenador /></LayoutConEncabezado>} />
+          <Route path="/entrenador/convocatorias-club" element={<LayoutConEncabezado><ConvocatoriasClubEntrenador /></LayoutConEncabezado>} />
+          <Route path="/entrenador/resultados" element={<LayoutConEncabezado><ResultadosEntrenador /></LayoutConEncabezado>} />
         </Routes>
       </ThemeProvider>
     </AuthProvider>

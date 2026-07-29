@@ -23,6 +23,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import GroupIcon from '@mui/icons-material/Group';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AddIcon from '@mui/icons-material/Add';
@@ -121,6 +122,8 @@ const PerfilEntrenador = () => {
 
   const [telefono, setTelefono] = useState('');
   const [anosExperiencia, setAnosExperiencia] = useState('');
+  const [lugarEntrenamiento, setLugarEntrenamiento] = useState('');
+  const [lugarEntrenamientoEditable, setLugarEntrenamientoEditable] = useState(true);
   const [certificaciones, setCertificaciones] = useState([]);
   const [especialidades, setEspecialidades] = useState([]);
   const [nuevaCertificacion, setNuevaCertificacion] = useState('');
@@ -144,6 +147,8 @@ const PerfilEntrenador = () => {
         setPerfil(data);
         setTelefono(data.telefono || '');
         setAnosExperiencia(data.anos_experiencia ?? '');
+        setLugarEntrenamiento(data.lugar_entrenamiento || '');
+        setLugarEntrenamientoEditable(data.lugar_entrenamiento_editable !== false);
         setCertificaciones((data.certificaciones || []).map((c) => c.nombre));
         setEspecialidades((data.especialidades || []).map((e) => e.nombre));
         setMensajeError('');
@@ -184,6 +189,7 @@ const PerfilEntrenador = () => {
       await entrenadorAPI.updatePerfil({
         telefono,
         anos_experiencia: anosExperiencia === '' ? null : Number(anosExperiencia),
+        ...(lugarEntrenamientoEditable && { lugar_entrenamiento: lugarEntrenamiento }),
         certificaciones,
         especialidades,
       });
@@ -365,6 +371,23 @@ const PerfilEntrenador = () => {
                 <TextField label="Años de experiencia" type="number" value={anosExperiencia} onChange={(e) => setAnosExperiencia(e.target.value)} fullWidth size="small" inputProps={{ min: 0 }} sx={fieldFocusSx} />
               </Box>
 
+              <Box>
+                <TextField
+                  label="Lugar de entrenamiento"
+                  value={lugarEntrenamiento}
+                  onChange={(e) => setLugarEntrenamiento(e.target.value)}
+                  fullWidth
+                  size="small"
+                  disabled={!lugarEntrenamientoEditable}
+                  sx={fieldFocusSx}
+                />
+                {!lugarEntrenamientoEditable && (
+                  <Typography variant="caption" sx={{ color: COLORS.purple, opacity: 0.8, display: 'block', mt: 0.5 }}>
+                    Este campo lo define tu club — mientras pertenezcas a él, no se puede cambiar aquí.
+                  </Typography>
+                )}
+              </Box>
+
               <ListaChipsEditable
                 icon={<EmojiEventsIcon sx={{ fontSize: 15 }} />}
                 titulo="Certificaciones"
@@ -420,6 +443,7 @@ const PerfilEntrenador = () => {
                 <ReadOnlyField icon={<PhoneIcon fontSize="small" />} label="Teléfono" value={telefono} />
                 <ReadOnlyField icon={<EmailIcon fontSize="small" />} label="Correo electrónico" value={perfil.email} />
                 <ReadOnlyField icon={<WorkHistoryIcon fontSize="small" />} label="Años de experiencia" value={anosExperiencia !== '' ? `${anosExperiencia} años` : null} />
+                <ReadOnlyField icon={<LocationOnIcon fontSize="small" />} label="Lugar de entrenamiento" value={lugarEntrenamiento} />
               </Box>
 
               <Divider sx={{ my: 2, borderColor: COLORS.line }} />

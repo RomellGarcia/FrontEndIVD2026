@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../common/AuthContext.jsx'; // Importa useAuth
+import { useAuth } from '../common/AuthContext.jsx';
 import Swal from 'sweetalert2';
 
 const PRIMARY = "#720F3C";
@@ -104,6 +104,13 @@ const EncabezadoAtleta = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   const menu = [
     { texto: 'Inicio', key: 'home', ruta: '/atleta' },
@@ -211,18 +218,71 @@ const EncabezadoAtleta = () => {
           background: #800020;
         }
 
+        .ivd-menu-close {
+          display: none;
+        }
+
+        /* Botón hamburguesa: 3 líneas que se transforman en X */
         .mobile-button {
           display: none;
+          position: relative;
           border: none;
           background: none;
-          color: white;
-          font-size: 22px;
-          font-weight: 600;
-          text-transform: uppercase;
-          padding: 14px 20px;
+          padding: 0;
+          margin: 14px 20px;
+          width: 28px;
+          height: 22px;
           cursor: pointer;
+          z-index: 1002;
+        }
+
+        .mobile-button span {
+          position: absolute;
+          left: 0;
           width: 100%;
-          text-align: left;
+          height: 2.5px;
+          background: #ffffff;
+          border-radius: 2px;
+          transition: transform .3s ease, opacity .3s ease, top .3s ease;
+        }
+
+        .mobile-button span:nth-child(1) { top: 0; }
+        .mobile-button span:nth-child(2) { top: 9.5px; }
+        .mobile-button span:nth-child(3) { top: 19px; }
+
+        .mobile-button.open span:nth-child(1) {
+          top: 9.5px;
+          transform: rotate(45deg);
+        }
+
+        .mobile-button.open span:nth-child(2) {
+          opacity: 0;
+        }
+
+        .mobile-button.open span:nth-child(3) {
+          top: 9.5px;
+          transform: rotate(-45deg);
+        }
+
+        .mobile-button.open {
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        /* Fondo oscuro detrás del drawer */
+        .ivd-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity .3s ease;
+          z-index: 999;
+        }
+
+        .ivd-overlay.open {
+          opacity: 1;
+          pointer-events: auto;
         }
 
         /* RESPONSIVE */
@@ -243,28 +303,71 @@ const EncabezadoAtleta = () => {
           }
 
           .ivd-nav-container {
-            justify-content: flex-start;
+            justify-content: flex-end;
           }
 
           .mobile-button {
             display: block;
           }
 
+          .ivd-menu-close {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 14px 16px;
+          }
+
+          .ivd-menu-close button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 6px;
+          }
+
+          /* Drawer deslizante desde la derecha */
           .ivd-menu {
-            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: min(78vw, 320px);
             flex-direction: column;
-            width: 100%;
             background: ${PRIMARY};
+            box-shadow: -8px 0 24px rgba(0, 0, 0, .25);
+            transform: translateX(100%);
+            transition: transform .35s cubic-bezier(.4, 0, .2, 1);
+            z-index: 1001;
+            overflow-y: auto;
           }
 
           .ivd-menu.open {
-            display: flex;
+            transform: translateX(0);
           }
 
           .ivd-item {
             width: 100%;
             border-top: 1px solid rgba(255, 255, 255, .08);
+            opacity: 0;
+            transform: translateX(24px);
+            transition: opacity .3s ease, transform .3s ease;
           }
+
+          .ivd-menu.open .ivd-item {
+            opacity: 1;
+            transform: translateX(0);
+          }
+
+          .ivd-menu.open .ivd-item:nth-child(2) { transition-delay: .06s; }
+          .ivd-menu.open .ivd-item:nth-child(3) { transition-delay: .11s; }
+          .ivd-menu.open .ivd-item:nth-child(4) { transition-delay: .16s; }
+          .ivd-menu.open .ivd-item:nth-child(5) { transition-delay: .21s; }
+          .ivd-menu.open .ivd-item:nth-child(6) { transition-delay: .26s; }
+          .ivd-menu.open .ivd-item:nth-child(7) { transition-delay: .31s; }
+          .ivd-menu.open .ivd-item:nth-child(8) { transition-delay: .36s; }
+          .ivd-menu.open .ivd-item:nth-child(9) { transition-delay: .41s; }
 
           .ivd-link,
           .ivd-login-btn {
@@ -303,6 +406,15 @@ const EncabezadoAtleta = () => {
         <nav className="ivd-nav">
           <div className="ivd-nav-container">
             <ul className={`ivd-menu ${isMobileMenuOpen ? "open" : ""}`}>
+              <li className="ivd-menu-close">
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  aria-label="Cerrar menú"
+                >
+                  ×
+                </button>
+              </li>
+
               {menu.map((item) => (
                 <li
                   key={item.key}
@@ -322,13 +434,22 @@ const EncabezadoAtleta = () => {
             </ul>
 
             <button
-              className="mobile-button"
+              className={`mobile-button ${isMobileMenuOpen ? "open" : ""}`}
               onClick={toggleMobileMenu}
+              aria-label={isMobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+              aria-expanded={isMobileMenuOpen}
             >
-              {isMobileMenuOpen ? "Cerrar" : "Menú"}
+              <span></span>
+              <span></span>
+              <span></span>
             </button>
           </div>
         </nav>
+
+        <div
+          className={`ivd-overlay ${isMobileMenuOpen ? "open" : ""}`}
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
       </header>
     </>
   );

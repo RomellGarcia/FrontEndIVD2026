@@ -125,9 +125,13 @@ const PaginaPrincipal = () => {
         }}
       >
         {/* Un solo contenedor para controlar mejor el espaciado */}
-        <Container maxWidth="lg" sx={{ pt: 2, pb: 4 }}>
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography variant="h1" color="primary.main" sx={{ margin: 0 }}>
+        <Container maxWidth="lg" sx={{ pt: { xs: 1, md: 2 }, pb: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
+          <Box sx={{ textAlign: 'center', mb: { xs: 2, md: 3 } }}>
+            <Typography
+              variant="h1"
+              color="primary.main"
+              sx={{ margin: 0, fontSize: { xs: '1.75rem', sm: '2.1rem', md: '2.5rem' } }}
+            >
               Instituto Veracruzano del Deporte
             </Typography>
           </Box>
@@ -137,7 +141,7 @@ const PaginaPrincipal = () => {
               sx={{
                 display: 'grid',
                 gridTemplateColumns: { xs: '1fr', md: '1fr 2fr 1fr' },
-                gap: 3,
+                gap: { xs: 2, md: 3 },
                 alignItems: 'stretch',
               }}
             >
@@ -162,7 +166,7 @@ const PaginaPrincipal = () => {
                 sx={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 3,
+                  gap: { xs: 2, md: 3 },
                 }}
               >
                 {tarjetaContenido.map((item, index) => (
@@ -173,11 +177,16 @@ const PaginaPrincipal = () => {
                       color: '#FFFFFF',
                     }}
                   >
-                    <CardContent sx={{ p: 3 }}>
-                      <Typography variant="h3" sx={{ mb: 1 }}>
+                    <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                      <Typography
+                        variant="h3"
+                        sx={{ mb: 1, fontSize: { xs: '1.05rem', md: '1.3rem' } }}
+                      >
                         {item.titulo}
                       </Typography>
-                      <Typography variant="body1">{item.texto}</Typography>
+                      <Typography variant="body1" sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}>
+                        {item.texto}
+                      </Typography>
                     </CardContent>
                   </Card>
                 ))}

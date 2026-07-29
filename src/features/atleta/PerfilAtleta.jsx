@@ -99,7 +99,13 @@ const PerfilAtleta = () => {
       const response = await atletasAPI.getPerfil();
       const data = response.data.atleta;
       if (data) {
-        // Mapea los campos del backend a nombres más cortos para el formulario
+        // Mapea los campos del backend a nombres más cortos para el formulario.
+        // sexo se normaliza a minúsculas aquí mismo: el backend lo devuelve
+        // como "Masculino"/"Femenino" (nombre legible de la tabla generos),
+        // pero el schema de validación del PUT solo acepta 'masculino' |
+        // 'femenino' | 'otro' en minúsculas. Si no se normaliza acá, editar
+        // cualquier campo sin tocar el selector de Sexo manda el valor
+        // capitalizado tal cual y el backend rechaza la petición completa.
         setPerfil({
           ...data,
           apellidopa: data.apellido_paterno,
@@ -107,7 +113,7 @@ const PerfilAtleta = () => {
           fechaNacimiento: data.fecha_nacimiento,
           estadoNacimiento: data.estado_nacimiento,
           gmail: data.email,
-          sexo: data.genero,
+          sexo: (data.genero || '').toLowerCase(),
         });
         setMensajeError('');
       }
@@ -157,10 +163,17 @@ const PerfilAtleta = () => {
         showConfirmButton: false,
       });
     } catch (error) {
+      // El backend manda detalles por campo cuando falla la validación
+      // (middleware validate.js) — se muestran si existen, para saber
+      // exactamente qué campo rechazó en vez de solo "Datos inválidos".
+      const detalles = error.response?.data?.detalles;
+      const mensajeDetalle = detalles
+        ? Object.entries(detalles).map(([campo, errores]) => `${campo}: ${errores.join(', ')}`).join('\n')
+        : null;
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'Error al actualizar el perfil.',
+        text: mensajeDetalle || error.response?.data?.error || 'Error al actualizar el perfil.',
         confirmButtonColor: COLORS.burgundy,
       });
     }
@@ -176,6 +189,13 @@ const PerfilAtleta = () => {
     } catch {
       return fecha;
     }
+  };
+
+  // Solo para mostrar en la vista de lectura — perfil.sexo se mantiene en
+  // minúsculas internamente porque así lo exige el schema del backend.
+  const textoGenero = (valor) => {
+    if (!valor) return '';
+    return valor.charAt(0).toUpperCase() + valor.slice(1);
   };
 
   const obtenerIniciales = () => {
@@ -365,7 +385,7 @@ const PerfilAtleta = () => {
               <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Nombre completo" value={`${perfil.nombre || ''} ${perfil.apellidopa || ''} ${perfil.apellidoma || ''}`} />
               <ReadOnlyField icon={<BadgeIcon fontSize="small" />} label="CURP" value={perfil.curp} />
               <ReadOnlyField icon={<CalendarTodayIcon fontSize="small" />} label="Fecha de nacimiento" value={formatearFecha(perfil.fechaNacimiento)} />
-              <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Sexo" value={perfil.sexo} />
+              <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Sexo" value={textoGenero(perfil.sexo)} />
               <ReadOnlyField icon={<PhoneIcon fontSize="small" />} label="Teléfono" value={perfil.telefono} />
               <ReadOnlyField icon={<EmailIcon fontSize="small" />} label="Correo electrónico" value={perfil.gmail} />
               <ReadOnlyField icon={<LocationOnIcon fontSize="small" />} label="Estado de nacimiento" value={perfil.estadoNacimiento} />
