@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { contenidoAPI } from "../../api/index.js";
 import {
   Container,
   Typography,
@@ -11,37 +11,6 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#1976d2",
-    },
-    secondary: {
-      main: "#4caf50",
-    },
-    background: {
-      default: "#f5f5f5",
-    },
-    text: {
-      primary: "#212121",
-      secondary: "#757575",
-    },
-  },
-  typography: {
-    fontFamily: "'Roboto', sans-serif",
-    h6: {
-      fontWeight: 600,
-      color: "#1976d2",
-    },
-    body2: {
-      color: "#757575",
-    },
-  },
-});
-
-  const API_BASE_URL = "http://localhost:5000";
 
 function MisionPCA() {
   const [mision, setMision] = useState([]);
@@ -53,7 +22,7 @@ function MisionPCA() {
   useEffect(() => {
   const fetchMision = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/contenido/mision`)
+      const response = await contenidoAPI.get('mision')
       const data = response.data.contenido
       if (!data) { setMision([]); setLoading(false); return }
       setMision([{ id: data.id, titulo: data.titulo, contenido: data.contenido }])
@@ -80,8 +49,7 @@ function MisionPCA() {
           }
         `}
       </style>
-      <ThemeProvider theme={theme}>
-        <Box
+      <Box
         component="footer"
         sx={{
           py: 3,
@@ -134,7 +102,6 @@ function MisionPCA() {
           )}
         </Container>
       </Box>
-      </ThemeProvider>
     </>
   );
 }

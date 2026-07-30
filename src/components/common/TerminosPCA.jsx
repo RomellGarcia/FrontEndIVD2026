@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { contenidoAPI } from "../../api/index.js";
 import {
   Container,
   Typography,
@@ -11,37 +11,6 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#1976d2",
-    },
-    secondary: {
-      main: "#4caf50",
-    },
-    background: {
-      default: "#f5f5f5",
-    },
-    text: {
-      primary: "#212121",
-      secondary: "#757575",
-    },
-  },
-  typography: {
-    fontFamily: "'Roboto', sans-serif",
-    h6: {
-      fontWeight: 600,
-      color: "#1976d2",
-    },
-    body2: {
-      color: "#757575",
-    },
-  },
-});
-
-  const API_BASE_URL = "http://localhost:5000";
 
 function TerminosPCA() {
   const [terminos, setTerminos] = useState([]);
@@ -53,8 +22,8 @@ function TerminosPCA() {
   useEffect(() => {
   const fetchTerminos = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/contenido/terminos`)
-      const data = response.data.contenido
+      const response = await contenidoAPI.get('terminos')
+      const data = response.data.contenido 
       if (!data) {
         setTerminos([])
         setLoading(false)
@@ -88,8 +57,7 @@ function TerminosPCA() {
           }
         `}
       </style>
-      <ThemeProvider theme={theme}>
-        <Box
+      <Box
         component="footer"
         sx={{
           py: 3,
@@ -110,7 +78,7 @@ function TerminosPCA() {
             </Typography>
           ) : (
             terminos.map((termino) => (
-              <div key={termino._id}>
+              <div key={termino.id}>
                 <Typography variant="h6" gutterBottom>
                   {termino.titulo}
                 </Typography>
@@ -136,7 +104,6 @@ function TerminosPCA() {
           )}
         </Container>
       </Box>
-      </ThemeProvider>
     </>
   );
 }

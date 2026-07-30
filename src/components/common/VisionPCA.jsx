@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { contenidoAPI } from "../../api/index.js";
 import {
   Container,
   Typography,
@@ -11,37 +11,6 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#1976d2",
-    },
-    secondary: {
-      main: "#4caf50",
-    },
-    background: {
-      default: "#f5f5f5",
-    },
-    text: {
-      primary: "#212121",
-      secondary: "#757575",
-    },
-  },
-  typography: {
-    fontFamily: "'Roboto', sans-serif",
-    h6: {
-      fontWeight: 600,
-      color: "#1976d2",
-    },
-    body2: {
-      color: "#757575",
-    },
-  },
-});
-
-const API_BASE_URL = "http://localhost:5000";
 
 function VisionPCA() {
   const [visiones, setVisiones] = useState([]);
@@ -53,7 +22,7 @@ function VisionPCA() {
   useEffect(() => {
     const fetchVisiones = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/contenido/vision`)
+        const response = await contenidoAPI.get('vision')
         const data = response.data.contenido
         if (!data) { setVisiones([]); setLoading(false); return }
         setVisiones([{
@@ -85,48 +54,46 @@ function VisionPCA() {
           }
         `}
       </style>
-      <ThemeProvider theme={theme}>
-        <Box
-          component="footer"
-          sx={{
-            py: 3,
-            px: isMobile ? 2 : 4,
-            backgroundColor: theme.palette.background.default,
-            borderTop: "1px solid #e0e0e0",
-            mt: "auto",
-          }}
-        >
-          <Container maxWidth="lg">
-            <Typography variant="h6" align="center" gutterBottom>
-              Visión de la Empresa
+      <Box
+        component="footer"
+        sx={{
+          py: 3,
+          px: isMobile ? 2 : 4,
+          backgroundColor: theme.palette.background.default,
+          borderTop: "1px solid #e0e0e0",
+          mt: "auto",
+        }}
+      >
+        <Container maxWidth="lg">
+          <Typography variant="h6" align="center" gutterBottom>
+            Visión de la Empresa
+          </Typography>
+          <Divider sx={{ my: 2 }} />
+          {visiones.length === 0 ? (
+            <Typography align="center" color="text.secondary">
+              No hay visiones disponibles.
             </Typography>
-            <Divider sx={{ my: 2 }} />
-            {visiones.length === 0 ? (
-              <Typography align="center" color="text.secondary">
-                No hay visiones disponibles.
-              </Typography>
-            ) : (
-              <List>
-                {visiones.map((vision) => (
-                  <React.Fragment key={vision.id}>
-                    <ListItem alignItems="flex-start">
-                      <ListItemText
-                        primary={vision.titulo}
-                        secondary={
-                          <Typography component="span" variant="body2" color="text.primary">
-                            {vision.contenido}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                    <Divider component="li" />
-                  </React.Fragment>
-                ))}
-              </List>
-            )}
-          </Container>
-        </Box>
-      </ThemeProvider>
+          ) : (
+            <List>
+              {visiones.map((vision) => (
+                <React.Fragment key={vision.id}>
+                  <ListItem alignItems="flex-start">
+                    <ListItemText
+                      primary={vision.titulo}
+                      secondary={
+                        <Typography component="span" variant="body2" color="text.primary">
+                          {vision.contenido}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                  <Divider component="li" />
+                </React.Fragment>
+              ))}
+            </List>
+          )}
+        </Container>
+      </Box>
     </>
   );
 }
