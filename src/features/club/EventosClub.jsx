@@ -12,7 +12,7 @@ import {
   CalendarToday as CalendarIcon, LocationOn as LocationIcon,
   AccessTime as TimeIcon,
   Event as EventIcon, Info as InfoIcon,
-  ArrowBack as ArrowBackIcon, EmojiEvents as TrophyIcon,
+  ArrowBack as ArrowBackIcon, PictureAsPdf as PdfIcon,
   DoneAll as DoneAllIcon, Visibility as VisibilityIcon,
   HourglassEmpty as PendingIcon, Clear as ClearIcon,
   People as PeopleIcon, PersonAdd as PersonAddIcon,
@@ -21,7 +21,8 @@ import {
 import { eventosAPI, clubesAPI, resultadosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Paleta de colores institucional
 const COLORS = {
@@ -74,10 +75,6 @@ const DISCIPLINAS_DISTANCIA = new Set([
   'Lanzamiento de bala', 'Lanzamiento de disco', 'Lanzamiento de jabalina',
 ]);
 const esDisciplinaDeDistancia = (disciplina) => DISCIPLINAS_DISTANCIA.has((disciplina || '').trim());
-
-// Genera un slug para nombres de archivo
-const generarSlug = (texto) => (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
-
 // Obtiene el nombre completo de un registro
 const nombreCompleto = (registro) => [registro?.nombre, registro?.apellido_paterno, registro?.apellido_materno].filter(Boolean).join(' ');
 
@@ -259,8 +256,8 @@ const EventosClub = () => {
     setParticipantesClub([]);
   };
 
-  // Descarga un Excel con los resultados de una convocatoria
-  const manejarDescargarExcelResultados = (convocatoria) => {
+  // Genera un PDF con los resultados de una convocatoria y lo abre en una pestaña nueva
+  const manejarVerPdfResultados = (convocatoria) => {
     const resultadosCategoria = resultadosPorConvocatoria[convocatoria.id] || [];
     if (resultadosCategoria.length === 0) return;
 
@@ -277,28 +274,38 @@ const EventosClub = () => {
       const marca = r.pruebas?.find((p) => p.nombre === 'Marca')?.marca;
       const chip = r.pruebas?.find((p) => p.nombre === 'ChipTime')?.marca;
       const gun = r.pruebas?.find((p) => p.nombre === 'GunTime')?.marca;
-      const base = {
-        'Pl.': r.posicion ? `${r.posicion}°` : '—',
-        Bib: r.bib ? String(r.bib).padStart(3, '0') : '—',
-        Nombre: nombreCompleto(r),
-        Club: r.club_nombre || 'Libre',
-      };
-      return esDistancia ? { ...base, Marca: marca || '—' } : { ...base, ChipTime: chip || '—', GunTime: gun || '—' };
+      const base = [
+        r.posicion ? `${r.posicion}°` : '—',
+        r.bib ? String(r.bib).padStart(3, '0') : '—',
+        nombreCompleto(r),
+        r.club_nombre || 'Libre',
+      ];
+      return esDistancia ? [...base, marca || '—'] : [...base, chip || '—', gun || '—'];
     });
 
     const headers = esDistancia
       ? ['Pl.', 'Bib', 'Nombre', 'Club', 'Marca']
       : ['Pl.', 'Bib', 'Nombre', 'Club', 'ChipTime', 'GunTime'];
 
-    const ws = XLSX.utils.json_to_sheet(filas, { header: headers });
-    ws['!cols'] = esDistancia
-      ? [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 14 }]
-      : [{ wch: 6 }, { wch: 8 }, { wch: 30 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+    const doc = new jsPDF({ orientation: 'landscape' });
 
-    const wb = XLSX.utils.book_new();
-    const nombreHoja = `${disciplinaNombre} ${categoriaNombre}`.slice(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, nombreHoja || 'Resultados');
-    XLSX.writeFile(wb, `Resultados_${generarSlug(disciplinaNombre)}_${generarSlug(categoriaNombre)}.xlsx`);
+    doc.setFontSize(14);
+    doc.setTextColor(COLORS.burgundy);
+    doc.text(`${disciplinaNombre} — ${categoriaNombre}`, 14, 16);
+
+    doc.setFontSize(10);
+    doc.setTextColor('#666666');
+    doc.text(eventoSeleccionado?.titulo || '', 14, 22);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [headers],
+      body: filas,
+      headStyles: { fillColor: [128, 0, 32] },
+      styles: { fontSize: 10 },
+    });
+    // bloburl abre el PDF directo en una pestaña nueva del navegador,
+    window.open(doc.output('bloburl'), '_blank');
   };
 
   if (cargando) {
@@ -473,14 +480,14 @@ const EventosClub = () => {
                             {terminado ? (
                               (resultadosPorConvocatoria[conv.id] || []).length > 0 ? (
                                 <Button
-                                  size="small" variant="contained" startIcon={<TrophyIcon />}
-                                  onClick={() => manejarDescargarExcelResultados(conv)}
+                                  size="small" variant="contained" startIcon={<PdfIcon />}
+                                  onClick={() => manejarVerPdfResultados(conv)}
                                   sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, textTransform: 'none', fontWeight: 700 }}
                                 >
-                                  Ver Excel
+                                  Ver PDF
                                 </Button>
                               ) : (
-                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Excel de resultados pendiente" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                                <Chip icon={<PendingIcon sx={{ fontSize: 16 }} />} label="Resultados pendientes" size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
                               )
                             ) : (
                               <Button

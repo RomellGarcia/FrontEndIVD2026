@@ -242,7 +242,7 @@ const AtletaPerfilCard = ({ atleta, invitacionPendiente, onInvitar, onVerPerfil 
       </Box>
     </Box>
 
-    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1.5, rowGap: 0.75 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 1.5, rowGap: 0.75 }}>
       <DatoCampo label="Municipio" valor={atleta.municipio} />
       <DatoCampo label="Teléfono" valor={atleta.telefono} />
     </Box>
@@ -327,7 +327,7 @@ const EntrenadorPerfilCard = ({ entrenador, invitacionPendiente, onInvitar, onVe
       </Box>
     </Box>
 
-    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1.5, rowGap: 0.75 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 1.5, rowGap: 0.75 }}>
       <DatoCampo label="Teléfono" valor={entrenador.telefono} />
       <DatoCampo label="Correo" valor={entrenador.gmail} />
     </Box>
@@ -928,8 +928,8 @@ const GestionAtletas = () => {
 
         {/* Pestaña Atletas */}
         {pestaniaActiva === 0 && (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, gap: 3, alignItems: 'start' }}>
-            <Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 5fr) minmax(0, 7fr)' }, gap: { xs: 2, md: 3 }, alignItems: 'start' }}>
+            <Box sx={{ minWidth: 0 }}>
               <SectionCard
                 icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Bandeja de entrada"
@@ -981,7 +981,7 @@ const GestionAtletas = () => {
               </SectionCard>
             </Box>
 
-            <Box>
+            <Box sx={{ minWidth: 0 }}>
               <SectionCard
                 icon={<PeopleIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Plantilla registrada"
@@ -1067,8 +1067,8 @@ const GestionAtletas = () => {
 
         {/* Pestaña Entrenadores */}
         {pestaniaActiva === 1 && (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, gap: 3, alignItems: 'start' }}>
-            <Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 5fr) minmax(0, 7fr)' }, gap: { xs: 2, md: 3 }, alignItems: 'start' }}>
+            <Box sx={{ minWidth: 0 }}>
               <SectionCard
                 icon={<PersonAddIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Bandeja de entrada"
@@ -1120,7 +1120,7 @@ const GestionAtletas = () => {
               </SectionCard>
             </Box>
 
-            <Box>
+            <Box sx={{ minWidth: 0 }}>
               <SectionCard
                 icon={<FitnessCenterIcon sx={{ fontSize: 16 }} />}
                 eyebrow="Plantilla registrada"
