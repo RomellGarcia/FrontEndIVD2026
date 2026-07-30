@@ -130,7 +130,7 @@ const ResultadosEntrenador = () => {
     cargarLogo();
   }, [user, navigate]);
 
-  // Carga los resultados del club del entrenador desde el backend
+  // Carga los resultados del club del entrenador
   const cargarResultados = async () => {
     try {
       setCargando(true);

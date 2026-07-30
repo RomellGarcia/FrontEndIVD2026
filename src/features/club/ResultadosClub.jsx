@@ -52,14 +52,14 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 const cardSx = {
   bgcolor: COLORS.paper,
   borderRadius: '10px',
-  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+  boxShadow: '0 2px 12px #80002012',
 };
 
 const estilosCabeceraTabla = {
@@ -129,7 +129,7 @@ const ResultadosClub = () => {
     cargarLogo();
   }, [user, navigate]);
 
-  // Carga los resultados del club desde el backend
+  // Carga los resultados del club
   const cargarResultados = async () => {
     try {
       setCargando(true);
@@ -558,7 +558,7 @@ const ResultadosClub = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Club
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
             Resultados de Nuestros Atletas
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -571,9 +571,9 @@ const ResultadosClub = () => {
         {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: 4,
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
             overflow: 'hidden',
           }}

@@ -47,8 +47,8 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 // Componente base para secciones
@@ -58,14 +58,14 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       bgcolor: COLORS.paper,
       borderRadius: '10px',
       border: `1px solid ${COLORS.line}`,
-      boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+      boxShadow: '0 2px 12px #80002012',
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
     }}
   >
-    <Box sx={{ p: 3, pb: 2 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1.5, sm: 2 } }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
           <Typography
@@ -92,7 +92,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       </Box>
     </Box>
     <Divider sx={{ borderColor: COLORS.line }} />
-    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, flex: 1 }}>{children}</Box>
   </Box>
 );
 
@@ -158,7 +158,7 @@ const ExpedienteSolicitud = ({ folio, nombre, campos, fecha, onAceptar, onRechaz
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
           columnGap: 2,
           rowGap: 1,
           mb: 1.5,
@@ -887,7 +887,7 @@ const GestionAtletas = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Club
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Gestión del Club
           </Typography>
         </Container>
@@ -904,6 +904,9 @@ const GestionAtletas = () => {
           <Tabs
             value={pestaniaActiva}
             onChange={manejarCambioPestania}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               '& .MuiTab-root': {
                 color: COLORS.purple,
@@ -1327,7 +1330,7 @@ const GestionAtletas = () => {
                   {perfilSeleccionado.nombreCompleto}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 3, rowGap: 1.5 }}>
                 <DatoCampo label="CURP" valor={perfilSeleccionado.curp} />
                 <DatoCampo label="Género" valor={perfilSeleccionado.sexo} />
                 <DatoCampo label="Edad" valor={perfilSeleccionado.edad !== null ? `${perfilSeleccionado.edad} años` : 'N/A'} />
@@ -1383,7 +1386,7 @@ const GestionAtletas = () => {
                   {perfilEntrenadorSeleccionado.nombreCompleto}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5, mb: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 3, rowGap: 1.5, mb: 2 }}>
                 <DatoCampo label="CURP" valor={perfilEntrenadorSeleccionado.curp} />
                 <DatoCampo label="Género" valor={perfilEntrenadorSeleccionado.sexo} />
                 <DatoCampo label="Fecha de nacimiento" valor={formatearFecha(perfilEntrenadorSeleccionado.fechaNacimiento)} />

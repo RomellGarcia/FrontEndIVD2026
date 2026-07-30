@@ -9,7 +9,7 @@ import {
 import {
   Event as EventIcon, ListAlt as ListAltIcon, LocationOn as LocationIcon,
   HowToReg as RegisterIcon, Close as CloseIcon, FilterList as FilterIcon,
-  Clear as ClearIcon, Groups as GroupsIcon, CheckCircle as CheckIcon,
+  Clear as ClearIcon, Groups as GroupsIcon,
   PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../components/common/AuthContext.jsx';
@@ -20,7 +20,7 @@ import Swal from 'sweetalert2';
 const COLORS = {
   burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E', lineSoft: '#80002014',
 };
 
 const estilosCabeceraTabla = { fontWeight: 700, color: '#fff', fontSize: '0.72rem', textTransform: 'uppercase', py: 2 };
@@ -261,7 +261,7 @@ const ConvocatoriaClub = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Club
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Convocatorias Disponibles
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5, mb: 2 }}>
@@ -274,37 +274,37 @@ const ConvocatoriaClub = () => {
         {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
-            mt: -6,
-            mb: 4,
+            mt: { xs: -5, md: -6 },
+            mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper,
             borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ p: 2.5, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+          <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
             <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}>
               <ListAltIcon sx={{ fontSize: 24 }} />
             </Box>
-            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.1rem', md: '1.6rem' } }}>
               {convocatoriasDisponibles.length}
             </Typography>
             <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Convocatorias</Typography>
           </Box>
-          <Box sx={{ p: 2.5, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+          <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
             <Box sx={{ color: COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}>
               <EventIcon sx={{ fontSize: 24 }} />
             </Box>
-            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>{totalAbiertas}</Typography>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.1rem', md: '1.6rem' } }}>{totalAbiertas}</Typography>
             <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Abiertas</Typography>
           </Box>
-          <Box sx={{ p: 2.5, textAlign: 'center' }}>
+          <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center' }}>
             <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}>
               <GroupsIcon sx={{ fontSize: 24 }} />
             </Box>
-            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.1rem', md: '1.6rem' } }}>
               {inscripcionesDelClub.length}
             </Typography>
             <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Inscripciones de tu club</Typography>
@@ -318,7 +318,7 @@ const ConvocatoriaClub = () => {
           sx={{
             bgcolor: COLORS.paper,
             borderRadius: '10px',
-            boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+            boxShadow: '0 2px 12px #80002012',
             p: 2.5,
             mb: 3,
           }}
@@ -435,14 +435,15 @@ const ConvocatoriaClub = () => {
               bgcolor: COLORS.paper,
               borderRadius: '10px',
               overflow: 'hidden',
-              boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+              boxShadow: '0 2px 12px #80002012',
             }}
           >
+            <Box sx={{ overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: COLORS.burgundy }}>
                   {['Evento', 'Disciplina', 'Categoría', 'Género', 'Fecha', 'De tu club', 'Acciones'].map((h) => (
-                    <TableCell key={h} sx={estilosCabeceraTabla}>
+                    <TableCell key={h} sx={{ ...estilosCabeceraTabla, whiteSpace: 'nowrap' }}>
                       {h}
                     </TableCell>
                   ))}
@@ -454,7 +455,7 @@ const ConvocatoriaClub = () => {
                   return (
                     <TableRow key={convocatoria.convocatoria_id} hover>
                       <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>
                           {convocatoria.titulo}
                         </Typography>
                         <Typography
@@ -464,7 +465,7 @@ const ConvocatoriaClub = () => {
                           <LocationIcon sx={{ fontSize: 12 }} /> {convocatoria.lugar}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>
+                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, whiteSpace: 'nowrap' }}>
                         {convocatoria.disciplina}
                       </TableCell>
                       <TableCell sx={{ borderColor: COLORS.line }}>
@@ -489,7 +490,7 @@ const ConvocatoriaClub = () => {
                           }}
                         />
                       </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>
+                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, whiteSpace: 'nowrap' }}>
                         {formatearFechaCorta(convocatoria.fecha)}
                       </TableCell>
                       <TableCell sx={{ borderColor: COLORS.line }}>
@@ -530,6 +531,7 @@ const ConvocatoriaClub = () => {
                 })}
               </TableBody>
             </Table>
+            </Box>
             {convocatoriasFiltradas.length > registrosPorPagina && (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                 <Pagination
@@ -623,23 +625,24 @@ const ConvocatoriaClub = () => {
               Ninguno de tus atletas está inscrito todavía.
             </Typography>
           ) : (
+            <Box sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: COLORS.lineSoft }}>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Atleta</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Fecha de inscripción</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Estado</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Atleta</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Fecha de inscripción</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Estado</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {listaInscritosEnConvocatoria(convocatoriaParaInscritos).map((inscripcion) => (
                   <TableRow key={inscripcion.id}>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       {[inscripcion.nombre, inscripcion.apellido_paterno, inscripcion.apellido_materno]
                         .filter(Boolean)
                         .join(' ')}
                     </TableCell>
-                    <TableCell>{formatearFechaCorta(inscripcion.fecha_inscripcion)}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatearFechaCorta(inscripcion.fecha_inscripcion)}</TableCell>
                     <TableCell>
                       <Chip
                         label={inscripcion.validado ? 'Validado' : 'Pendiente'}
@@ -658,6 +661,7 @@ const ConvocatoriaClub = () => {
                 ))}
               </TableBody>
             </Table>
+            </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>

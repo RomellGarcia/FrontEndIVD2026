@@ -107,7 +107,7 @@ const ResultadosAtleta = () => {
     else { cargarResultados(); cargarLogo(); }
   }, [user, navigate]);
 
-  // Obtiene los resultados del atleta desde el backend
+  // Obtiene los resultados del atleta
   const cargarResultados = async () => {
     try {
       setCargando(true);
