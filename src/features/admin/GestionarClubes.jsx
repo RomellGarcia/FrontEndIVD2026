@@ -47,17 +47,14 @@ const C = {
   primary:    '#800020',
   secondary:  '#7A4069',
   secondary2: '#ffffff',
-  cream:      '#7E2C2C',
   bg:         '#e4e4e5',
-  green:      '#3F7D52',
-  greenDark:  '#2C5B3B',
   danger:     '#A13A3A',
 };
 
 // Estilos para el estado del club (activo/inactivo)
 const ESTADO_STYLES = {
   activo:   { border: C.secondary, text: C.secondary, avatar: C.primary },
-  inactivo: { border: 'rgba(128,0,32,0.18)', text: '#2B1E1E', avatar: C.secondary },
+  inactivo: { border: '#8000202E', text: '#2B1E1E', avatar: C.secondary },
 };
 
 // Estilos reutilizables para campos de formulario
@@ -77,7 +74,7 @@ const outlineSecondarySx = {
   borderRadius: 2,
   borderColor: C.secondary,
   color: C.secondary,
-  '&:hover': { borderColor: C.primary, color: C.primary, bgcolor: 'rgba(128,0,32,0.05)' },
+  '&:hover': { borderColor: C.primary, color: C.primary, bgcolor: '#8000200D' },
 };
 
 const solidPrimarySx = {
@@ -180,7 +177,7 @@ const CabeceraModal = ({ titulo, subtitulo, onClose }) => (
     <IconButton
       onClick={onClose}
       size="small"
-      sx={{ flexShrink: 0, color: C.secondary, '&:hover': { bgcolor: 'rgba(128,0,32,0.1)' } }}
+      sx={{ flexShrink: 0, color: C.secondary, '&:hover': { bgcolor: '#8000201A' } }}
     >
       <CloseIcon />
     </IconButton>
@@ -354,7 +351,7 @@ const GestionClubesAdmin = () => {
           sx={{
             mt: { xs: -5, md: -6 }, mb: 3,
             bgcolor: '#fff', borderRadius: 3,
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
             overflow: 'hidden',
           }}
@@ -364,7 +361,7 @@ const GestionClubesAdmin = () => {
             { value: totalActivos, label: 'Activos', accent: C.secondary },
             { value: totalInactivos, label: 'Inactivos', accent: C.primary },
           ].map((s, i) => (
-            <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? '1px solid rgba(128,0,32,0.12)' : 'none' }}>
+            <Box key={i} sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: i < 2 ? '1px solid #8000201F' : 'none' }}>
               <Typography sx={{ fontWeight: 800, color: s.accent, lineHeight: 1.1, fontSize: { xs: '1.4rem', md: '1.7rem' } }}>{s.value}</Typography>
               <Typography sx={{ fontSize: '0.72rem', color: '#2B1E1E', fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
             </Box>
@@ -378,7 +375,7 @@ const GestionClubesAdmin = () => {
           <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setExito('')}>{exito}</Alert>
         )}
 
-        <Paper sx={{ width: '100%', mb: 3, borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(128,0,32,0.1)' }}>
+        <Paper sx={{ width: '100%', mb: 3, borderRadius: 3, overflow: 'hidden', border: '1px solid #8000201A' }}>
           {clubes.length === 0 ? <EmptyState mensaje="No hay clubes registrados aún." /> : (
             <TableContainer>
               <Table size={isMobile ? 'small' : 'medium'}>
@@ -399,7 +396,7 @@ const GestionClubesAdmin = () => {
                 </TableHead>
                 <TableBody>
                   {clubes.map((club) => (
-                    <TableRow key={club.id} sx={{ '&:hover': { bgcolor: 'rgba(128,0,32,0.04)' } }}>
+                    <TableRow key={club.id} sx={{ '&:hover': { bgcolor: '#8000200A' } }}>
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                           {club.nombre}
@@ -561,8 +558,8 @@ const GestionClubesAdmin = () => {
                 py: 0.75,
                 mb: 2.5,
                 borderRadius: 2,
-                bgcolor: 'rgba(128,0,32,0.06)',
-                border: `1px solid rgba(128,0,32,0.15)`,
+                bgcolor: '#8000200F',
+                border: `1px solid #80002026`,
               }}
             >
               <Typography variant="body2" sx={{ color: C.primary, fontWeight: 600 }}>
@@ -583,7 +580,7 @@ const GestionClubesAdmin = () => {
                       gap: 1.5,
                       p: 2,
                       borderRadius: 2,
-                      border: '1px solid rgba(128,0,32,0.1)',
+                      border: '1px solid #8000201A',
                       bgcolor: '#fff',
                       height: '100%',
                     }}
