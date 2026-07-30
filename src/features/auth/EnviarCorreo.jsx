@@ -11,12 +11,12 @@ import { recuperarAPI } from '../../api/index.js';
 
 // Paleta de colores institucional
 const COLORS = {
-  burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
+  burgundy: '#800020', burgundyDark: '#5C0017',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+  lineSoft: '#80002014',
 };
 
-const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012' };
 
 const RecuperarCorreo = () => {
   const [correo, setCorreo] = useState('');
@@ -55,7 +55,7 @@ const RecuperarCorreo = () => {
           <Button
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/login')}
-            sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+            sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
           >
             Volver a iniciar sesión
           </Button>

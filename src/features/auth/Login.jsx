@@ -18,8 +18,6 @@ import {
   Card,
   CardContent,
   Avatar,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import {
   Visibility,
@@ -55,8 +53,6 @@ const fieldSx = {
 function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [rol, setRol] = useState('atleta');
   const [curp, setCurp] = useState('');
@@ -118,7 +114,7 @@ function Login() {
           width: '100%',
           maxWidth: 460,
           borderRadius: 4,
-          boxShadow: '0 8px 32px rgba(128,0,32,0.12)',
+          boxShadow: '0 8px 32px #8000201F',
           overflow: 'visible',
         }}
       >
@@ -137,7 +133,7 @@ function Login() {
             sx={{
               width: 56,
               height: 56,
-              bgcolor: 'rgba(255,255,255,0.15)',
+              bgcolor: '#FFFFFF26',
               mb: 1.5,
             }}
           >
@@ -155,7 +151,7 @@ function Login() {
           </Typography>
           <Typography
             variant="body2"
-            sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}
+            sx={{ color: '#FFFFFFBF', fontSize: '0.85rem' }}
           >
             del Deporte
           </Typography>

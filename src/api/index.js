@@ -1,10 +1,6 @@
 import axios from 'axios'
 
-// En local, Vite lee VITE_API_URL de tu .env; si no existe, cae en
-// localhost para que el desarrollo siga funcionando igual que siempre.
-// En producción (Vercel), esta variable DEBE estar configurada apuntando
-// a tu backend real — si no, todo el sitio intentará hablar con
-// localhost:5000, que no existe fuera de tu máquina.
+// URL del backend, tomada del .env; localhost solo como respaldo en desarrollo
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const api = axios.create({
@@ -12,11 +8,7 @@ export const api = axios.create({
   withCredentials: true,
 })
 
-// Base para recursos estáticos (imágenes/documentos subidos), que el
-// backend sirve desde la raíz del dominio, no desde /api. Se deriva de
-// la misma variable de entorno que usa `api`, quitándole el sufijo /api,
-// para que los componentes no tengan que hardcodear su propia copia de
-// la URL del backend (se rompía en producción).
+// URL para imágenes/documentos subidos, derivada de BASE quitándole /api
 export const STATIC_BASE_URL = BASE.replace(/\/api\/?$/, '')
 
 api.interceptors.request.use((config) => {
@@ -31,7 +23,6 @@ api.interceptors.request.use((config) => {
     } catch (e) {}
   }
 
-  // Fallback: token del SDK de Supabase en localStorage
   const keys = Object.keys(localStorage).filter((k) => k.startsWith('sb-'))
   const session = keys
     .map((k) => {
@@ -58,10 +49,6 @@ export const authAPI = {
   changePassword: (data) => api.put('/auth/password', data),
 }
 
-// NUEVO: flujo de "olvidé mi contraseña" (correo → código → nueva
-// contraseña) — antes cada pantalla le pegaba directo a
-// http://localhost:5000/api/recuperar/... con axios a mano, en vez de
-// pasar por aquí.
 export const recuperarAPI = {
   forgotPassword: (data) => api.post('/recuperar/forgot-password', data),
   verifyCode: (data) => api.post('/recuperar/verify-code', data),
@@ -107,7 +94,6 @@ export const atletasAPI = {
   crearSolicitud: (data) => api.post('/atletas/solicitudes-club', data),
   getSolicitudes: (params) => api.get('/atletas/solicitudes-club', { params }),
   procesarSolicitud: (id, data) => api.put(`/atletas/solicitudes-club/${id}`, data),
-  // NUEVO: el club invita a un atleta independiente (POST /atletas/:id/invitar-club).
   invitarClub: (id, data) => api.post(`/atletas/${id}/invitar-club`, data),
 }
 
@@ -119,12 +105,8 @@ export const entrenadorAPI = {
   getAtletas: () => api.get('/entrenador/atletas'),
   getSolicitudes: () => api.get('/entrenador/solicitudes'),
   solicitarClub: (data) => api.post('/entrenador/solicitar-club', data),
-  // NUEVO: sugerencias de certificaciones/especialidades (para el
-  // Autocomplete de Registro.jsx y PerfilEntrenador.jsx) — sacadas de lo
-  // que ya escribieron otros entrenadores, no un catálogo fijo.
   getCertificacionesSugeridas: () => api.get('/entrenador/certificaciones-sugeridas'),
   getEspecialidadesSugeridas: () => api.get('/entrenador/especialidades-sugeridas'),
-  // NUEVO: el entrenador sale de su club por su cuenta.
   salirClub: () => api.post('/entrenador/salir-club'),
 }
 
@@ -136,10 +118,7 @@ export const entrenadoresAPI = {
   updateSolicitud: (id, data) => api.put(`/entrenadores/solicitudes/${id}`, data),
   updateAdmin: (id, data) => api.put(`/entrenadores/${id}`, data),
   updateClub: (id, data) => api.put(`/entrenadores/${id}/club`, data),
-  // NUEVO: el club invita a un entrenador independiente.
   invitarClub: (id, data) => api.post(`/entrenadores/${id}/invitar-club`, data),
-  // NUEVO: eliminar por completo (solo admin) — bloqueado en el backend
-  // si el entrenador tiene resultados registrados.
   remove: (id) => api.delete(`/entrenadores/${id}`),
 }
 
@@ -155,15 +134,11 @@ export const eventosAPI = {
   getMisInscripciones: () => api.get('/eventos/mis-inscripciones'),
   inscribir: (data) => api.post('/eventos/inscripciones', data),
   cancelarInscripcion: (id) => api.delete(`/eventos/inscripciones/${id}`),
-  // Flujo de convocatorias del lado del club (inscribir a uno de sus atletas)
   getConvocatoriasAbiertas: () => api.get('/eventos/convocatorias-abiertas'),
   getMisInscripcionesClub: () => api.get('/eventos/mis-inscripciones-club'),
   inscribirClub: (data) => api.post('/eventos/inscripciones/club', data),
-  // Edición, borrado y estado del evento (admin)
   update: (id, data) => api.put(`/eventos/${id}`, data),
   toggleEstado: (id, estado) => api.put(`/eventos/${id}/estado`, { estado }),
-  // Finalizar/reabrir el evento por completo (distinto de toggleEstado, que
-  // es cancelar/activar). Al finalizar, cierra en cascada sus convocatorias.
   finalizarEvento: (id, finalizar) => api.patch(`/eventos/${id}/finalizar`, { finalizado: finalizar }),
   deleteEvento: (id) => api.delete(`/eventos/${id}`),
   deleteConvocatoria: (convocatoriaId) => api.delete(`/eventos/convocatorias/${convocatoriaId}`),
@@ -173,9 +148,8 @@ export const eventosAPI = {
     api.post(`/eventos/convocatorias/${convocatoriaId}/resultado`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   eliminarResultadoConvocatoria: (convocatoriaId) => api.delete(`/eventos/convocatorias/${convocatoriaId}/resultado`),
   updateConvocatoria: (convocatoriaId, data) => api.put(`/eventos/convocatorias/${convocatoriaId}`, data),
-
   finalizarConvocatoria: (convocatoriaId, finalizar) =>
-  api.patch(`/eventos/convocatorias/${convocatoriaId}/estado`, { estado: !finalizar }),
+    api.patch(`/eventos/convocatorias/${convocatoriaId}/estado`, { estado: !finalizar }),
 }
 
 export const notificacionesAPI = {
@@ -202,7 +176,6 @@ export const resultadosAPI = {
   crearMasivo: (data) => api.post('/resultados/masivo', data),
   removeByConvocatoria: (convocatoriaId) => api.delete(`/resultados/convocatoria/${convocatoriaId}`),
 }
-
 
 export const catalogosAPI = {
   getDisciplinas: () => api.get('/catalogos/disciplinas'),
