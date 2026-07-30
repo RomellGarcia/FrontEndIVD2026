@@ -1,6 +1,5 @@
 import { perfilEmpresaAPI } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import {
@@ -97,8 +96,6 @@ const theme = createTheme({
   },
 });
 
-const API_BASE_URL = 'http://localhost:5000';
-
 function Perfil() {
   const [perfil, setPerfil] = useState({
     nombreEmpresa: 'Instituto Veracruzano del Deporte',
@@ -123,7 +120,7 @@ function Perfil() {
   useEffect(() => {
     const fetchPerfil = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/perfil-empresa`);
+        const response = await perfilEmpresaAPI.get();
         console.log('Datos recibidos del backend:', response.data);
         if (response.data && response.data._id) {
           setPerfil(response.data); // Usar el valor real
@@ -192,11 +189,9 @@ function Perfil() {
       if (perfil.logo && typeof perfil.logo !== 'string') {
         formData.append('logo', perfil.logo);
       }
-      await axios.put(`${API_BASE_URL}/api/perfil-empresa`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await perfilEmpresaAPI.update(formData);
       // Volver a consultar el perfil para sincronizar el estado
-      const response = await axios.get(`${API_BASE_URL}/api/perfil-empresa`);
+      const response = await perfilEmpresaAPI.get();
       setPerfil(response.data); // Usar el valor real
       setSavingWhatsapp(false);
     } catch (error) {
@@ -284,13 +279,8 @@ function Perfil() {
     }
 
     try {
-      const endpoint = isRegistering ? '/api/perfil-empresa' : '/api/perfil-empresa';
-      const method = isRegistering ? axios.post : axios.put;
-      const response = await method(`${API_BASE_URL}${endpoint}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const metodo = isRegistering ? perfilEmpresaAPI.create : perfilEmpresaAPI.update;
+      const response = await metodo(formData);
 
       console.log('Respuesta del backend:', response.data);
 
@@ -338,7 +328,7 @@ function Perfil() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          await axios.delete(`${API_BASE_URL}/api/perfil-empresa`);
+          await perfilEmpresaAPI.remove();
           MySwal.fire({
             icon: 'success',
             title: 'Perfil eliminado',

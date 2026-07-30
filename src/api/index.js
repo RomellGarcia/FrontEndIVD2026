@@ -12,6 +12,13 @@ export const api = axios.create({
   withCredentials: true,
 })
 
+// Base para recursos estáticos (imágenes/documentos subidos), que el
+// backend sirve desde la raíz del dominio, no desde /api. Se deriva de
+// la misma variable de entorno que usa `api`, quitándole el sufijo /api,
+// para que los componentes no tengan que hardcodear su propia copia de
+// la URL del backend (se rompía en producción).
+export const STATIC_BASE_URL = BASE.replace(/\/api\/?$/, '')
+
 api.interceptors.request.use((config) => {
   const userStr = sessionStorage.getItem('user')
   if (userStr) {
@@ -62,8 +69,10 @@ export const recuperarAPI = {
 
 export const perfilEmpresaAPI = {
   get: () => api.get('/perfil-empresa'),
+  create: (data) => api.post('/perfil-empresa', data),
   update: (data) => api.put('/perfil-empresa', data),
   updateLogo: (data) => api.put('/perfil-empresa/logo', data),
+  remove: () => api.delete('/perfil-empresa'),
 }
 
 export const contenidoAPI = {

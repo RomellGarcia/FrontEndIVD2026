@@ -1,4 +1,4 @@
-import { perfilEmpresaAPI, eventosAPI, catalogosAPI } from '../../api/index.js';
+import { perfilEmpresaAPI, eventosAPI, catalogosAPI, STATIC_BASE_URL } from '../../api/index.js';
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -70,14 +70,11 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 
 const MySwal = withReactContent(Swal);
 
-// URL base del backend para resolver rutas relativas de archivos
-const API_BASE_URL = 'http://localhost:5000';
-
 // Convierte una ruta relativa en URL absoluta para mostrar imágenes/documentos
 const resolverUrlArchivo = (ruta) => {
   if (!ruta) return '';
   if (/^(https?:|blob:|data:)/i.test(ruta)) return ruta;
-  return `${API_BASE_URL}${ruta.startsWith('/') ? '' : '/'}${ruta}`;
+  return `${STATIC_BASE_URL}${ruta.startsWith('/') ? '' : '/'}${ruta}`;
 };
 
 // Abre un documento en nueva ventana: los PDF se abren directamente, otros formatos usan visor de Google
