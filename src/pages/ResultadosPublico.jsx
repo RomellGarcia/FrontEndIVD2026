@@ -155,7 +155,7 @@ const ResultadosPublico = () => {
     setFiltroCategoria('');
   };
 
-  // Genera un PDF con los resultados de una convocatoria
+  // Genera un PDF con los resultados de una convocatoria y lo abre en una pestaña nueva
   const verPdfResultados = (convocatoria) => {
     const resultadosCategoria = resultadosPorConvocatoria[convocatoria.id] || [];
     if (resultadosCategoria.length === 0) return;
@@ -201,7 +201,7 @@ const ResultadosPublico = () => {
       headStyles: { fillColor: [128, 0, 32] },
       styles: { fontSize: 10 },
     });
-    // Abre el PDF directo en una pestaña nueva del navegador
+    // bloburl abre el PDF directo en una pestaña nueva del navegador
     window.open(doc.output('bloburl'), '_blank');
   };
 
@@ -444,7 +444,7 @@ const ResultadosPublico = () => {
                 >
                   {evento.imagen_url ? (
                     <Box component="img" src={evento.imagen_url} alt={evento.titulo}
-                      sx={{ width: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
+                      sx={{ width: '100%', height: { xs: 180, sm: 220, md: 'auto' }, objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
                   ) : (
                     <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
                       <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
