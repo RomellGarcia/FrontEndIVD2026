@@ -27,8 +27,8 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 // Componente base para secciones (tarjetas) del panel
@@ -38,7 +38,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children, filled }) => (
       bgcolor: filled ? COLORS.burgundy : COLORS.paper,
       color: filled ? '#fff' : 'inherit',
       borderRadius: '10px',
-      boxShadow: filled ? '0 6px 20px rgba(128,0,32,0.25)' : '0 2px 12px rgba(128,0,32,0.07)',
+      boxShadow: filled ? '0 6px 20px #80002040' : '0 2px 12px #80002012',
       border: filled ? 'none' : `1px solid ${COLORS.line}`,
       display: 'flex',
       flexDirection: 'column',
@@ -51,7 +51,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children, filled }) => (
         <Box>
           <Typography
             sx={{
-              color: filled ? 'rgba(255,255,255,0.75)' : COLORS.purple,
+              color: filled ? '#FFFFFFBF' : COLORS.purple,
               fontSize: '0.7rem',
               fontWeight: 700,
               letterSpacing: '0.12em',
@@ -72,7 +72,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children, filled }) => (
         {action}
       </Box>
     </Box>
-    <Divider sx={{ borderColor: filled ? 'rgba(255,255,255,0.18)' : COLORS.line }} />
+    <Divider sx={{ borderColor: filled ? '#FFFFFF2E' : COLORS.line }} />
     <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, flex: 1 }}>{children}</Box>
   </Box>
 );
@@ -385,8 +385,8 @@ const PaginaPrincipalAtleta = () => {
           <Avatar
             sx={{
               width: 72, height: 72, mx: 'auto', mt: 1.5, mb: 1.5,
-              bgcolor: 'rgba(255,255,255,0.14)', fontSize: '1.7rem', fontWeight: 800,
-              border: '2px solid rgba(255,255,255,0.35)',
+              bgcolor: '#FFFFFF24', fontSize: '1.7rem', fontWeight: 800,
+              border: '2px solid #FFFFFF59',
             }}
           >
             {atletaData?.nombre?.[0]}{atletaData?.apellido_paterno?.[0] || ''}
@@ -416,7 +416,7 @@ const PaginaPrincipalAtleta = () => {
             mb: { xs: 3, md: 5 },
             bgcolor: COLORS.paper,
             borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid',
             gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
             overflow: 'hidden',
@@ -461,7 +461,7 @@ const PaginaPrincipalAtleta = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 1.5, py: 2 }}>
               {atletaData?.club_id ? (
                 <>
-                  <Avatar sx={{ width: 48, height: 48, bgcolor: 'rgba(255,255,255,0.16)', fontWeight: 700, border: '2px solid rgba(255,255,255,0.35)' }}>
+                  <Avatar sx={{ width: 48, height: 48, bgcolor: '#FFFFFF29', fontWeight: 700, border: '2px solid #FFFFFF59' }}>
                     {atletaData.club_nombre?.[0] || 'C'}
                   </Avatar>
                   <Typography sx={{ fontWeight: 700 }}>{atletaData.club_nombre}</Typography>
@@ -469,7 +469,7 @@ const PaginaPrincipalAtleta = () => {
                 </>
               ) : (
                 <>
-                  <Avatar sx={{ width: 48, height: 48, bgcolor: 'rgba(255,255,255,0.14)', border: '2px solid rgba(255,255,255,0.3)' }}>
+                  <Avatar sx={{ width: 48, height: 48, bgcolor: '#FFFFFF24', border: '2px solid #FFFFFF4D' }}>
                     <GroupIcon />
                   </Avatar>
                   <Typography sx={{ fontWeight: 700 }}>Aún no perteneces a un club</Typography>
@@ -484,7 +484,7 @@ const PaginaPrincipalAtleta = () => {
                 onClick={() => navigate('/atleta/club')}
                 sx={{
                   bgcolor: '#fff', color: COLORS.burgundy, textTransform: 'none', fontWeight: 700, mt: 1,
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.88)' },
+                  '&:hover': { bgcolor: '#FFFFFFE0' },
                 }}
               >
                 Ir a Mi Club

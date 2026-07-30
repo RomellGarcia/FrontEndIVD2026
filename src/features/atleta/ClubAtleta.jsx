@@ -42,8 +42,8 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 // Componente base para secciones
@@ -53,13 +53,13 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       bgcolor: COLORS.paper,
       borderRadius: '10px',
       border: `1px solid ${COLORS.line}`,
-      boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+      boxShadow: '0 2px 12px #80002012',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
     }}
   >
-    <Box sx={{ p: 3, pb: 2 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: { xs: 1.5, sm: 2 } }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
         <Box>
           <Typography
@@ -86,7 +86,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       </Box>
     </Box>
     <Divider sx={{ borderColor: COLORS.line }} />
-    <Box sx={{ p: 3, pt: 2.5, flex: 1 }}>{children}</Box>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, flex: 1 }}>{children}</Box>
   </Box>
 );
 
@@ -247,7 +247,7 @@ const ClubAtleta = () => {
 
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [clubDialogo, setClubDialogo] = useState(null);
-  const [contextoDialogo, setContextoDialogo] = useState(null); // 'invitacion' | 'disponible'
+  const [contextoDialogo, setContextoDialogo] = useState(null);
   const [solicitudDialogoId, setSolicitudDialogoId] = useState(null);
   const [cargandoDialogo, setCargandoDialogo] = useState(false);
 
@@ -456,7 +456,7 @@ const ClubAtleta = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Atleta
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Mi Club
           </Typography>
         </Container>
@@ -499,7 +499,7 @@ const ClubAtleta = () => {
               </Alert>
             )}
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 9fr' }, gap: 3, alignItems: 'start' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 9fr' }, gap: { xs: 2, md: 3 }, alignItems: 'start' }}>
               <Box>
                 <SectionCard
                   icon={<MailOutlineIcon sx={{ fontSize: 16 }} />}
@@ -629,7 +629,7 @@ const ClubAtleta = () => {
                   {clubDialogo.nombre}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5, mb: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 3, rowGap: 1.5, mb: 2 }}>
                 <DatoCampo icon={<LocationOnIcon fontSize="small" />} label="Dirección" valor={clubDialogo.direccion} />
                 <DatoCampo icon={<PhoneIcon fontSize="small" />} label="Teléfono" valor={clubDialogo.telefono} />
                 <DatoCampo icon={<EmailIcon fontSize="small" />} label="Correo" valor={clubDialogo.email} />

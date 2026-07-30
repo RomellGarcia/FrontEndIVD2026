@@ -22,8 +22,8 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 // Componente base para las secciones del panel
@@ -33,7 +33,7 @@ const TarjetaSeccion = ({ icon, eyebrow, title, action, children }) => (
       bgcolor: COLORS.paper,
       borderRadius: '10px',
       border: `1px solid ${COLORS.line}`,
-      boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+      boxShadow: '0 2px 12px #80002012',
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
@@ -88,12 +88,12 @@ const TarjetaAccion = ({ icon, title, subtitle, accent, onClick }) => (
       bgcolor: COLORS.paper,
       borderRadius: '10px',
       border: `1px solid ${COLORS.line}`,
-      boxShadow: '0 2px 10px rgba(128,0,32,0.06)',
+      boxShadow: '0 2px 10px #8000200F',
       cursor: 'pointer',
       display: 'flex', alignItems: 'center', gap: 2,
       p: 2.25,
       transition: 'box-shadow .15s ease',
-      '&:hover': { boxShadow: '0 4px 16px rgba(128,0,32,0.13)' },
+      '&:hover': { boxShadow: '0 4px 16px #80002021' },
     }}
   >
     <Avatar sx={{ bgcolor: accent, width: 44, height: 44 }}>
@@ -193,8 +193,8 @@ const PaginaPrincipalEntrenador = () => {
           <Avatar
             sx={{
               width: 72, height: 72, mx: 'auto', mt: 1.5, mb: 1.5,
-              bgcolor: 'rgba(255,255,255,0.14)', fontSize: '1.7rem', fontWeight: 800,
-              border: '2px solid rgba(255,255,255,0.35)',
+              bgcolor: '#FFFFFF24', fontSize: '1.7rem', fontWeight: 800,
+              border: '2px solid #FFFFFF59',
             }}
           >
             {user?.nombre?.[0]}{user?.apellido_paterno?.[0] || ''}
@@ -207,8 +207,8 @@ const PaginaPrincipalEntrenador = () => {
               icon={<GroupIcon sx={{ fontSize: 16, color: '#fff !important' }} />}
               label={infoClub.nombre}
               sx={{
-                mt: 1.5, bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700,
-                border: '1px solid rgba(255,255,255,0.35)',
+                mt: 1.5, bgcolor: '#FFFFFF24', color: '#fff', fontWeight: 700,
+                border: '1px solid #FFFFFF59',
               }}
             />
           )}
@@ -223,7 +223,7 @@ const PaginaPrincipalEntrenador = () => {
           sx={{
             mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: '1fr 1fr',
             overflow: 'hidden',
           }}

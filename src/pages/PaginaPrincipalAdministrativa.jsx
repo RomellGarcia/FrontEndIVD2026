@@ -34,8 +34,8 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 // Componente base para secciones
@@ -45,7 +45,7 @@ const SectionCard = ({ icon, eyebrow, title, action, children }) => (
       bgcolor: COLORS.paper,
       borderRadius: '10px',
       border: `1px solid ${COLORS.line}`,
-      boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+      boxShadow: '0 2px 12px #80002012',
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
@@ -194,7 +194,7 @@ const PaginaPrincipalAdministrativa = () => {
           sx={{
             mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 5 },
             bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
             overflow: 'hidden',
           }}

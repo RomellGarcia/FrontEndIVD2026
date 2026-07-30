@@ -22,11 +22,11 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
-const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012' };
 
 // Componente auxiliar para mostrar estado de inscripción
 const EstadoChip = ({ label, positivo = true }) => (
@@ -194,7 +194,7 @@ const EventosPublico = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={manejarVolverALista}
-              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
             >
               Volver a Eventos
             </Button>
@@ -466,7 +466,7 @@ const EventosPublico = () => {
           sx={{
             mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: '1fr 1fr',
             overflow: 'hidden',
           }}
@@ -504,7 +504,7 @@ const EventosPublico = () => {
                     sx={{
                       ...cardSx, overflow: 'hidden', cursor: 'pointer',
                       transition: 'transform .15s, box-shadow .15s',
-                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px #0000001F' },
                     }}
                     onClick={() => manejarVerDetalleEvento(evento)}
                   >

@@ -28,8 +28,8 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 const estilosCabeceraTabla = {
@@ -498,7 +498,7 @@ const ResultadosAtleta = () => {
               <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={vista === 'detalle' ? manejarVolverAResultados : manejarVolverAEventos}
-                sx={{ color: '#fff', textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+                sx={{ color: '#fff', textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
               >
                 {vista === 'detalle' ? 'Volver a resultados' : 'Volver a mis eventos'}
               </Button>
@@ -507,7 +507,7 @@ const ResultadosAtleta = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Atleta
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
             {vista === 'eventos'
               ? 'Mis Resultados'
               : vista === 'detalle'
@@ -528,9 +528,9 @@ const ResultadosAtleta = () => {
         {/* Tarjeta de estadísticas (flotante) */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: 4,
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
             overflow: 'hidden',
           }}
@@ -582,7 +582,7 @@ const ResultadosAtleta = () => {
 
         {/* Contenido principal */}
         {resultados.length === 0 ? (
-          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', textAlign: 'center', py: 6 }}>
+          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012', textAlign: 'center', py: 6 }}>
             <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
               <TrophyIcon sx={{ fontSize: 32, color: COLORS.purple }} />
             </Avatar>
@@ -601,9 +601,9 @@ const ResultadosAtleta = () => {
                   key={ev.evento_id}
                   onClick={() => manejarEntrarEvento(ev)}
                   sx={{
-                    bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+                    bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012',
                     overflow: 'hidden', cursor: 'pointer', transition: 'transform .15s, box-shadow .15s',
-                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px #0000001F' },
                   }}
                 >
                   {ev.evento_imagen_url ? (
@@ -638,12 +638,13 @@ const ResultadosAtleta = () => {
           </Box>
         ) : vista === 'evento' ? (
           /* Detalle de un evento: disciplinas/resultados */
-          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px #80002012' }}>
+            <Box sx={{ overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: COLORS.burgundy }}>
                   {['Disciplina', 'Bib', 'Lugar', 'Marca', 'Categoría', 'Acciones'].map((h) => (
-                    <TableCell key={h} sx={estilosCabeceraTabla}>{h}</TableCell>
+                    <TableCell key={h} sx={{ ...estilosCabeceraTabla, whiteSpace: 'nowrap' }}>{h}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
@@ -651,7 +652,7 @@ const ResultadosAtleta = () => {
                 {resultadosDelEvento.map((r) => (
                   <TableRow key={r.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
                     <TableCell sx={{ borderColor: COLORS.line }}>
-                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5, fontWeight: 700, color: COLORS.ink }}>
+                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: .5, fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>
                         <SportsIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
                         {r.disciplina || '—'}
                       </Typography>
@@ -720,12 +721,13 @@ const ResultadosAtleta = () => {
                 ))}
               </TableBody>
             </Table>
+            </Box>
           </Box>
         ) : (
           /* Detalle de un resultado individual (vista === 'detalle') */
           seleccionado && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: { xs: 2.5, md: 3.5 } }}>
+              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012', p: { xs: 2.5, md: 3.5 } }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                   {/* Evento */}
                   <Box>
@@ -860,7 +862,7 @@ const ResultadosAtleta = () => {
                   onClick={() => manejarDescargarExcelCategoria(seleccionado)}
                   variant="outlined"
                   startIcon={<ExcelIcon />}
-                  sx={{ color: '#1D6F42', borderColor: '#1D6F42', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: 'rgba(29,111,66,0.08)' } }}
+                  sx={{ color: '#1D6F42', borderColor: '#1D6F42', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: '#1D6F4214' } }}
                 >
                   Excel de la categoría
                 </Button>

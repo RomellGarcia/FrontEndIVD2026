@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../common/AuthContext.jsx';
+import { useAuth } from '../common/AuthContext.jsx'; 
 import Swal from 'sweetalert2';
 
 const PRIMARY = "#720F3C";
@@ -273,7 +273,7 @@ const EncabezadoAtleta = () => {
         .ivd-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.45);
+          background: #00000073;
           opacity: 0;
           pointer-events: none;
           transition: opacity .3s ease;
@@ -336,7 +336,7 @@ const EncabezadoAtleta = () => {
             width: min(78vw, 320px);
             flex-direction: column;
             background: ${PRIMARY};
-            box-shadow: -8px 0 24px rgba(0, 0, 0, .25);
+            box-shadow: -8px 0 24px #00000040;
             transform: translateX(100%);
             transition: transform .35s cubic-bezier(.4, 0, .2, 1);
             z-index: 1001;
@@ -349,7 +349,7 @@ const EncabezadoAtleta = () => {
 
           .ivd-item {
             width: 100%;
-            border-top: 1px solid rgba(255, 255, 255, .08);
+            border-top: 1px solid #FFFFFF14;
             opacity: 0;
             transform: translateX(24px);
             transition: opacity .3s ease, transform .3s ease;

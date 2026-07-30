@@ -40,14 +40,14 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 const cardSx = {
   bgcolor: COLORS.paper,
   borderRadius: '10px',
-  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+  boxShadow: '0 2px 12px #80002012',
 };
 
 const inputStyles = {
@@ -272,7 +272,7 @@ const PerfilClub = () => {
             <Avatar
               sx={{
                 width: { xs: 80, md: 96 }, height: { xs: 80, md: 96 },
-                bgcolor: COLORS.purple, border: '4px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,0.15)', mb: 1.5,
+                bgcolor: COLORS.purple, border: '4px solid #fff', boxShadow: '0 4px 14px #00000026', mb: 1.5,
               }}
             >
               <GroupIcon sx={{ fontSize: { xs: 36, md: 44 } }} />
@@ -402,7 +402,7 @@ const PerfilClub = () => {
         </Box>
 
         {!modoEdicion && (
-          <Box sx={{ mt: 3, p: 3, ...cardSx, boxShadow: 'none', border: `1px solid ${COLORS.line}` }}>
+          <Box sx={{ mt: 3, p: { xs: 2, sm: 3 }, ...cardSx, boxShadow: 'none', border: `1px solid ${COLORS.line}` }}>
             <Typography variant="body2" sx={{ color: COLORS.purple, fontStyle: 'italic' }}>
               💡 <strong>Consejo:</strong> Mantén tu información actualizada para que los atletas puedan conocer mejor tu club. Una descripción atractiva puede ayudar a atraer nuevos talentos.
             </Typography>

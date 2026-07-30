@@ -15,8 +15,6 @@ import {
   Avatar,
   Chip,
   Divider,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -42,14 +40,14 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 const cardSx = {
   bgcolor: COLORS.paper,
   borderRadius: '10px',
-  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+  boxShadow: '0 2px 12px #80002012',
 };
 
 const fieldFocusSx = {
@@ -75,8 +73,6 @@ const ReadOnlyField = ({ icon, label, value }) => (
 const PerfilAtleta = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [perfil, setPerfil] = useState(null);
   const [modoEdicion, setModoEdicion] = useState(false);
@@ -99,13 +95,6 @@ const PerfilAtleta = () => {
       const response = await atletasAPI.getPerfil();
       const data = response.data.atleta;
       if (data) {
-        // Mapea los campos del backend a nombres más cortos para el formulario.
-        // sexo se normaliza a minúsculas aquí mismo: el backend lo devuelve
-        // como "Masculino"/"Femenino" (nombre legible de la tabla generos),
-        // pero el schema de validación del PUT solo acepta 'masculino' |
-        // 'femenino' | 'otro' en minúsculas. Si no se normaliza acá, editar
-        // cualquier campo sin tocar el selector de Sexo manda el valor
-        // capitalizado tal cual y el backend rechaza la petición completa.
         setPerfil({
           ...data,
           apellidopa: data.apellido_paterno,
@@ -163,9 +152,6 @@ const PerfilAtleta = () => {
         showConfirmButton: false,
       });
     } catch (error) {
-      // El backend manda detalles por campo cuando falla la validación
-      // (middleware validate.js) — se muestran si existen, para saber
-      // exactamente qué campo rechazó en vez de solo "Datos inválidos".
       const detalles = error.response?.data?.detalles;
       const mensajeDetalle = detalles
         ? Object.entries(detalles).map(([campo, errores]) => `${campo}: ${errores.join(', ')}`).join('\n')
@@ -191,8 +177,7 @@ const PerfilAtleta = () => {
     }
   };
 
-  // Solo para mostrar en la vista de lectura — perfil.sexo se mantiene en
-  // minúsculas internamente porque así lo exige el schema del backend.
+  // Solo para mostrar en la vista de lectura
   const textoGenero = (valor) => {
     if (!valor) return '';
     return valor.charAt(0).toUpperCase() + valor.slice(1);
@@ -246,7 +231,7 @@ const PerfilAtleta = () => {
         {/* Alertas de error/éxito */}
         {mensajeError && (
           <Alert
-            severity={mensajeError.includes('exitosamente') || mensajeError.includes('enviada') ? 'success' : 'error'}
+            severity="error"
             onClose={limpiarError}
             sx={{ mb: 2, borderRadius: '8px' }}
           >
@@ -262,7 +247,7 @@ const PerfilAtleta = () => {
               sx={{
                 width: { xs: 80, md: 96 }, height: { xs: 80, md: 96 },
                 bgcolor: COLORS.purple, fontSize: { xs: '1.6rem', md: '2rem' }, fontWeight: 800,
-                border: '4px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,0.15)', mb: 1.5,
+                border: '4px solid #fff', boxShadow: '0 4px 14px #00000026', mb: 1.5,
               }}
             >
               {obtenerIniciales()}
@@ -293,7 +278,7 @@ const PerfilAtleta = () => {
 
         {/* Sección de información personal */}
         <Box sx={{ ...cardSx, mb: 3, p: { xs: 2.5, md: 3.5 } }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
               Información Personal
             </Typography>

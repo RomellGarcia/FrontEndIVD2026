@@ -19,12 +19,12 @@ import Swal from 'sweetalert2';
 const COLORS = {
   burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E', lineSoft: '#80002014',
 };
 
 const estilosCabeceraTabla = { fontWeight: 700, color: '#fff', fontSize: '0.72rem', textTransform: 'uppercase', py: 2 };
 
-// Abre un documento en el visor correspondiente (PDF directo, otros con Google Viewer)
+// Abre un documento en el visor correspondiente
 const abrirDocumentoParaVer = (url) => {
   if (!url) return;
   const esPdf = /\.pdf(\?|$)/i.test(url);
@@ -207,7 +207,7 @@ const MisConvocatoriasAtleta = () => {
               <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={() => setVista('lista')}
-                sx={{ color: '#fff', textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+                sx={{ color: '#fff', textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
               >
                 Volver a mis convocatorias
               </Button>
@@ -216,14 +216,14 @@ const MisConvocatoriasAtleta = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Atleta
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             {vista === 'lista' ? 'Mis Convocatorias' : 'Detalle de mi Inscripción'}
           </Typography>
           {vista === 'lista' && (
             <Button
               onClick={() => navigate('/atleta/convocatoria')}
               startIcon={<EventAvailableIcon />}
-              sx={{ mt: 2, color: '#fff', borderColor: 'rgba(255,255,255,0.5)', textTransform: 'none', fontWeight: 700 }}
+              sx={{ mt: 2, color: '#fff', borderColor: '#FFFFFF80', textTransform: 'none', fontWeight: 700 }}
               variant="outlined"
               size="small"
             >
@@ -237,15 +237,15 @@ const MisConvocatoriasAtleta = () => {
         {vista === 'lista' ? (
           <>
             {/* Tarjeta de estadísticas */}
-            <Box sx={{ mt: -6, mb: 4, bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 10px 28px rgba(0,0,0,0.14)', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', overflow: 'hidden' }}>
-              <Box sx={{ p: 2.5, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+            <Box sx={{ mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 }, bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 10px 28px #00000024', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', overflow: 'hidden' }}>
+              <Box sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
                 <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}><ListAltIcon sx={{ fontSize: 24 }} /></Box>
-                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.7rem' }}>{misConvocatorias.length}</Typography>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.3rem', md: '1.7rem' } }}>{misConvocatorias.length}</Typography>
                 <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Inscripciones totales</Typography>
               </Box>
-              <Box sx={{ p: 2.5, textAlign: 'center' }}>
+              <Box sx={{ p: { xs: 2, md: 2.75 }, textAlign: 'center' }}>
                 <Box sx={{ color: COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}><EventIcon sx={{ fontSize: 24 }} /></Box>
-                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.7rem' }}>{totalFuturas}</Typography>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.3rem', md: '1.7rem' } }}>{totalFuturas}</Typography>
                 <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Eventos próximos</Typography>
               </Box>
             </Box>
@@ -281,12 +281,13 @@ const MisConvocatoriasAtleta = () => {
                 </Button>
               </Box>
             ) : (
-              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px #80002012' }}>
+                <Box sx={{ overflowX: 'auto' }}>
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: COLORS.burgundy }}>
                       {['Evento', 'Disciplina', 'Categoría', 'Bib', 'Fecha', 'Estado', 'Acciones'].map((h) => (
-                        <TableCell key={h} sx={estilosCabeceraTabla}>{h}</TableCell>
+                        <TableCell key={h} sx={{ ...estilosCabeceraTabla, whiteSpace: 'nowrap' }}>{h}</TableCell>
                       ))}
                     </TableRow>
                   </TableHead>
@@ -297,7 +298,7 @@ const MisConvocatoriasAtleta = () => {
                           <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{conv.titulo}</Typography>
                           <Typography variant="caption" sx={{ color: COLORS.purple }}>{conv.lugar}</Typography>
                         </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{conv.disciplina}</TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, whiteSpace: 'nowrap' }}>{conv.disciplina}</TableCell>
                         <TableCell sx={{ borderColor: COLORS.line }}>
                           <Chip label={conv.categoria} size="small" sx={{ border: `1px solid ${COLORS.purple}`, color: COLORS.purple }} />
                         </TableCell>
@@ -309,7 +310,7 @@ const MisConvocatoriasAtleta = () => {
                           />
                         </TableCell>
                         <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{formatearFechaCorta(conv.fecha)}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>{formatearFechaCorta(conv.fecha)}</Typography>
                         </TableCell>
                         <TableCell sx={{ borderColor: COLORS.line }}>
                           <Chip
@@ -335,6 +336,7 @@ const MisConvocatoriasAtleta = () => {
                     ))}
                   </TableBody>
                 </Table>
+                </Box>
                 {misConvocatorias.length > porPagina && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                     <Pagination count={Math.ceil(misConvocatorias.length / porPagina)} page={pagina} onChange={(e, v) => setPagina(v)} />
@@ -345,9 +347,9 @@ const MisConvocatoriasAtleta = () => {
           </>
         ) : (
           /* Vista de detalle de una convocatoria */
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '360px 1fr' }, gap: 3, alignItems: 'flex-start', mt: { xs: -4, md: -5 } }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '360px 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'flex-start', mt: { xs: -4, md: -5 } }}>
             {/* Columna izquierda: imagen y datos del evento */}
-            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 2.5, md: 3 }, boxShadow: '0 2px 12px rgba(128,0,32,0.07)', position: { md: 'sticky' }, top: { md: 24 } }}>
+            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 2.5, md: 3 }, boxShadow: '0 2px 12px #80002012', position: { md: 'sticky' }, top: { md: 24 } }}>
               {convocatoriaSeleccionada?.imagen_url && (
                 <Box component="img" src={convocatoriaSeleccionada.imagen_url} alt={convocatoriaSeleccionada.titulo}
                   sx={{ width: '100%', height: { xs: 380, md: 460 }, objectFit: 'cover', borderRadius: '8px', mb: 2.5 }} />
@@ -392,7 +394,7 @@ const MisConvocatoriasAtleta = () => {
             </Box>
 
             {/* Columna derecha: información y acciones */}
-            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 3, md: 5 }, boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 3, md: 5 }, boxShadow: '0 2px 12px #80002012' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 1 }}>
                 <Box>
                   <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.burgundy, mb: 1 }}>{convocatoriaSeleccionada?.titulo}</Typography>
@@ -400,7 +402,7 @@ const MisConvocatoriasAtleta = () => {
                 </Box>
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3, mt: 3, mb: 4 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: { xs: 2, sm: 3 }, mt: 3, mb: 4 }}>
                 <Box>
                   <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Disciplina</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{convocatoriaSeleccionada?.disciplina}</Typography>

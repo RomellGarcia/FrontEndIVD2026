@@ -80,10 +80,10 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: '8px',
-          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+          boxShadow: '0 4px 10px #0000001A',
           border: '1px solid #B0BEC5',
           '&:hover': {
-            boxShadow: '0 6px 15px rgba(0, 0, 0, 0.15)',
+            boxShadow: '0 6px 15px #00000026',
           },
         },
       },
@@ -156,7 +156,7 @@ const PaginaPrincipal = () => {
                     height: '100%',
                     objectFit: 'cover',
                     borderRadius: '8px',
-                    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+                    boxShadow: '0 4px 10px #0000001A',
                   }}
                 />
               </Box>
@@ -203,7 +203,7 @@ const PaginaPrincipal = () => {
                     height: '100%',
                     objectFit: 'cover',
                     borderRadius: '8px',
-                    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+                    boxShadow: '0 4px 10px #0000001A',
                   }}
                 />
               </Box>

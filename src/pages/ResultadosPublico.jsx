@@ -24,11 +24,11 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
-const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012' };
 
 // Devuelve el texto legible para el género
 const obtenerTextoGenero = (genero) => {
@@ -155,9 +155,7 @@ const ResultadosPublico = () => {
     setFiltroCategoria('');
   };
 
-  // Genera un PDF con los resultados de una convocatoria y lo abre en una
-  // pestaña nueva — no se descarga, se ve directo con el visor de PDF
-  // que ya trae el navegador, así cualquiera puede verlo sin instalar nada.
+  // Genera un PDF con los resultados de una convocatoria
   const verPdfResultados = (convocatoria) => {
     const resultadosCategoria = resultadosPorConvocatoria[convocatoria.id] || [];
     if (resultadosCategoria.length === 0) return;
@@ -203,9 +201,7 @@ const ResultadosPublico = () => {
       headStyles: { fillColor: [128, 0, 32] },
       styles: { fontSize: 10 },
     });
-
-    // bloburl abre el PDF directo en una pestaña nueva del navegador,
-    // en vez de guardarlo en el dispositivo como hacía XLSX.writeFile.
+    // Abre el PDF directo en una pestaña nueva del navegador
     window.open(doc.output('bloburl'), '_blank');
   };
 
@@ -235,21 +231,21 @@ const ResultadosPublico = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={manejarVolverALista}
-              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
             >
               Volver a Resultados
             </Button>
             <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               IVD · Consulta Pública
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
               {eventoSeleccionado.titulo}
             </Typography>
           </Container>
         </Box>
 
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
+          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'flex-start' }}>
 
             {/* Columna izquierda: imagen y datos del evento */}
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
@@ -396,7 +392,7 @@ const ResultadosPublico = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Consulta Pública
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Resultados
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -409,9 +405,9 @@ const ResultadosPublico = () => {
         {/* Resumen de conteo */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: 4,
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 },
             bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: '1fr',
             overflow: 'hidden',
           }}
@@ -442,7 +438,7 @@ const ResultadosPublico = () => {
                   sx={{
                     ...cardSx, overflow: 'hidden', cursor: 'pointer',
                     transition: 'transform .15s, box-shadow .15s',
-                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px #0000001F' },
                   }}
                   onClick={() => manejarVerDetalle(evento)}
                 >
