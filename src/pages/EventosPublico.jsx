@@ -510,7 +510,7 @@ const EventosPublico = () => {
                   >
                     {evento.imagen_url ? (
                       <Box component="img" src={evento.imagen_url} alt={evento.titulo}
-                        sx={{ width: '100%', objectFit: 'cover', display: 'block' }} />
+                        sx={{ width: '100%', height: { xs: 180, sm: 220, md: 'auto' }, objectFit: 'cover', display: 'block' }} />
                     ) : (
                       <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
                         <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
