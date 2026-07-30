@@ -16,13 +16,13 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 const theme = createTheme({
   palette: {
     primary: {
-      main: "#1976d2", // Azul moderno
+      main: "#1976d2",
     },
     secondary: {
-      main: "#4caf50", // Verde
+      main: "#4caf50",
     },
     background: {
-      default: "#f5f5f5", // Fondo claro
+      default: "#f5f5f5",
     },
     text: {
       primary: "#212121",
@@ -41,7 +41,6 @@ const theme = createTheme({
   },
 });
 
-// URL base del backend ajustada al puerto 5000
   const API_BASE_URL = "http://localhost:5000";
 
 function PoliticasPCA() {
@@ -55,13 +54,12 @@ function PoliticasPCA() {
   const fetchPoliticas = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/contenido/politica`)
-      const data = response.data.contenido  // ← extraer .contenido
+      const data = response.data.contenido
       if (!data) {
         setPoliticas([])
         setLoading(false)
         return
       }
-      // Normalizar a array con los campos nuevos
       const politicaFormateada = [{
         id: data.id,
         titulo: data.titulo,
@@ -101,7 +99,7 @@ function PoliticasPCA() {
           px: isMobile ? 2 : 4,
           backgroundColor: theme.palette.background.default,
           borderTop: "1px solid #e0e0e0",
-          mt: "auto", // Empuja el footer al final de la página
+          mt: "auto",
         }}
       >
         <Container maxWidth="lg">
@@ -116,7 +114,7 @@ function PoliticasPCA() {
           ) : (
             <List>
               {politicas.map((politica) => (
-  <React.Fragment key={politica.id}>  {/* ← _id → id */}
+  <React.Fragment key={politica.id}>
                   <ListItem alignItems="flex-start">
                     <ListItemText
                       primary={politica.titulo}

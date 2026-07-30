@@ -55,6 +55,7 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
+  changePassword: (data) => api.put('/auth/password', data),
 }
 
 // NUEVO: flujo de "olvidé mi contraseña" (correo → código → nueva
@@ -73,6 +74,11 @@ export const perfilEmpresaAPI = {
   update: (data) => api.put('/perfil-empresa', data),
   updateLogo: (data) => api.put('/perfil-empresa/logo', data),
   remove: () => api.delete('/perfil-empresa'),
+}
+
+export const adminsAPI = {
+  getAll: () => api.get('/admins'),
+  crear: (data) => api.post('/admins', data),
 }
 
 export const contenidoAPI = {

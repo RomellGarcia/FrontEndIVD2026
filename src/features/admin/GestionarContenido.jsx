@@ -32,14 +32,14 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 const cardSx = {
   bgcolor: COLORS.paper,
   borderRadius: '10px',
-  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+  boxShadow: '0 2px 12px #80002012',
 };
 
 // Tipos de contenido institucional
@@ -326,7 +326,7 @@ const GestionContenido = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel Administrativo
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Contenido Institucional
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -353,7 +353,7 @@ const GestionContenido = () => {
                 bgcolor: !pestaniaContacto && pestaniaActiva === tipo ? COLORS.burgundy : COLORS.paper,
                 color: !pestaniaContacto && pestaniaActiva === tipo ? '#fff' : COLORS.ink,
                 border: `1px solid ${!pestaniaContacto && pestaniaActiva === tipo ? COLORS.burgundy : COLORS.line}`,
-                boxShadow: !pestaniaContacto && pestaniaActiva === tipo ? '0 2px 8px rgba(128,0,32,0.25)' : 'none',
+                boxShadow: !pestaniaContacto && pestaniaActiva === tipo ? '0 2px 8px #80002040' : 'none',
                 '&:hover': { bgcolor: !pestaniaContacto && pestaniaActiva === tipo ? COLORS.burgundyDark : COLORS.lineSoft },
               }}
             >
@@ -371,7 +371,7 @@ const GestionContenido = () => {
               bgcolor: pestaniaContacto ? COLORS.burgundy : COLORS.paper,
               color: pestaniaContacto ? '#fff' : COLORS.ink,
               border: `1px solid ${pestaniaContacto ? COLORS.burgundy : COLORS.line}`,
-              boxShadow: pestaniaContacto ? '0 2px 8px rgba(128,0,32,0.25)' : 'none',
+              boxShadow: pestaniaContacto ? '0 2px 8px #80002040' : 'none',
               '&:hover': { bgcolor: pestaniaContacto ? COLORS.burgundyDark : COLORS.lineSoft },
             }}
           >
@@ -379,9 +379,9 @@ const GestionContenido = () => {
           </Button>
         </Box>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.3fr' }, gap: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.3fr' }, gap: { xs: 2, md: 3 } }}>
           {/* Vista previa del contenido actual */}
-          <Box sx={{ ...cardSx, p: 3 }}>
+          <Box sx={{ ...cardSx, p: { xs: 2, sm: 3 } }}>
             <Typography sx={{ color: COLORS.purple, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', mb: 0.5 }}>
               Contenido actual
             </Typography>
@@ -395,7 +395,7 @@ const GestionContenido = () => {
                 {CAMPOS_CONTACTO.map(({ key, label, icon }) => {
                   const valor = formularioPerfil[key];
                   return (
-                    <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                       <Box sx={{ color: COLORS.burgundy, display: 'flex' }}>{icon}</Box>
                       <Typography variant="caption" sx={{ color: COLORS.purple, fontWeight: 700, minWidth: 110 }}>{label}</Typography>
                       <Typography variant="body2" sx={{ color: valor ? COLORS.ink : COLORS.purple, opacity: valor ? 1 : 0.6 }}>
@@ -428,7 +428,7 @@ const GestionContenido = () => {
           </Box>
 
           {/* Formulario de edición */}
-          <Box sx={{ ...cardSx, p: 3 }}>
+          <Box sx={{ ...cardSx, p: { xs: 2, sm: 3 } }}>
             <Typography sx={{ color: COLORS.purple, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', mb: 0.5 }}>
               Editar
             </Typography>

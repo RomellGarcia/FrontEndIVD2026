@@ -10,7 +10,6 @@ import LayoutConEncabezado from './components/layout/LayoutConEncabezado.jsx'
 
 // Páginas públicas
 import PaginaPrincipal from './pages/PaginaPrincipal.jsx'
-import AcercaDe from './components/common/AcercaDe.jsx'
 import EventosPublico from './pages/EventosPublico.jsx'
 import ResultadosPublico from './pages/ResultadosPublico.jsx'
 
@@ -34,7 +33,6 @@ import PaginaPrincipalClub from './pages/PaginaPrincipalClub.jsx'
 import PaginaPrincipalEntrenador from './pages/PaginaPrincipalEntrenador.jsx'
 
 // Módulos Administrativos
-import Perfil from './features/admin/PerfilAdministrador.jsx'
 import Eventos from "./features/admin/GestionarEventos.jsx";
 import GestionResultados from './features/admin/GestionarResultados.jsx'
 import Reportes from './features/admin/Reportes.jsx'
@@ -78,7 +76,6 @@ const App = () => {
           <Route path="/" element={<LayoutConEncabezado><PaginaPrincipal /></LayoutConEncabezado>} />
           <Route path="/login" element={<LayoutConEncabezado><Login /></LayoutConEncabezado>} />
           <Route path="/registro" element={<LayoutConEncabezado><Registro /></LayoutConEncabezado>} />
-          <Route path="/acercade" element={<LayoutConEncabezado><AcercaDe /></LayoutConEncabezado>} />
           <Route path="/politicaspca" element={<LayoutConEncabezado><PoliticasPCA /></LayoutConEncabezado>} />
           <Route path="/terminospca" element={<LayoutConEncabezado><TerminosPCA /></LayoutConEncabezado>} />
           <Route path="/visionpca" element={<LayoutConEncabezado><VisionPCA /></LayoutConEncabezado>} />
@@ -91,7 +88,6 @@ const App = () => {
 
           {/* Rutas Administrador */}
           <Route path="/administrador" element={<LayoutConEncabezado><PaginaPrincipalAdministrativa /></LayoutConEncabezado>} />
-          <Route path="/administrador/perfil" element={<LayoutConEncabezado><Perfil /></LayoutConEncabezado>} />
           <Route path="/administrador/evento" element={<LayoutConEncabezado><Eventos /></LayoutConEncabezado>} />
           <Route path="/administrador/resultados" element={<LayoutConEncabezado><GestionResultados /></LayoutConEncabezado>} />
           <Route path="/administrador/reportes" element={<LayoutConEncabezado><Reportes /></LayoutConEncabezado>} />

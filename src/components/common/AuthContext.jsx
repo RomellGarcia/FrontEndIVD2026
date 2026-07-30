@@ -9,7 +9,6 @@ export const AuthProvider = ({ children }) => {
   });
 
   const login = (username, tipo, userData) => {
-    // El nuevo backend devuelve usuario con id y nombre en snake_case
     if (!userData || !userData.id || !userData.nombre) {
       console.error('Datos de usuario incompletos:', userData);
       return false;
@@ -19,15 +18,11 @@ export const AuthProvider = ({ children }) => {
       username,
       tipo,
       ...userData,
-      // Guardar el token de Supabase para usarlo en requests
       token: userData.token || null
     };
 
     setUser(authData);
     sessionStorage.setItem('user', JSON.stringify(authData));
-
-    // Guardar token también en sessionStorage por separado
-    // para que el interceptor de api.js lo pueda leer fácilmente
     if (userData.token) {
       sessionStorage.setItem('token', userData.token);
     }

@@ -4,6 +4,7 @@ import {
   FormControlLabel, Switch, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableHead, TableBody, TableRow, TableCell,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   EmojiEvents as TrophyIcon,
@@ -29,11 +30,11 @@ import Swal from 'sweetalert2';
 const COLORS = {
   burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E', lineSoft: '#80002014',
   gold: '#B8860B', silver: '#8a8a8a', bronze: '#A15C2E',
 };
 
-const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012' };
 
 // Disciplinas que se miden por distancia (marca) vs tiempo
 const DISCIPLINAS_DISTANCIA = new Set([
@@ -88,6 +89,8 @@ const ChipPosicion = ({ posicion }) => {
 
 const GestionResultados = () => {
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -407,7 +410,7 @@ const GestionResultados = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={manejarCambiarEvento}
-              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
             >
               Cambiar evento
             </Button>
@@ -416,7 +419,7 @@ const GestionResultados = () => {
             <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               IVD · Panel Administrativo
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
               {eventoSeleccionado ? eventoSeleccionado.titulo : 'Gestión de Resultados'}
             </Typography>
             <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -446,7 +449,7 @@ const GestionResultados = () => {
                   sx={{
                     ...cardSx, cursor: 'pointer', overflow: 'hidden',
                     transition: 'transform .15s, box-shadow .15s',
-                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px #0000001F' },
                   }}
                 >
                   {ev.imagen_url ? (
@@ -484,9 +487,9 @@ const GestionResultados = () => {
                 { icon: <CheckIcon sx={{ fontSize: 22 }} />, value: totalConResultados, label: 'Con resultados', accent: COLORS.purple },
                 { icon: <PendingIcon sx={{ fontSize: 22 }} />, value: totalPendientes, label: 'Pendientes', accent: COLORS.burgundy },
               ].map((s, i) => (
-                <Box key={i} sx={{ p: 2.5, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
+                <Box key={i} sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center', borderRight: i < 2 ? `1px solid ${COLORS.line}` : 'none' }}>
                   <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
-                  <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.5rem' }}>{s.value}</Typography>
+                  <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.1rem', md: '1.5rem' } }}>{s.value}</Typography>
                   <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>{s.label}</Typography>
                 </Box>
               ))}
@@ -599,7 +602,7 @@ const GestionResultados = () => {
       </Container>
 
       {/* Modal para ver resultados detallados */}
-      <Dialog open={modalResultadosAbierto} onClose={manejarCerrarModalResultados} maxWidth="sm" fullWidth>
+      <Dialog open={modalResultadosAbierto} onClose={manejarCerrarModalResultados} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ bgcolor: COLORS.burgundy, color: '#fff' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
@@ -612,12 +615,13 @@ const GestionResultados = () => {
           </Box>
         </DialogTitle>
         <DialogContent dividers sx={{ p: 0 }}>
+          <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: COLORS.lineSoft }}>
                 <TableCell sx={{ fontWeight: 700, color: COLORS.ink, width: 60 }}>Lugar</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: COLORS.ink, width: 60 }}>Bib</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Atleta</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Atleta</TableCell>
                 {esDistanciaVista ? (
                   <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Marca</TableCell>
                 ) : (
@@ -637,7 +641,7 @@ const GestionResultados = () => {
                   <TableRow key={r.id}>
                     <TableCell><ChipPosicion posicion={r.posicion} /></TableCell>
                     <TableCell>{r.bib ? String(r.bib).padStart(3, '0') : '—'}</TableCell>
-                    <TableCell>{nombreCompleto(r)}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{nombreCompleto(r)}</TableCell>
                     {esDistanciaVista ? (
                       <TableCell>{marca || '—'}</TableCell>
                     ) : (
@@ -651,6 +655,7 @@ const GestionResultados = () => {
               })}
             </TableBody>
           </Table>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={manejarCerrarModalResultados} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>

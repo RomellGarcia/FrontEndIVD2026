@@ -45,7 +45,6 @@ import {
   TableRow,
   Paper,
   Collapse,
-  IconButton as MuiIconButton,
   Tooltip,
   Alert,
   Checkbox,
@@ -57,6 +56,8 @@ import {
   Tabs,
   Tab,
   Switch,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -77,7 +78,7 @@ const resolverUrlArchivo = (ruta) => {
   return `${STATIC_BASE_URL}${ruta.startsWith('/') ? '' : '/'}${ruta}`;
 };
 
-// Abre un documento en nueva ventana: los PDF se abren directamente, otros formatos usan visor de Google
+// Abre un documento en nueva ventana: los PDF se abren directamente
 const abrirDocumentoParaVer = (url) => {
   if (!url) return;
   const esPdf = /\.pdf(\?|$)/i.test(url);
@@ -133,6 +134,9 @@ const obtenerEstado = (estado) => ({
 });
 
 const GestionarEventos = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   // Estado del evento principal
   const [evento, setEvento] = useState({
     titulo: '',
@@ -955,7 +959,7 @@ const GestionarEventos = () => {
     setConvocatoriaDetalle(null);
   };
 
-  // ============ VISTA DE DETALLE DEL EVENTO ============
+  // VISTA DE DETALLE DEL EVENTO
   if (vistaActual === 'detalle' && eventoSeleccionado) {
     const { estado } = eventoSeleccionado;
     const estadoInfo = obtenerEstado(estado);
@@ -969,14 +973,14 @@ const GestionarEventos = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={manejarCerrarEvento}
-              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
             >
               Volver a Eventos
             </Button>
             <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               IVD · Panel Administrativo
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
               {eventoSeleccionado.titulo}
             </Typography>
             {eventoSeleccionado.convocatoriaSeleccionada && (
@@ -991,7 +995,7 @@ const GestionarEventos = () => {
           <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '360px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
 
             {/* Columna izquierda: imagen + info general */}
-            <Box sx={{ bgcolor: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
+            <Box sx={{ bgcolor: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px #80002012', p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
               {obtenerImagenEvento(eventoSeleccionado) && (
                 <Box
                   component="img"
@@ -1070,23 +1074,23 @@ const GestionarEventos = () => {
             </Box>
 
             {/* Columna derecha: convocatorias */}
-            <Box sx={{ bgcolor: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: { xs: 2.5, md: 3.5 } }}>
+            <Box sx={{ bgcolor: '#fff', borderRadius: '10px', boxShadow: '0 2px 12px #80002012', p: { xs: 2.5, md: 3.5 } }}>
               <Typography variant="h6" sx={{ color: '#800020', fontWeight: 800, mb: 2 }}>
                 {eventoSeleccionado.convocatoriaSeleccionada ? 'Convocatoria seleccionada' : 'Convocatorias de este Evento'}
               </Typography>
 
               {eventoSeleccionado.convocatoriaSeleccionada ? (
-                <Box sx={{ p: 2, borderRadius: '8px', border: '1px solid rgba(128,0,32,0.18)' }}>
+                <Box sx={{ p: 2, borderRadius: '8px', border: '1px solid #8000202E' }}>
                   <Typography sx={{ fontWeight: 700 }}>{eventoSeleccionado.convocatoriaSeleccionada.disciplina}</Typography>
                   <Box sx={{ display: 'flex', gap: .75, mt: 1, flexWrap: 'wrap' }}>
                     <Chip label={eventoSeleccionado.convocatoriaSeleccionada.categoria} size="small" sx={{ border: '1px solid #7A4069', bgcolor: 'transparent', color: '#7A4069' }} />
                     <Chip
                       label={textoGenero(eventoSeleccionado.convocatoriaSeleccionada.genero)}
-                      size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                      size="small" sx={{ border: '1px solid #8000202E', bgcolor: 'transparent' }}
                     />
                     <Chip
                       label={`${eventoSeleccionado.convocatoriaSeleccionada.edadMin}-${eventoSeleccionado.convocatoriaSeleccionada.edadMax} años`}
-                      size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                      size="small" sx={{ border: '1px solid #8000202E', bgcolor: 'transparent' }}
                     />
                   </Box>
                 </Box>
@@ -1095,7 +1099,7 @@ const GestionarEventos = () => {
                   {eventoSeleccionado.convocatorias.map((conv) => (
                     <Box
                       key={conv.id}
-                      sx={{ p: 2, borderRadius: '8px', border: '1px solid rgba(128,0,32,0.18)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}
+                      sx={{ p: 2, borderRadius: '8px', border: '1px solid #8000202E', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}
                     >
                       <Box>
                         <Typography sx={{ fontWeight: 700 }}>{conv.disciplina || 'Disciplina N/D'}</Typography>
@@ -1104,11 +1108,11 @@ const GestionarEventos = () => {
                           {conv.genero && (
                             <Chip
                               label={textoGenero(conv.genero)}
-                              size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                              size="small" sx={{ border: '1px solid #8000202E', bgcolor: 'transparent' }}
                             />
                           )}
                           {conv.edadMin != null && conv.edadMax != null && (
-                            <Chip label={`${conv.edadMin}-${conv.edadMax} años`} size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }} />
+                            <Chip label={`${conv.edadMin}-${conv.edadMax} años`} size="small" sx={{ border: '1px solid #8000202E', bgcolor: 'transparent' }} />
                           )}
                           <Chip
                             label={obtenerEstado(conv.estado).texto}
@@ -1132,7 +1136,7 @@ const GestionarEventos = () => {
     );
   }
 
-  // ============ VISTA DE LISTA / CREACIÓN ============
+  // VISTA DE LISTA / CREACIÓN
   return (
     <Box sx={{ bgcolor: '#e4e4e5', minHeight: '100vh', '& .MuiFormLabel-asterisk': { display: 'none' } }}>
       <style>{`.swal2-container { z-index: 2000 !important; }`}</style>
@@ -1143,7 +1147,7 @@ const GestionarEventos = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel Administrativo
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
             Gestión de Eventos
           </Typography>
         </Box>
@@ -1155,7 +1159,7 @@ const GestionarEventos = () => {
           sx={{
             mt: { xs: -5, md: -6 }, mb: 3,
             bgcolor: '#fff', borderRadius: 3,
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'flex', justifyContent: 'center',
             p: { xs: 2, md: 2.75 }, textAlign: 'center',
           }}
@@ -1326,18 +1330,18 @@ const GestionarEventos = () => {
                             alt="Vista previa del evento"
                             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
-                          <MuiIconButton
+                          <IconButton
                             size="small"
                             onClick={manejarQuitarImagen}
                             sx={{
                               position: 'absolute', top: 6, right: 6,
-                              backgroundColor: 'rgba(0,0,0,0.55)',
+                              backgroundColor: '#0000008C',
                               color: '#fff',
-                              '&:hover': { backgroundColor: 'rgba(0,0,0,0.75)' }
+                              '&:hover': { backgroundColor: '#000000BF' }
                             }}
                           >
                             <CloseIcon fontSize="small" />
-                          </MuiIconButton>
+                          </IconButton>
                         </>
                       ) : (
                         <Button
@@ -1495,7 +1499,7 @@ const GestionarEventos = () => {
                     borderColor: '#800020',
                     '&:hover': {
                       borderColor: '#800020',
-                      backgroundColor: 'rgba(128, 0, 32, 0.04)'
+                      backgroundColor: '#8000200A'
                     }
                   }}
                 >
@@ -1518,13 +1522,13 @@ const GestionarEventos = () => {
                         </Typography>
                         {convocatorias.length > 1 && (
                           <Tooltip title="Eliminar convocatoria">
-                            <MuiIconButton
+                            <IconButton
                               onClick={() => quitarConvocatoria(index)}
                               color="error"
                               size="small"
                             >
                               <RemoveIcon />
-                            </MuiIconButton>
+                            </IconButton>
                           </Tooltip>
                         )}
                       </Box>
@@ -1639,7 +1643,7 @@ const GestionarEventos = () => {
                         borderColor: '#800020',
                         '&:hover': {
                           borderColor: '#800020',
-                          backgroundColor: 'rgba(128, 0, 32, 0.04)'
+                          backgroundColor: '#8000200A'
                         }
                       }}
                     >
@@ -1662,7 +1666,7 @@ const GestionarEventos = () => {
                   fontSize: '1rem',
                   borderRadius: 2,
                   backgroundColor: '#800020',
-                  boxShadow: '0 6px 18px rgba(128,0,32,0.3)',
+                  boxShadow: '0 6px 18px #8000204D',
                   '&:hover': { backgroundColor: '#5c0017' },
                 }}
               >
@@ -1718,8 +1722,8 @@ const GestionarEventos = () => {
                         flexDirection: 'column',
                         transition: 'box-shadow .2s, transform .2s, background-color .2s',
                         bgcolor: evento.estado ? '#fff' : '#f2f2f2',
-                        borderColor: evento.estado ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.08)',
-                        '&:hover': { boxShadow: '0 10px 24px rgba(0,0,0,0.12)', transform: 'translateY(-2px)' },
+                        borderColor: evento.estado ? '#0000001F' : '#00000014',
+                        '&:hover': { boxShadow: '0 10px 24px #0000001F', transform: 'translateY(-2px)' },
                       }}
                     >
                       {obtenerImagenEvento(evento) ? (
@@ -1749,13 +1753,13 @@ const GestionarEventos = () => {
                         >
                           <Box sx={{
                             position: 'absolute', width: 180, height: 180, borderRadius: '50%',
-                            bgcolor: 'rgba(255,255,255,0.08)', filter: 'blur(30px)', top: -50, left: -30,
+                            bgcolor: '#FFFFFF14', filter: 'blur(30px)', top: -50, left: -30,
                           }} />
                           <Box sx={{
                             position: 'absolute', width: 140, height: 140, borderRadius: '50%',
-                            bgcolor: 'rgba(255,255,255,0.06)', filter: 'blur(26px)', bottom: -40, right: -20,
+                            bgcolor: '#FFFFFF0F', filter: 'blur(26px)', bottom: -40, right: -20,
                           }} />
-                          <ImageIcon sx={{ fontSize: 42, color: 'rgba(255,255,255,0.55)', position: 'relative' }} />
+                          <ImageIcon sx={{ fontSize: 42, color: '#FFFFFF8C', position: 'relative' }} />
                         </Box>
                       )}
 
@@ -1790,7 +1794,7 @@ const GestionarEventos = () => {
                             label={estadoInfo.texto}
                             sx={{
                               fontWeight: 700,
-                              bgcolor: evento.estado ? 'rgba(46,125,50,0.1)' : 'rgba(0,0,0,0.1)',
+                              bgcolor: evento.estado ? '#2E7D321A' : '#0000001A',
                               color: evento.estado ? '#2e7d32' : '#757575',
                             }}
                           />
@@ -1799,7 +1803,7 @@ const GestionarEventos = () => {
                               size="small"
                               icon={<DoneAllIcon sx={{ fontSize: 14 }} />}
                               label="Finalizado"
-                              sx={{ fontWeight: 700, bgcolor: 'rgba(128,0,32,0.1)', color: '#800020' }}
+                              sx={{ fontWeight: 700, bgcolor: '#8000201A', color: '#800020' }}
                             />
                           )}
                         </Stack>
@@ -1850,39 +1854,39 @@ const GestionarEventos = () => {
                                 borderColor: '#800020',
                                 whiteSpace: 'nowrap',
                                 flexShrink: 0,
-                                '&:hover': { borderColor: '#800020', backgroundColor: 'rgba(128, 0, 32, 0.04)' }
+                                '&:hover': { borderColor: '#800020', backgroundColor: '#8000200A' }
                               }}
                             >
                               Convocatorias ({evento.convocatorias ? evento.convocatorias.length : 0})
                             </Button>
                             <Tooltip title="Ver detalles del evento">
-                              <MuiIconButton size="small" onClick={() => manejarVerEvento(evento)} sx={{ color: '#800020' }}>
+                              <IconButton size="small" onClick={() => manejarVerEvento(evento)} sx={{ color: '#800020' }}>
                                 <VisibilityIcon fontSize="small" />
-                              </MuiIconButton>
+                              </IconButton>
                             </Tooltip>
                             <Tooltip title="Ver todos los participantes del evento">
-                              <MuiIconButton size="small" onClick={() => manejarVerParticipantes(evento)} sx={{ color: '#7A4069' }}>
+                              <IconButton size="small" onClick={() => manejarVerParticipantes(evento)} sx={{ color: '#7A4069' }}>
                                 <GroupsIcon fontSize="small" />
-                              </MuiIconButton>
+                              </IconButton>
                             </Tooltip>
                             <Tooltip title="Editar evento">
-                              <MuiIconButton size="small" onClick={() => manejarAbrirEditar(evento)} sx={{ color: '#1565c0' }}>
+                              <IconButton size="small" onClick={() => manejarAbrirEditar(evento)} sx={{ color: '#1565c0' }}>
                                 <EditIcon fontSize="small" />
-                              </MuiIconButton>
+                              </IconButton>
                             </Tooltip>
                             <Tooltip title={evento.finalizado ? 'Reabrir evento' : 'Finalizar evento'}>
-                              <MuiIconButton
+                              <IconButton
                                 size="small"
                                 onClick={() => manejarFinalizarEvento(evento, !evento.finalizado)}
                                 sx={{ color: evento.finalizado ? '#757575' : '#800020' }}
                               >
                                 {evento.finalizado ? <LockOpenIcon fontSize="small" /> : <LockIcon fontSize="small" />}
-                              </MuiIconButton>
+                              </IconButton>
                             </Tooltip>
                             <Tooltip title="Eliminar evento">
-                              <MuiIconButton size="small" onClick={() => manejarEliminarEvento(evento)} sx={{ color: '#A13A3A' }}>
+                              <IconButton size="small" onClick={() => manejarEliminarEvento(evento)} sx={{ color: '#A13A3A' }}>
                                 <DeleteIcon fontSize="small" />
-                              </MuiIconButton>
+                              </IconButton>
                             </Tooltip>
                           </Stack>
                         </Box>
@@ -1897,7 +1901,7 @@ const GestionarEventos = () => {
       </Box>
 
       {/* Modal de Participantes */}
-      <Dialog open={modalParticipantesAbierto} onClose={manejarCerrarParticipantes} maxWidth="sm" fullWidth>
+      <Dialog open={modalParticipantesAbierto} onClose={manejarCerrarParticipantes} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>
           Participantes de "{eventoSeleccionado?.titulo}"
           {eventoSeleccionado?.convocatoriaSeleccionada && (
@@ -1921,9 +1925,9 @@ const GestionarEventos = () => {
                   divider
                   secondaryAction={
                     <Tooltip title="Dar de baja a este atleta">
-                      <MuiIconButton edge="end" onClick={() => manejarDarDeBajaAtleta(p)} sx={{ color: '#A13A3A' }}>
+                      <IconButton edge="end" onClick={() => manejarDarDeBajaAtleta(p)} sx={{ color: '#A13A3A' }}>
                         <PersonRemoveIcon />
-                      </MuiIconButton>
+                      </IconButton>
                     </Tooltip>
                   }
                 >
@@ -1950,7 +1954,7 @@ const GestionarEventos = () => {
       </Dialog>
 
       {/* Modal de Convocatorias */}
-      <Dialog open={modalConvocatoriasAbierto} onClose={manejarCerrarConvocatorias} maxWidth="md" fullWidth>
+      <Dialog open={modalConvocatoriasAbierto} onClose={manejarCerrarConvocatorias} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
             <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
@@ -1968,16 +1972,17 @@ const GestionarEventos = () => {
         </DialogTitle>
         <DialogContent>
           {eventoConvocatorias && eventoConvocatorias.convocatorias ? (
-            <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+            <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: '16%' }}><strong>Disciplina</strong></TableCell>
-                  <TableCell sx={{ width: '12%' }}><strong>Categoría</strong></TableCell>
-                  <TableCell sx={{ width: '14%' }}><strong>Rango de Edad</strong></TableCell>
-                  <TableCell sx={{ width: '12%' }}><strong>Género</strong></TableCell>
-                  <TableCell sx={{ width: '9%' }}><strong>Hora</strong></TableCell>
-                  <TableCell sx={{ width: '10%' }}><strong>Estado</strong></TableCell>
-                  <TableCell sx={{ width: '27%' }}><strong>Acciones</strong></TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><strong>Disciplina</strong></TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><strong>Categoría</strong></TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><strong>Rango de Edad</strong></TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><strong>Género</strong></TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><strong>Hora</strong></TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><strong>Estado</strong></TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}><strong>Acciones</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1985,31 +1990,31 @@ const GestionarEventos = () => {
                   const estadoInfo = obtenerEstado(convocatoria.estado);
                   return (
                     <TableRow key={index}>
-                      <TableCell sx={{ width: '16%' }}>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         <Typography variant="subtitle2" fontWeight="bold" noWrap>
                           {convocatoria.disciplina}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ width: '12%' }}>{convocatoria.categoria}</TableCell>
-                      <TableCell sx={{ width: '14%' }}>{convocatoria.edadMin} - {convocatoria.edadMax} años</TableCell>
-                      <TableCell sx={{ width: '12%' }}>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{convocatoria.categoria}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{convocatoria.edadMin} - {convocatoria.edadMax} años</TableCell>
+                      <TableCell>
                         <Chip 
                           label={textoGenero(convocatoria.genero)}
                           color={colorGenero(convocatoria.genero)}
                           size="small"
                         />
                       </TableCell>
-                      <TableCell sx={{ width: '9%' }}>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         {convocatoria.hora ? convocatoria.hora.slice(0, 5) : '—'}
                       </TableCell>
-                      <TableCell sx={{ width: '10%' }}>
+                      <TableCell>
                         <Chip 
                           label={estadoInfo.texto} 
                           color={estadoInfo.color}
                           size="small"
                         />
                       </TableCell>
-                      <TableCell sx={{ width: '27%' }}>
+                      <TableCell>
                         <Box display="flex" gap={0.5}>
                           <IconButton 
                             size="small" 
@@ -2050,6 +2055,7 @@ const GestionarEventos = () => {
                 })}
               </TableBody>
             </Table>
+            </Box>
           ) : (
             <Typography variant="body2" sx={{ textAlign: 'center', p: 2, color: 'text.secondary' }}>
               No hay convocatorias para este evento.
@@ -2064,7 +2070,7 @@ const GestionarEventos = () => {
       </Dialog>
 
       {/* Modal de Detalle de Convocatoria */}
-      <Dialog open={modalDetalleConvocatoriaAbierto} onClose={manejarCerrarDetalleConvocatoria} maxWidth="xs" fullWidth>
+      <Dialog open={modalDetalleConvocatoriaAbierto} onClose={manejarCerrarDetalleConvocatoria} maxWidth="xs" fullWidth fullScreen={isMobile}>
         <DialogTitle>
           <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
             Detalles de la Convocatoria
@@ -2086,9 +2092,9 @@ const GestionarEventos = () => {
                 <Chip label={convocatoriaDetalle.categoria} size="small" sx={{ border: '1px solid #7A4069', bgcolor: 'transparent', color: '#7A4069' }} />
                 <Chip
                   label={textoGenero(convocatoriaDetalle.genero)}
-                  size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }}
+                  size="small" sx={{ border: '1px solid #8000202E', bgcolor: 'transparent' }}
                 />
-                <Chip label={`${convocatoriaDetalle.edadMin}-${convocatoriaDetalle.edadMax} años`} size="small" sx={{ border: '1px solid rgba(128,0,32,0.18)', bgcolor: 'transparent' }} />
+                <Chip label={`${convocatoriaDetalle.edadMin}-${convocatoriaDetalle.edadMax} años`} size="small" sx={{ border: '1px solid #8000202E', bgcolor: 'transparent' }} />
                 <Chip
                   label={obtenerEstado(convocatoriaDetalle.estado).texto}
                   color={obtenerEstado(convocatoriaDetalle.estado).color}
@@ -2106,7 +2112,7 @@ const GestionarEventos = () => {
       </Dialog>
 
       {/* Modal de Editar Evento */}
-      <Dialog open={modalEditarAbierto} onClose={manejarCerrarEditar} maxWidth="sm" fullWidth>
+      <Dialog open={modalEditarAbierto} onClose={manejarCerrarEditar} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>
           <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
             Editar Evento
@@ -2126,7 +2132,7 @@ const GestionarEventos = () => {
               value={formEditar.lugar}
               onChange={(e) => setFormEditar((p) => ({ ...p, lugar: e.target.value }))}
             />
-            <Stack direction="row" spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
                 fullWidth
                 type="date"
@@ -2195,7 +2201,7 @@ const GestionarEventos = () => {
       </Dialog>
 
       {/* Modal de Editar Convocatoria */}
-      <Dialog open={modalEditarConvocatoriaAbierto} onClose={manejarCerrarEditarConvocatoria} maxWidth="sm" fullWidth>
+      <Dialog open={modalEditarConvocatoriaAbierto} onClose={manejarCerrarEditarConvocatoria} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>
           <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
             Editar Convocatoria
@@ -2286,7 +2292,7 @@ const GestionarEventos = () => {
       </Dialog>
 
       {/* Modal de Agregar Convocatoria */}
-      <Dialog open={modalAgregarConvocatoriaAbierto} onClose={manejarCerrarAgregarConvocatoria} maxWidth="sm" fullWidth>
+      <Dialog open={modalAgregarConvocatoriaAbierto} onClose={manejarCerrarAgregarConvocatoria} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle>
           <Typography variant="h6" component="div" sx={{ color: '#800020', fontWeight: 'bold' }}>
             Agregar Convocatoria

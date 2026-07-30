@@ -16,13 +16,13 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 const theme = createTheme({
   palette: {
     primary: {
-      main: "#1976d2", // Azul moderno
+      main: "#1976d2",
     },
     secondary: {
-      main: "#4caf50", // Verde
+      main: "#4caf50",
     },
     background: {
-      default: "#f5f5f5", // Fondo claro
+      default: "#f5f5f5",
     },
     text: {
       primary: "#212121",
@@ -41,11 +41,10 @@ const theme = createTheme({
   },
 });
 
-// URL base del backend ajustada al puerto 5000
 const API_BASE_URL = "http://localhost:5000";
 
 function VisionPCA() {
-  const [visiones, setVisiones] = useState([]); // Cambiado a plural para consistencia
+  const [visiones, setVisiones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const theme = useTheme();
@@ -94,7 +93,7 @@ function VisionPCA() {
             px: isMobile ? 2 : 4,
             backgroundColor: theme.palette.background.default,
             borderTop: "1px solid #e0e0e0",
-            mt: "auto", // Empuja el footer al final de la página
+            mt: "auto",
           }}
         >
           <Container maxWidth="lg">

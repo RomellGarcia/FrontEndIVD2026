@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import { resultadosAPI, clubesAPI, catalogosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
+import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 
 // Paleta de colores institucional
@@ -22,14 +23,14 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
 const cardSx = {
   bgcolor: COLORS.paper,
   borderRadius: '10px',
-  boxShadow: '0 2px 12px rgba(128,0,32,0.07)',
+  boxShadow: '0 2px 12px #80002012',
 };
 
 const estilosCabeceraTabla = {
@@ -168,7 +169,7 @@ const Reportes = () => {
     const resultadosFiltrados = aplicarFiltros();
 
     if (resultadosFiltrados.length === 0) {
-      alert('No hay datos para exportar');
+      Swal.fire({ icon: 'info', title: 'Sin datos', text: 'No hay datos para exportar', confirmButtonColor: COLORS.burgundy });
       return;
     }
 
@@ -230,7 +231,7 @@ const Reportes = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel Administrativo
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
             Reportes y Análisis de Resultados
           </Typography>
         </Container>
@@ -242,7 +243,7 @@ const Reportes = () => {
           sx={{
             mt: { xs: -5, md: -6 }, mb: 4,
             bgcolor: '#fff', borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
             overflow: 'hidden',
           }}
@@ -270,7 +271,7 @@ const Reportes = () => {
         )}
 
         {/* Filtros */}
-        <Box sx={{ ...cardSx, p: 3, mb: 3 }}>
+        <Box sx={{ ...cardSx, p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <FilterIcon /> Filtros de Búsqueda
           </Typography>
@@ -557,12 +558,13 @@ const Reportes = () => {
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: COLORS.lineSoft }}>
                 <TableCell sx={{ fontWeight: 700, color: COLORS.ink, width: 50 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Atleta</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Club</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Atleta</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Club</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Marca</TableCell>
               </TableRow>
             </TableHead>
@@ -570,8 +572,8 @@ const Reportes = () => {
               {comboSeleccionado?.candidatos.map((a, i) => (
                 <TableRow key={`${a.atleta_id}-${i}`}>
                   <TableCell sx={{ fontWeight: 700, color: i === 0 ? COLORS.burgundy : COLORS.ink }}>{i + 1}°</TableCell>
-                  <TableCell sx={{ color: COLORS.ink, fontWeight: i === 0 ? 700 : 400 }}>{a.nombre}</TableCell>
-                  <TableCell sx={{ color: COLORS.ink }}>{a.club_nombre}</TableCell>
+                  <TableCell sx={{ color: COLORS.ink, fontWeight: i === 0 ? 700 : 400, whiteSpace: 'nowrap' }}>{a.nombre}</TableCell>
+                  <TableCell sx={{ color: COLORS.ink, whiteSpace: 'nowrap' }}>{a.club_nombre}</TableCell>
                   <TableCell>
                     <Chip label={a.texto || '—'} size="small" sx={i === 0
                       ? { bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }
@@ -581,6 +583,7 @@ const Reportes = () => {
               ))}
             </TableBody>
           </Table>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setComboSeleccionado(null)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>

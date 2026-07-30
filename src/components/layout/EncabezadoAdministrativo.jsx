@@ -43,6 +43,9 @@ const EncabezadoAdministrativo = () => {
       case 'gestionContenido':
         navigate('/administrador/contenido');
         break;
+      case 'miCuenta':
+        navigate('/administrador/perfil');
+        break;
 
       case 'cerrarSesion':
         const result = await Swal.fire({
@@ -120,6 +123,7 @@ const EncabezadoAdministrativo = () => {
     { texto: 'Gestión de Resultados', key: 'gestionResultados', ruta: '/administrador/resultados' },
     { texto: 'Reportes', key: 'reportes', ruta: '/administrador/reportes' },
     { texto: 'Contenido Institucional', key: 'gestionContenido', ruta: '/administrador/contenido' },
+    { texto: 'Mi Cuenta', key: 'miCuenta', ruta: '/administrador/perfil' },
   ];
 
   const cerrarSesionItem = { texto: 'Cerrar Sesión', key: 'cerrarSesion', ruta: null };
