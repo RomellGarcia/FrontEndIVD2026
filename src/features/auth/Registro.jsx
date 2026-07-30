@@ -345,7 +345,7 @@ function Registro() {
           width: '100%',
           maxWidth: 680,
           borderRadius: 4,
-          boxShadow: '0 8px 32px rgba(128,0,32,0.12)',
+          boxShadow: '0 8px 32px #8000201F',
         }}
       >
         {/* Cabecera */}
@@ -359,13 +359,13 @@ function Registro() {
             borderRadius: '16px 16px 0 0',
           }}
         >
-          <Avatar sx={{ width: 52, height: 52, bgcolor: 'rgba(255,255,255,0.15)', mb: 1 }}>
+          <Avatar sx={{ width: 52, height: 52, bgcolor: '#FFFFFF26', mb: 1 }}>
             <SportIcon sx={{ fontSize: 28, color: '#fff' }} />
           </Avatar>
           <Typography variant="h5" sx={{ color: '#fff', fontWeight: 'bold', fontSize: { xs: '1.15rem', sm: '1.35rem' } }}>
             Crear Cuenta
           </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>
+          <Typography variant="body2" sx={{ color: '#FFFFFFB3', fontSize: '0.85rem' }}>
             Instituto Veracruzano del Deporte
           </Typography>
         </Box>
@@ -417,10 +417,12 @@ function Registro() {
                         error={!!erroresFormulario.direccion}
                         helperText={erroresFormulario.direccion}
                         sx={{ ...fieldSx, gridColumn: '1 / -1' }}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start"><LocationIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start"><LocationIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                            ),
+                          },
                         }}
                       />
                       <TextField
@@ -432,10 +434,12 @@ function Registro() {
                         placeholder="Ej: Unidad Deportiva Xalapa, cancha 3"
                         helperText="Si lo dejas en blanco, tus atletas podrán capturar el suyo propio; si lo llenas, se aplica automáticamente a todos ellos"
                         sx={{ ...fieldSx, gridColumn: '1 / -1' }}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start"><LocationIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start"><LocationIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                            ),
+                          },
                         }}
                       />
                       <TextField
@@ -448,10 +452,12 @@ function Registro() {
                         rows={3}
                         placeholder="Breve descripción de tu club..."
                         sx={{ ...fieldSx, gridColumn: '1 / -1' }}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start"><DescriptionIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start"><DescriptionIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                            ),
+                          },
                         }}
                       />
                     </>
@@ -489,7 +495,7 @@ function Registro() {
                         required
                         error={!!erroresFormulario.curp}
                         helperText={erroresFormulario.curp}
-                        inputProps={{ maxLength: 18, style: { textTransform: 'uppercase' } }}
+                        slotProps={{ htmlInput: { maxLength: 18, style: { textTransform: 'uppercase' } } }}
                         sx={fieldSx}
                       />
                       <TextField
@@ -597,10 +603,12 @@ function Registro() {
                         value={formulario.añosExperiencia}
                         onChange={manejarCambio}
                         sx={fieldSx}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start"><WorkIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start"><WorkIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                            ),
+                          },
                         }}
                       />
                     </Box>
@@ -622,10 +630,12 @@ function Registro() {
                     error={!!erroresFormulario.correo}
                     helperText={erroresFormulario.correo}
                     sx={fieldSx}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start"><EmailIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
-                      ),
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start"><EmailIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                        ),
+                      },
                     }}
                   />
                   <TextField
@@ -637,12 +647,14 @@ function Registro() {
                     required
                     error={!!erroresFormulario.telefono}
                     helperText={erroresFormulario.telefono}
-                    inputProps={{ maxLength: 10 }}
                     sx={fieldSx}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start"><PhoneIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
-                      ),
+                    slotProps={{
+                      htmlInput: { maxLength: 10 },
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start"><PhoneIcon sx={{ color: PURPLE, fontSize: 20 }} /></InputAdornment>
+                        ),
+                      },
                     }}
                   />
                 </Box>
