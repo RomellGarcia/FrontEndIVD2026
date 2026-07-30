@@ -30,11 +30,11 @@ const COLORS = {
   cream: '#e4e4e5',
   paper: '#FFFFFF',
   ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)',
-  lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E',
+  lineSoft: '#80002014',
 };
 
-const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' };
+const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012' };
 
 const EstadoChip = ({ label, positivo = true }) => (
   <Chip
@@ -280,21 +280,21 @@ const EventosEntrenador = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={handleVolver}
-              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
             >
               Volver a Eventos
             </Button>
             <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
               IVD · Panel de Entrenador
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
               {eventoSeleccionado.titulo}
             </Typography>
           </Container>
         </Box>
 
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: 3, alignItems: 'flex-start' }}>
+          <Box sx={{ mt: { xs: -4, md: -5 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '400px 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'flex-start' }}>
 
             <Box sx={{ ...cardSx, p: { xs: 2.5, md: 3 }, position: { md: 'sticky' }, top: { md: 24 } }}>
               {eventoSeleccionado.imagen_url && (
@@ -461,7 +461,7 @@ const EventosEntrenador = () => {
               </IconButton>
             </Box>
             {convocatoriaParticipantes && (
-              <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 1 }}>
+              <Typography variant="subtitle2" sx={{ color: '#FFFFFFCC', mt: 1 }}>
                 {obtenerNombre(convocatoriaParticipantes.disciplina)} - {obtenerNombre(convocatoriaParticipantes.categoria)}
               </Typography>
             )}
@@ -530,7 +530,7 @@ const EventosEntrenador = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Entrenador
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Eventos
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5 }}>
@@ -547,12 +547,11 @@ const EventosEntrenador = () => {
           </Alert>
         )}
 
-        {/* ── Stat-strip flotante ── */}
         <Box
           sx={{
-            mt: { xs: -5, md: -6 }, mb: 5,
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 5 },
             bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
+            boxShadow: '0 10px 28px #00000024',
             display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
             overflow: 'hidden',
           }}
@@ -606,13 +605,13 @@ const EventosEntrenador = () => {
                       sx={{
                         ...cardSx, overflow: 'hidden', cursor: 'pointer',
                         transition: 'transform .15s, box-shadow .15s',
-                        '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                        '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px #0000001F' },
                       }}
                       onClick={() => handleVerDetalle(evento)}
                     >
                       {evento.imagen_url ? (
                         <Box component="img" src={evento.imagen_url} alt={evento.titulo}
-                          sx={{ width: '100%', height: 520, objectFit: 'cover', display: 'block' }} />
+                          sx={{ width: '100%', height: { xs: 180, sm: 220, md: 520 }, objectFit: 'cover', display: 'block' }} />
                       ) : (
                         <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
                           <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />
@@ -672,13 +671,13 @@ const EventosEntrenador = () => {
                     sx={{
                       ...cardSx, overflow: 'hidden', cursor: 'pointer',
                       transition: 'transform .15s, box-shadow .15s',
-                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(0,0,0,0.12)' },
+                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 10px 24px #0000001F' },
                     }}
                     onClick={() => handleVerDetalle(evento)}
                   >
                     {evento.imagen_url ? (
                       <Box component="img" src={evento.imagen_url} alt={evento.titulo}
-                        sx={{ width: '100%', height: 520, objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
+                        sx={{ width: '100%', height: { xs: 180, sm: 220, md: 520 }, objectFit: 'cover', display: 'block', filter: 'grayscale(55%)', opacity: 0.9 }} />
                     ) : (
                       <Box sx={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: COLORS.lineSoft }}>
                         <EventIcon sx={{ fontSize: 40, color: COLORS.purple }} />

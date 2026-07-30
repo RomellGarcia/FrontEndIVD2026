@@ -18,7 +18,7 @@ import Swal from 'sweetalert2';
 const COLORS = {
   burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E', lineSoft: '#80002014',
 };
 
 const estilosCabeceraTabla = { fontWeight: 700, color: '#fff', fontSize: '0.72rem', textTransform: 'uppercase', py: 2 };
@@ -47,11 +47,6 @@ const formatearFechaCorta = (fecha) =>
 const obtenerNombreAtleta = (inscripcion) =>
   [inscripcion?.nombre, inscripcion?.apellido_paterno, inscripcion?.apellido_materno].filter(Boolean).join(' ');
 
-/**
- * "Convocatorias del Club" del entrenador — mismo diseño que
- * MisConvocatoriasClub.jsx, pero SOLO lectura: puede ver en qué
- * convocatorias está inscrito su club, sin poder cancelar ninguna.
- */
 const ConvocatoriasClubEntrenador = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -72,9 +67,6 @@ const ConvocatoriasClubEntrenador = () => {
     cargarDatos();
   }, [user, navigate]);
 
-  // Carga las inscripciones del club del entrenador — primero confirma
-  // que de verdad pertenezca a uno, para no pegarle a un endpoint que
-  // hoy solo está pensado para el club (y evitar el 403).
   const cargarDatos = async () => {
     try {
       setCargando(true);
@@ -144,7 +136,7 @@ const ConvocatoriasClubEntrenador = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={() => setVista('lista')}
-              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
+              sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
             >
               Volver a convocatorias del club
             </Button>
@@ -152,7 +144,7 @@ const ConvocatoriasClubEntrenador = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Entrenador
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
             {vista === 'lista' ? 'Convocatorias del Club' : 'Detalle de la Inscripción'}
           </Typography>
         </Container>
@@ -160,7 +152,7 @@ const ConvocatoriasClubEntrenador = () => {
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
         {sinClub ? (
-          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', mt: -6, textAlign: 'center', py: 6, boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', mt: { xs: -5, md: -6 }, textAlign: 'center', py: 6, boxShadow: '0 2px 12px #80002012' }}>
             <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
               <GroupsIcon sx={{ fontSize: 32, color: COLORS.purple }} />
             </Avatar>
@@ -181,20 +173,20 @@ const ConvocatoriasClubEntrenador = () => {
         ) : vista === 'lista' ? (
           <>
             {/* Tarjeta de estadísticas */}
-            <Box sx={{ mt: -6, mb: 4, bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 10px 28px rgba(0,0,0,0.14)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', overflow: 'hidden' }}>
-              <Box sx={{ p: 2.5, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+            <Box sx={{ mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 }, bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 10px 28px #00000024', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', overflow: 'hidden' }}>
+              <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
                 <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}><ListAltIcon sx={{ fontSize: 24 }} /></Box>
-                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>{inscripcionesActivas.length}</Typography>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.1rem', md: '1.6rem' } }}>{inscripcionesActivas.length}</Typography>
                 <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Inscripciones totales</Typography>
               </Box>
-              <Box sx={{ p: 2.5, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+              <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
                 <Box sx={{ color: COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}><GroupsIcon sx={{ fontSize: 24 }} /></Box>
-                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>{atletasDistintos}</Typography>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.1rem', md: '1.6rem' } }}>{atletasDistintos}</Typography>
                 <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Atletas distintos</Typography>
               </Box>
-              <Box sx={{ p: 2.5, textAlign: 'center' }}>
+              <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center' }}>
                 <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}><EventIcon sx={{ fontSize: 24 }} /></Box>
-                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>{totalFuturas}</Typography>
+                <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.1rem', md: '1.6rem' } }}>{totalFuturas}</Typography>
                 <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Eventos próximos</Typography>
               </Box>
             </Box>
@@ -210,12 +202,13 @@ const ConvocatoriasClubEntrenador = () => {
                 </Typography>
               </Box>
             ) : (
-              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+              <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px #80002012' }}>
+                <Box sx={{ overflowX: 'auto' }}>
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: COLORS.burgundy }}>
                       {['Atleta', 'Evento', 'Disciplina', 'Categoría', 'Bib', 'Fecha', 'Estado', 'Detalle'].map((h) => (
-                        <TableCell key={h} sx={estilosCabeceraTabla}>{h}</TableCell>
+                        <TableCell key={h} sx={{ ...estilosCabeceraTabla, whiteSpace: 'nowrap' }}>{h}</TableCell>
                       ))}
                     </TableRow>
                   </TableHead>
@@ -223,13 +216,13 @@ const ConvocatoriasClubEntrenador = () => {
                     {inscripcionesPaginadas.map((insc) => (
                       <TableRow key={insc.id} hover>
                         <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{obtenerNombreAtleta(insc)}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>{obtenerNombreAtleta(insc)}</Typography>
                         </TableCell>
                         <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{insc.titulo}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>{insc.titulo}</Typography>
                           <Typography variant="caption" sx={{ color: COLORS.purple }}>{insc.lugar}</Typography>
                         </TableCell>
-                        <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{insc.disciplina}</TableCell>
+                        <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, whiteSpace: 'nowrap' }}>{insc.disciplina}</TableCell>
                         <TableCell sx={{ borderColor: COLORS.line }}>
                           <Chip label={insc.categoria} size="small" sx={{ border: `1px solid ${COLORS.purple}`, color: COLORS.purple }} />
                         </TableCell>
@@ -241,7 +234,7 @@ const ConvocatoriasClubEntrenador = () => {
                           />
                         </TableCell>
                         <TableCell sx={{ borderColor: COLORS.line }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{formatearFechaCorta(insc.fecha)}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>{formatearFechaCorta(insc.fecha)}</Typography>
                         </TableCell>
                         <TableCell sx={{ borderColor: COLORS.line }}>
                           <Chip
@@ -260,6 +253,7 @@ const ConvocatoriasClubEntrenador = () => {
                     ))}
                   </TableBody>
                 </Table>
+                </Box>
                 {inscripcionesActivas.length > registrosPorPagina && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                     <Pagination count={Math.ceil(inscripcionesActivas.length / registrosPorPagina)} page={pagina} onChange={(e, v) => setPagina(v)} />
@@ -270,9 +264,9 @@ const ConvocatoriasClubEntrenador = () => {
           </>
         ) : (
           /* Vista de detalle de una inscripción */
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '360px 1fr' }, gap: 3, alignItems: 'flex-start', mt: { xs: -4, md: -5 } }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '360px 1fr' }, gap: { xs: 2, md: 3 }, alignItems: 'flex-start', mt: { xs: -4, md: -5 } }}>
             {/* Columna izquierda: imagen y datos del evento */}
-            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 2.5, md: 3 }, boxShadow: '0 2px 12px rgba(128,0,32,0.07)', position: { md: 'sticky' }, top: { md: 24 } }}>
+            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 2.5, md: 3 }, boxShadow: '0 2px 12px #80002012', position: { md: 'sticky' }, top: { md: 24 } }}>
               {inscripcionSeleccionada?.imagen_url && (
                 <Box component="img" src={inscripcionSeleccionada.imagen_url} alt={inscripcionSeleccionada.titulo}
                   sx={{ width: '100%', height: { xs: 220, md: 260 }, objectFit: 'cover', borderRadius: '8px', mb: 2.5 }} />
@@ -317,7 +311,7 @@ const ConvocatoriasClubEntrenador = () => {
             </Box>
 
             {/* Columna derecha: datos de la inscripción */}
-            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 3, md: 5 }, boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+            <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', p: { xs: 3, md: 5 }, boxShadow: '0 2px 12px #80002012' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 1 }}>
                 <Box>
                   <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.burgundy, mb: 1 }}>{inscripcionSeleccionada?.titulo}</Typography>
@@ -325,7 +319,7 @@ const ConvocatoriasClubEntrenador = () => {
                 </Box>
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3, mt: 3, mb: 4 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: { xs: 2, sm: 3 }, mt: 3, mb: 4 }}>
                 <Box>
                   <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Disciplina</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.ink }}>{inscripcionSeleccionada?.disciplina}</Typography>

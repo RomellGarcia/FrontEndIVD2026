@@ -16,9 +16,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 // Paleta de colores institucional
 const COLORS = {
-  burgundy: '#800020', burgundyDark: '#5C0017', purple: '#7A4069',
+  burgundy: '#800020', purple: '#7A4069',
   cream: '#e4e4e5', paper: '#FFFFFF', ink: '#2B1E1E',
-  line: 'rgba(128,0,32,0.18)', lineSoft: 'rgba(128,0,32,0.08)',
+  line: '#8000202E', lineSoft: '#80002014',
 };
 
 const estilosCabeceraTabla = { fontWeight: 700, color: '#fff', fontSize: '0.72rem', textTransform: 'uppercase', py: 2 };
@@ -37,11 +37,6 @@ const formatearFechaLarga = (fecha) =>
 const formatearFechaCorta = (fecha) =>
   fecha ? new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-/**
- * "Convocatorias" del entrenador — mismo diseño que ConvocatoriaClub.jsx,
- * pero SOLO lectura: no hay flujo de inscripción, el entrenador únicamente
- * puede consultar el detalle de cada convocatoria abierta.
- */
 const ConvocatoriaEntrenador = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -154,7 +149,7 @@ const ConvocatoriaEntrenador = () => {
           <Typography sx={{ opacity: 0.7, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
             IVD · Panel de Entrenador
           </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Convocatorias
           </Typography>
           <Typography sx={{ opacity: 0.75, mt: 0.5, mb: 2 }}>
@@ -166,32 +161,32 @@ const ConvocatoriaEntrenador = () => {
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
         <Box
           sx={{
-            mt: -6, mb: 4, bgcolor: COLORS.paper, borderRadius: '10px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.14)', display: 'grid',
+            mt: { xs: -5, md: -6 }, mb: { xs: 3, md: 4 }, bgcolor: COLORS.paper, borderRadius: '10px',
+            boxShadow: '0 10px 28px #00000024', display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)', overflow: 'hidden',
           }}
         >
-          <Box sx={{ p: 2.5, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
+          <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center', borderRight: `1px solid ${COLORS.line}` }}>
             <Box sx={{ color: COLORS.burgundy, mb: 0.5, display: 'flex', justifyContent: 'center' }}>
               <ListAltIcon sx={{ fontSize: 24 }} />
             </Box>
-            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.2rem', md: '1.6rem' } }}>
               {convocatoriasDisponibles.length}
             </Typography>
             <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Convocatorias</Typography>
           </Box>
-          <Box sx={{ p: 2.5, textAlign: 'center' }}>
+          <Box sx={{ p: { xs: 1.5, md: 2.5 }, textAlign: 'center' }}>
             <Box sx={{ color: COLORS.purple, mb: 0.5, display: 'flex', justifyContent: 'center' }}>
               <EventIcon sx={{ fontSize: 24 }} />
             </Box>
-            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: '1.6rem' }}>{totalAbiertas}</Typography>
+            <Typography sx={{ fontWeight: 800, color: COLORS.ink, fontSize: { xs: '1.2rem', md: '1.6rem' } }}>{totalAbiertas}</Typography>
             <Typography sx={{ fontSize: '0.72rem', color: COLORS.ink, fontWeight: 700 }}>Abiertas</Typography>
           </Box>
         </Box>
 
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-        <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px rgba(128,0,32,0.07)', p: 2.5, mb: 3 }}>
+        <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012', p: 2.5, mb: 3 }}>
           <Typography sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: COLORS.burgundy, fontWeight: 800, mb: 1.5 }}>
             <FilterIcon fontSize="small" /> Filtrar convocatorias
           </Typography>
@@ -254,12 +249,13 @@ const ConvocatoriaEntrenador = () => {
             </Typography>
           </Box>
         ) : (
-          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(128,0,32,0.07)' }}>
+          <Box sx={{ bgcolor: COLORS.paper, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 12px #80002012' }}>
+            <Box sx={{ overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: COLORS.burgundy }}>
                   {['Evento', 'Disciplina', 'Categoría', 'Género', 'Fecha', 'Estado', 'Detalle'].map((h) => (
-                    <TableCell key={h} sx={estilosCabeceraTabla}>{h}</TableCell>
+                    <TableCell key={h} sx={{ ...estilosCabeceraTabla, whiteSpace: 'nowrap' }}>{h}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
@@ -267,19 +263,19 @@ const ConvocatoriaEntrenador = () => {
                 {convocatoriasPaginadas.map((convocatoria) => (
                   <TableRow key={convocatoria.convocatoria_id} hover>
                     <TableCell sx={{ borderColor: COLORS.line }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{convocatoria.titulo}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>{convocatoria.titulo}</Typography>
                       <Typography variant="caption" sx={{ color: COLORS.purple, display: 'flex', alignItems: 'center', gap: 0.4 }}>
                         <LocationIcon sx={{ fontSize: 12 }} /> {convocatoria.lugar}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{convocatoria.disciplina}</TableCell>
+                    <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, whiteSpace: 'nowrap' }}>{convocatoria.disciplina}</TableCell>
                     <TableCell sx={{ borderColor: COLORS.line }}>
                       <Chip label={convocatoria.categoria} size="small" sx={{ border: `1px solid ${COLORS.purple}`, bgcolor: 'transparent', color: COLORS.purple }} />
                     </TableCell>
                     <TableCell sx={{ borderColor: COLORS.line }}>
                       <Chip label={textoGenero(convocatoria.genero)} size="small" sx={{ border: `1px solid ${COLORS.line}`, bgcolor: 'transparent', color: COLORS.ink }} />
                     </TableCell>
-                    <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{formatearFechaCorta(convocatoria.fecha)}</TableCell>
+                    <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, whiteSpace: 'nowrap' }}>{formatearFechaCorta(convocatoria.fecha)}</TableCell>
                     <TableCell sx={{ borderColor: COLORS.line }}>
                       <Chip
                         label={inscripcionAbierta(convocatoria) ? 'Abierta' : 'Cerrada'}
@@ -300,6 +296,7 @@ const ConvocatoriaEntrenador = () => {
                 ))}
               </TableBody>
             </Table>
+            </Box>
             {convocatoriasFiltradas.length > registrosPorPagina && (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                 <Pagination count={Math.ceil(convocatoriasFiltradas.length / registrosPorPagina)} page={pagina} onChange={(e, v) => setPagina(v)} />
@@ -327,7 +324,7 @@ const ConvocatoriaEntrenador = () => {
                 <Typography sx={{ fontWeight: 700, color: COLORS.ink }}>{convocatoriaDetalle.titulo}</Typography>
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                 <Box>
                   <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase' }}>Disciplina</Typography>
                   <Typography sx={{ color: COLORS.ink }}>{convocatoriaDetalle.disciplina}</Typography>

@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Container, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow,
   IconButton, Alert, Chip, Avatar, CircularProgress, Card, CardContent, Grid,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl,
-  InputLabel, Select, MenuItem, Chip as MuiChip
+  Dialog, DialogTitle, DialogContent, DialogActions, Button
 } from '@mui/material';
 import {
   Person as PersonIcon, Email as EmailIcon, Phone as PhoneIcon, 
-  LocationOn as LocationIcon, CalendarToday as CalendarIcon, 
-  Visibility as VisibilityIcon, Edit as EditIcon, 
-  TrendingUp as TrendingUpIcon, Sports as SportsIcon
+  CalendarToday as CalendarIcon, 
+  Visibility as VisibilityIcon, 
+  Sports as SportsIcon
 } from '@mui/icons-material';
-import axios from 'axios';
 import { entrenadorAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -24,7 +22,7 @@ const GestionarAtletas = () => {
   const [atletas, setAtletas] = useState([]);
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [selectedAtleta, setSelectedAtleta] = useState(null);
-  const [viewMode, setViewMode] = useState('table'); // 'table' or 'cards'
+  const [viewMode, setViewMode] = useState('table');
 
   useEffect(() => {
     if (user) {
@@ -35,15 +33,10 @@ const GestionarAtletas = () => {
   const cargarAtletas = async () => {
     try {
       setLoading(true);
-      console.log('Cargando atletas para entrenador:', user.id);
-      console.log('Usuario actual:', user);
-      
       const response = await entrenadorAPI.getAtletas();
-      console.log('Respuesta del servidor:', response.data);
       setAtletas(response.data);
     } catch (error) {
       console.error('Error al cargar atletas:', error);
-      console.error('Detalles del error:', error.response?.data);
       setError('Error al cargar los atletas asignados');
     } finally {
       setLoading(false);
@@ -88,7 +81,7 @@ const GestionarAtletas = () => {
     // Lógica para determinar el estado del atleta
     if (atleta.estado === 'activo') return 'Activo';
     if (atleta.estado === 'inactivo') return 'Inactivo';
-    return 'Activo'; // Por defecto
+    return 'Activo';
   };
 
   if (loading) {
@@ -109,8 +102,8 @@ const GestionarAtletas = () => {
           }
         `}
       </style>
-      <Container maxWidth="xl" sx={{ py: 4, background: '#F5E8C7', minHeight: '100vh' }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, px: { xs: 2, sm: 3 }, background: '#F5E8C7', minHeight: '100vh' }}>
+      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#800020', fontWeight: 'bold', mb: 4, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
         Gestionar Atletas Asignados
       </Typography>
 
@@ -121,7 +114,7 @@ const GestionarAtletas = () => {
       )}
 
       {/* Header con estadísticas */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 1.5 }}>
         <Typography variant="h6" sx={{ color: '#7A4069' }}>
           Total de Atletas: {atletas.length}
         </Typography>
