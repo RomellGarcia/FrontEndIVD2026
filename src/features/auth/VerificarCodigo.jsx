@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import {
-  Box, Typography, Container, Button, TextField, CircularProgress, IconButton, InputAdornment,
+  Box, Typography, Container, Button, TextField, CircularProgress,
 } from '@mui/material';
 import {
-  LockReset as LockResetIcon, ArrowBack as ArrowBackIcon,
-  Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon,
-  CheckCircle as CheckIcon, Cancel as CancelIcon,
+  Pin as PinIcon, ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { recuperarAPI } from '../../api/index.js';
 
@@ -20,61 +18,25 @@ const COLORS = {
 
 const cardSx = { bgcolor: COLORS.paper, borderRadius: '10px', boxShadow: '0 2px 12px #80002012' };
 
-// Componente para mostrar requisitos de contraseña
-const RequisitoPassword = ({ cumple, texto }) => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-    {cumple
-      ? <CheckIcon sx={{ fontSize: 16, color: COLORS.burgundy }} />
-      : <CancelIcon sx={{ fontSize: 16, color: COLORS.ink, opacity: 0.35 }} />}
-    <Typography variant="caption" sx={{ color: cumple ? COLORS.burgundy : COLORS.ink, opacity: cumple ? 1 : 0.6, fontWeight: cumple ? 700 : 400 }}>
-      {texto}
-    </Typography>
-  </Box>
-);
-
-const RestablecerPassword = () => {
-  const [nuevaContraseña, setNuevaContraseña] = useState('');
-  const [confirmarContraseña, setConfirmarContraseña] = useState('');
+const VerificarCodigo = () => {
+  const [codigo, setCodigo] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [mostrarNuevaContraseña, setMostrarNuevaContraseña] = useState(false);
-  const [mostrarConfirmarContraseña, setMostrarConfirmarContraseña] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { gmail, code } = location.state || {};
+  const { gmail } = location.state || {};
 
-  const cumpleLongitud = nuevaContraseña.length >= 6;
-  const coinciden = nuevaContraseña.length > 0 && nuevaContraseña === confirmarContraseña;
-
-  // Envía la nueva contraseña para restablecerla
-  const manejarEnvio = async (e) => {
+  // Verifica el código de 6 dígitos enviado al correo
+  const manejarVerificacion = async (e) => {
     e.preventDefault();
-    if (!nuevaContraseña || !confirmarContraseña) {
-      Swal.fire({ icon: 'error', title: 'Campos vacíos', text: 'Completa ambos campos.', confirmButtonColor: COLORS.burgundy });
-      return;
-    }
-    if (!cumpleLongitud) {
-      Swal.fire({ icon: 'error', title: 'Contraseña débil', text: 'La contraseña debe tener al menos 6 caracteres.', confirmButtonColor: COLORS.burgundy });
-      return;
-    }
-    if (!coinciden) {
-      Swal.fire({ icon: 'error', title: 'No coinciden', text: 'Las contraseñas no coinciden.', confirmButtonColor: COLORS.burgundy });
-      return;
-    }
     setCargando(true);
     try {
-      await recuperarAPI.resetPassword({ gmail, code, newPassword: nuevaContraseña });
-      Swal.fire({
-        icon: 'success',
-        title: 'Contraseña restablecida',
-        text: 'Tu contraseña fue actualizada. Ya puedes iniciar sesión.',
-        confirmButtonColor: COLORS.burgundy,
-      });
-      navigate('/login');
+      await recuperarAPI.verifyCode({ gmail, code: codigo });
+      navigate('/restablecer-password', { state: { gmail, code: codigo } });
     } catch (error) {
       Swal.fire({
         icon: 'error',
-        title: 'Error',
-        text: error.response?.data?.error || 'No se pudo restablecer la contraseña. Intenta de nuevo.',
+        title: 'Código incorrecto',
+        text: error.response?.data?.error || 'El código no es válido o ya expiró.',
         confirmButtonColor: COLORS.burgundy,
       });
     } finally {
@@ -82,7 +44,8 @@ const RestablecerPassword = () => {
     }
   };
 
-  if (!gmail || !code) {
+  // Si se llega a esta pantalla sin haber pedido un código, se redirige al paso inicial
+  if (!gmail) {
     return (
       <Box sx={{ bgcolor: COLORS.cream, minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
         <Container maxWidth="sm">
@@ -108,7 +71,7 @@ const RestablecerPassword = () => {
         <Container maxWidth="sm" sx={{ textAlign: 'center', px: { xs: 2, sm: 3 } }}>
           <Button
             startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/verificar-codigo', { state: { gmail } })}
+            onClick={() => navigate('/recuperar-correo')}
             sx={{ color: '#fff', mb: 2, textTransform: 'none', fontWeight: 700, opacity: 0.9, '&:hover': { opacity: 1, bgcolor: '#FFFFFF1A' } }}
           >
             Volver
@@ -117,85 +80,47 @@ const RestablecerPassword = () => {
             IVD · Recuperar Acceso
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
-            Nueva Contraseña
+            Verificar Código
           </Typography>
           <Typography sx={{ opacity: 0.8, mt: 0.5 }}>
-            Paso 3 de 3 · Elige tu nueva contraseña
+            Paso 2 de 3 · Ingresa el código enviado a tu correo
           </Typography>
         </Container>
       </Box>
 
       <Container maxWidth="sm" sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 5, md: 7 } }}>
-        <Box sx={{ ...cardSx, mt: { xs: -4, md: -5 }, p: { xs: 3, md: 5 } }}>
+        <Box sx={{ ...cardSx, mt: { xs: -4, md: -5 }, p: { xs: 3, md: 5 }, textAlign: 'center' }}>
           <Box sx={{
             width: 72, height: 72, borderRadius: '50%', bgcolor: COLORS.lineSoft,
             display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 3,
           }}>
-            <LockResetIcon sx={{ fontSize: 36, color: COLORS.burgundy }} />
+            <PinIcon sx={{ fontSize: 36, color: COLORS.burgundy }} />
           </Box>
 
-          <Box component="form" onSubmit={manejarEnvio}>
+          <Typography variant="body1" sx={{ color: COLORS.ink, mb: 3 }}>
+            Revisa tu bandeja de entrada (y spam). El código tiene 6 dígitos.
+          </Typography>
+
+          <Box component="form" onSubmit={manejarVerificacion} sx={{ textAlign: 'left' }}>
             <TextField
               fullWidth
-              type={mostrarNuevaContraseña ? 'text' : 'password'}
-              label="Nueva contraseña"
-              value={nuevaContraseña}
-              onChange={(e) => setNuevaContraseña(e.target.value)}
+              type="text"
+              label="Código de 6 dígitos"
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
               required
               autoFocus
-              sx={{ mb: 1.5 }}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => setMostrarNuevaContraseña((v) => !v)} edge="end" size="small">
-                        {mostrarNuevaContraseña ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
+              inputProps={{ inputMode: 'numeric', maxLength: 6 }}
+              sx={{ mb: 3 }}
             />
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 2.5, pl: 0.5 }}>
-              <RequisitoPassword cumple={cumpleLongitud} texto="Al menos 6 caracteres" />
-            </Box>
-
-            <TextField
-              fullWidth
-              type={mostrarConfirmarContraseña ? 'text' : 'password'}
-              label="Confirmar contraseña"
-              value={confirmarContraseña}
-              onChange={(e) => setConfirmarContraseña(e.target.value)}
-              required
-              sx={{ mb: 1.5 }}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => setMostrarConfirmarContraseña((v) => !v)} edge="end" size="small">
-                        {mostrarConfirmarContraseña ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-
-            {confirmarContraseña.length > 0 && (
-              <Box sx={{ mb: 2.5, pl: 0.5 }}>
-                <RequisitoPassword cumple={coinciden} texto="Las contraseñas coinciden" />
-              </Box>
-            )}
-
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              disabled={cargando}
-              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700, textTransform: 'none', py: 1.4, mt: 1 }}
+              disabled={cargando || codigo.length !== 6}
+              sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700, textTransform: 'none', py: 1.4 }}
             >
-              {cargando ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Restablecer contraseña'}
+              {cargando ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Verificar código'}
             </Button>
           </Box>
         </Box>
@@ -204,4 +129,4 @@ const RestablecerPassword = () => {
   );
 };
 
-export default RestablecerPassword;
+export default VerificarCodigo;

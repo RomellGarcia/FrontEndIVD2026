@@ -18,7 +18,7 @@ import Login from './features/auth/Login.jsx'
 import Registro from './features/auth/Registro.jsx'
 import RecuperarCorreo from './features/auth/EnviarCorreo.jsx'
 import VerificarCodigo from './features/auth/VerificarCodigo.jsx'
-import RestablecerPassword from './features/auth/EnviarCorreo.jsx'
+import RestablecerPassword from './features/auth/RestablecerPassword.jsx'
 
 // Contenido compartido
 import PoliticasPCA from './components/common/PoliticasPCA.jsx'
