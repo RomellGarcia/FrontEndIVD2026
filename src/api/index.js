@@ -57,9 +57,7 @@ export const recuperarAPI = {
 
 export const perfilEmpresaAPI = {
   get: () => api.get('/perfil-empresa'),
-  create: (data) => api.post('/perfil-empresa', data),
   update: (data) => api.put('/perfil-empresa', data),
-  remove: () => api.delete('/perfil-empresa'),
 }
 
 export const adminsAPI = {
