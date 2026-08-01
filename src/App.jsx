@@ -39,6 +39,7 @@ import Reportes from './features/admin/Reportes.jsx'
 import GestionClubes from './features/admin/GestionarClubes.jsx'
 import GestionarAtletasAdmin from './features/admin/GestionarUsuarios.jsx'
 import GestionContenido from './features/admin/GestionarContenido.jsx'
+import PerfilAdministrador from './features/admin/PerfilAdministrador.jsx'
 
 // Módulos Atleta
 import PerfilAtleta from './features/atleta/PerfilAtleta.jsx'
@@ -98,6 +99,7 @@ const App = () => {
           <Route path="/administrador/visionpca" element={<LayoutConEncabezado><VisionPCA /></LayoutConEncabezado>} />
           <Route path="/administrador/misionpca" element={<LayoutConEncabezado><MisionPCA /></LayoutConEncabezado>} />
           <Route path="/administrador/contenido" element={<LayoutConEncabezado><GestionContenido /></LayoutConEncabezado>} />
+          <Route path="/administrador/perfil" element={<LayoutConEncabezado><PerfilAdministrador /></LayoutConEncabezado>} />
 
           {/* Rutas Atleta */}
           <Route path="/atleta" element={<LayoutConEncabezado><PaginaPrincipalAtleta /></LayoutConEncabezado>} />
