@@ -10,7 +10,7 @@ import {
   LocationOn as LocationIcon, School as SchoolIcon,
   FitnessCenter as FitnessIcon,
 } from '@mui/icons-material';
-import { clubesAPI, eventosAPI } from '../api/index.js';
+import { clubesAPI, entrenadorAPI } from '../api/index.js';
 import { useAuth } from '../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
@@ -153,13 +153,12 @@ const PaginaPrincipalEntrenador = () => {
       }
 
       try {
-        const eventosRes = await eventosAPI.getAll();
-        const todos = eventosRes.data.eventos || eventosRes.data || [];
-        const futuros = todos
-          .filter(e => new Date(e.fecha) >= new Date())
-          .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-        setEventosProximos(futuros.slice(0, 5));
-        setEstadisticas(prev => ({ ...prev, eventosProximos: futuros.length }));
+        const [statsRes, actividadRes] = await Promise.all([
+          entrenadorAPI.getStats(),
+          entrenadorAPI.getActividad(),
+        ]);
+        setEventosProximos(actividadRes.data.actividad || []);
+        setEstadisticas(prev => ({ ...prev, eventosProximos: statsRes.data.stats?.eventos_proximos ?? 0 }));
       } catch {
         setEventosProximos([]);
         setEstadisticas(prev => ({ ...prev, eventosProximos: 0 }));
