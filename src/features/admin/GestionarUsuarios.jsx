@@ -42,7 +42,7 @@ import {
   School as CoachIcon,
   Badge as BadgeIcon,
 } from '@mui/icons-material';
-import { atletasAPI, entrenadoresAPI, clubesAPI, api } from '../../api/index.js';
+import { atletasAPI, entrenadoresAPI, clubesAPI, adminsAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
@@ -198,8 +198,8 @@ const GestionarUsuarios = () => {
       const [atletasRes, entrenadoresRes, adminsRes, clubesRes] = await Promise.all([
         atletasAPI.getAll(),
         entrenadoresAPI.getAll().catch(() => ({ data: { entrenadores: [] } })),
-        api.get('/admins').catch(() => ({ data: { admins: [] } })),
-        clubesAPI.getAll().catch(() => ({ data: { clubes: [] } })),
+        adminsAPI.getAll().catch(() => ({ data: { admins: [] } })),
+        adminsAPI.getAll().catch(() => ({ data: { admins: [] } })),
       ]);
 
       const atletas = atletasRes.data?.atletas || [];
