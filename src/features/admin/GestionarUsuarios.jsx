@@ -199,7 +199,7 @@ const GestionarUsuarios = () => {
         atletasAPI.getAll(),
         entrenadoresAPI.getAll().catch(() => ({ data: { entrenadores: [] } })),
         adminsAPI.getAll().catch(() => ({ data: { admins: [] } })),
-        adminsAPI.getAll().catch(() => ({ data: { admins: [] } })),
+        clubesAPI.getAll().catch(() => ({ data: { clubes: [] } })),
       ]);
 
       const atletas = atletasRes.data?.atletas || [];
