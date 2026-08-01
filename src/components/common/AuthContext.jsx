@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authAPI } from '../../api/index.js';
 
 const AuthContext = createContext();
 
@@ -34,7 +35,12 @@ export const AuthProvider = ({ children }) => {
     return user && user.id && user.nombre;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (err) {
+      console.error('No se pudo cerrar la sesión en el servidor:', err);
+    }
     setUser(null);
     sessionStorage.removeItem('user');
     sessionStorage.removeItem('token');
