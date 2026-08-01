@@ -48,24 +48,13 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
   };
 
-  // Al cargar la app, confirma con el backend que la sesión guardada sigue vigente.
-  // Solo cierra sesión si el servidor rechaza el token (401/403); ante fallas de
-  // red u otros errores, conserva la sesión local para no desloguear por mala conexión.
-  useEffect(() => {
-    const validarSesion = async () => {
+ useEffect(() => {
+    const handleStorageChange = () => {
       const storedUser = sessionStorage.getItem('user');
-      if (!storedUser) return;
-
-      try {
-        await authAPI.me();
-      } catch (err) {
-        const status = err.response?.status;
-        if (status === 401 || status === 403) {
-          logout();
-        }
-      }
+      setUser(storedUser ? JSON.parse(storedUser) : null);
     };
-    validarSesion();
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   return (
