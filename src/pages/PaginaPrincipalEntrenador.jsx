@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   People as PeopleIcon, Event as EventIcon,
-  Assessment as AssessmentIcon, Group as GroupIcon, CalendarToday as CalendarIcon,
+  Group as GroupIcon, CalendarToday as CalendarIcon,
   LocationOn as LocationIcon, School as SchoolIcon,
   FitnessCenter as FitnessIcon,
 } from '@mui/icons-material';
@@ -80,32 +80,6 @@ const ChipEstado = ({ label, positivo = true, sx = {} }) => (
   />
 );
 
-// Tarjeta de acción rápida
-const TarjetaAccion = ({ icon, title, subtitle, accent, onClick }) => (
-  <Box
-    onClick={onClick}
-    sx={{
-      bgcolor: COLORS.paper,
-      borderRadius: '10px',
-      border: `1px solid ${COLORS.line}`,
-      boxShadow: '0 2px 10px #8000200F',
-      cursor: 'pointer',
-      display: 'flex', alignItems: 'center', gap: 2,
-      p: 2.25,
-      transition: 'box-shadow .15s ease',
-      '&:hover': { boxShadow: '0 4px 16px #80002021' },
-    }}
-  >
-    <Avatar sx={{ bgcolor: accent, width: 44, height: 44 }}>
-      {React.cloneElement(icon, { sx: { fontSize: 22 } })}
-    </Avatar>
-    <Box>
-      <Typography sx={{ fontWeight: 700, color: COLORS.ink, fontSize: '0.9rem' }}>{title}</Typography>
-      <Typography sx={{ fontSize: '0.75rem', color: COLORS.purple }}>{subtitle}</Typography>
-    </Box>
-  </Box>
-);
-
 // Formatea fecha en formato corto
 const formatearFecha = (fecha) => {
   if (!fecha) return '—';
@@ -122,6 +96,7 @@ const PaginaPrincipalEntrenador = () => {
   const [infoClub, setInfoClub] = useState(null);
   const [atletasDelClub, setAtletasDelClub] = useState([]);
   const [eventosProximos, setEventosProximos] = useState([]);
+  const [perfilEntrenador, setPerfilEntrenador] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated()) { navigate('/login', { replace: true }); return; }
@@ -162,6 +137,13 @@ const PaginaPrincipalEntrenador = () => {
       } catch {
         setEventosProximos([]);
         setEstadisticas(prev => ({ ...prev, eventosProximos: 0 }));
+      }
+
+      try {
+        const perfilRes = await entrenadorAPI.getPerfil();
+        setPerfilEntrenador(perfilRes.data.entrenador || null);
+      } catch {
+        setPerfilEntrenador(null);
       }
     } catch (err) {
       console.error('Error al cargar datos:', err);
@@ -248,31 +230,6 @@ const PaginaPrincipalEntrenador = () => {
           ))}
         </Box>
 
-        {/* Acciones rápidas */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: { xs: 3, md: 4 } }}>
-          <TarjetaAccion
-            icon={<GroupIcon />}
-            title="Gestionar Atletas"
-            subtitle="Ver y administrar atletas asignados"
-            accent={COLORS.burgundy}
-            onClick={() => navigate('/entrenador/gestionar-atletas')}
-          />
-          <TarjetaAccion
-            icon={<EventIcon />}
-            title="Ver Eventos"
-            subtitle="Consultar competencias y calendario"
-            accent={COLORS.purple}
-            onClick={() => navigate('/entrenador/eventos')}
-          />
-          <TarjetaAccion
-            icon={<AssessmentIcon />}
-            title="Ver Reportes"
-            subtitle="Análisis de rendimiento del equipo"
-            accent={COLORS.burgundy}
-            onClick={() => navigate('/entrenador/reportes')}
-          />
-        </Box>
-
         {/* Contenido principal */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 } }}>
           {/* Atletas del club */}
@@ -349,10 +306,10 @@ const PaginaPrincipalEntrenador = () => {
                 Especialidades
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: .8 }}>
-                {user?.especialidades?.length > 0 ? (
-                  user.especialidades.map((esp, i) => (
+                {perfilEntrenador?.especialidades?.length > 0 ? (
+                  perfilEntrenador.especialidades.map((esp) => (
                     <Chip
-                      key={i} label={esp} size="small"
+                      key={esp.id} label={esp.nombre} size="small"
                       icon={<FitnessIcon sx={{ fontSize: 14, color: `${COLORS.burgundy} !important` }} />}
                       sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.burgundy}`, color: COLORS.burgundy, fontWeight: 600 }}
                     />
@@ -368,10 +325,10 @@ const PaginaPrincipalEntrenador = () => {
                 Certificaciones
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: .8 }}>
-                {user?.certificaciones?.length > 0 ? (
-                  user.certificaciones.map((cert, i) => (
+                {perfilEntrenador?.certificaciones?.length > 0 ? (
+                  perfilEntrenador.certificaciones.map((cert) => (
                     <Chip
-                      key={i} label={cert} size="small"
+                      key={cert.id} label={cert.nombre} size="small"
                       icon={<SchoolIcon sx={{ fontSize: 14, color: `${COLORS.purple} !important` }} />}
                       sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
                     />
@@ -387,7 +344,7 @@ const PaginaPrincipalEntrenador = () => {
                 Años de Experiencia
               </Typography>
               <Typography sx={{ color: COLORS.ink, fontWeight: 800, fontSize: '1.4rem' }}>
-                {user?.anos_experiencia || user?.añosExperiencia || '—'}
+                {perfilEntrenador?.anos_experiencia || '—'}
                 <Typography component="span" variant="body2" sx={{ color: COLORS.purple, ml: .5 }}>años</Typography>
               </Typography>
             </Box>
@@ -396,7 +353,7 @@ const PaginaPrincipalEntrenador = () => {
               <Typography sx={{ fontSize: '0.65rem', color: COLORS.purple, fontWeight: 700, textTransform: 'uppercase', mb: .5 }}>
                 Estado
               </Typography>
-              <ChipEstado label={user?.estado || 'Activo'} positivo />
+              <ChipEstado label={perfilEntrenador?.estado || 'Activo'} positivo />
             </Box>
           </Box>
         </TarjetaSeccion>
