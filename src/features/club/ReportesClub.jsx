@@ -351,7 +351,7 @@ const ReportesClub = () => {
 
                     {/* Mejor marca por disciplina */}
                     <Box sx={{ mb: 4 }}>
-                        <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 0.5 }}>
+                        <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
                             {filtros.disciplina ? 'Mejor Marca por Categoría' : 'Mejor Marca por Disciplina'}
                         </Typography>
 
