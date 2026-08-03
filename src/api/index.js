@@ -99,7 +99,6 @@ export const entrenadorAPI = {
   updatePerfil: (data) => api.put('/entrenador/perfil', data),
   getStats: () => api.get('/entrenador/stats'),
   getActividad: () => api.get('/entrenador/actividad'),
-  getAtletas: () => api.get('/entrenador/atletas'),
   getSolicitudes: () => api.get('/entrenador/solicitudes'),
   solicitarClub: (data) => api.post('/entrenador/solicitar-club', data),
   getCertificacionesSugeridas: () => api.get('/entrenador/certificaciones-sugeridas'),
