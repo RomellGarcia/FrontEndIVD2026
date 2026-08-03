@@ -330,7 +330,7 @@ const PaginaPrincipalAtleta = () => {
     setEstadisticas({
       totalEventos: participaciones.length,
       eventosGanados,
-      sesionesCompletadas: 0,
+      sesionesCompletadas: mejorPosPorEvento.size,
       clubActual: atleta.club_nombre || 'Sin club',
     });
   };
@@ -425,7 +425,7 @@ const PaginaPrincipalAtleta = () => {
           {[
             { icon: <EventIcon sx={{ fontSize: 24 }} />, value: estadisticas.totalEventos, label: 'Eventos Participados' },
             { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: estadisticas.eventosGanados, label: 'Victorias' },
-            { icon: <RunIcon sx={{ fontSize: 24 }} />, value: estadisticas.sesionesCompletadas, label: 'Sesiones Completadas' },
+            { icon: <RunIcon sx={{ fontSize: 24 }} />, value: estadisticas.sesionesCompletadas, label: 'Eventos Completados' },
             { icon: <GroupIcon sx={{ fontSize: 24 }} />, value: estadisticas.clubActual, label: 'Club Actual' },
           ].map((s, i) => (
             <Box
