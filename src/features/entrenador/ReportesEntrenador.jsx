@@ -8,7 +8,7 @@ import {
 import {
   Download as DownloadIcon, FilterList as FilterIcon,
   Visibility as VisibilityIcon, TrendingUp as TrendingUpIcon, People as PeopleIcon,
-  EmojiEvents as TrophyIcon, MilitaryTech as MedalIcon,
+  EmojiEvents as TrophyIcon,
 } from '@mui/icons-material';
 import { resultadosAPI, entrenadorAPI, catalogosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
@@ -142,6 +142,7 @@ const ReportesEntrenador = () => {
       setCargandoMarcas(true);
       const res = await resultadosAPI.getMejoresMarcas({
         categoria: filtros.categoria || undefined,
+        disciplina: filtros.disciplina || undefined,
         club: nombreClub || undefined,
         ano_competitivo: filtros.ano_competitivo || undefined,
         genero: filtros.genero || undefined,
@@ -262,262 +263,264 @@ const ReportesEntrenador = () => {
             </Typography>
           </Box>
         ) : (
-        <>
-        {/* Tarjeta de estadísticas (flotante) */}
-        <Box
-          sx={{
-            mt: { xs: -5, md: -6 }, mb: 4,
-            bgcolor: '#fff', borderRadius: '10px',
-            boxShadow: '0 10px 28px #00000024',
-            display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' },
-            overflow: 'hidden',
-          }}
-        >
-          {[
-            { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: resultados.length, label: 'Total de Resultados', accent: COLORS.burgundy },
-            { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: atletasDistintos, label: 'Atletas del Club', accent: COLORS.purple },
-            { icon: <TrendingUpIcon sx={{ fontSize: 24 }} />, value: disciplinasDistintas, label: 'Disciplinas', accent: COLORS.burgundy },
-          ].map((s, i) => (
-            <Box key={i} sx={{
-              p: { xs: 2, md: 2.75 }, textAlign: 'center',
-              borderRight: { sm: i < 2 ? `1px solid ${COLORS.line}` : 'none' },
-              borderBottom: { xs: i < 1 ? `1px solid ${COLORS.line}` : 'none', sm: 'none' },
-            }}>
-              <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
-              <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>{s.value}</Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+          <>
+            {/* Tarjeta de estadísticas (flotante) */}
+            <Box
+              sx={{
+                mt: { xs: -5, md: -6 }, mb: 4,
+                bgcolor: '#fff', borderRadius: '10px',
+                boxShadow: '0 10px 28px #00000024',
+                display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' },
+                overflow: 'hidden',
+              }}
+            >
+              {[
+                { icon: <TrophyIcon sx={{ fontSize: 24 }} />, value: resultados.length, label: 'Total de Resultados', accent: COLORS.burgundy },
+                { icon: <PeopleIcon sx={{ fontSize: 24 }} />, value: atletasDistintos, label: 'Atletas del Club', accent: COLORS.purple },
+                { icon: <TrendingUpIcon sx={{ fontSize: 24 }} />, value: disciplinasDistintas, label: 'Disciplinas', accent: COLORS.burgundy },
+              ].map((s, i) => (
+                <Box key={i} sx={{
+                  p: { xs: 2, md: 2.75 }, textAlign: 'center',
+                  borderRight: { sm: i < 2 ? `1px solid ${COLORS.line}` : 'none' },
+                  borderBottom: { xs: i < 1 ? `1px solid ${COLORS.line}` : 'none', sm: 'none' },
+                }}>
+                  <Box sx={{ color: s.accent, mb: 0.5, display: 'flex', justifyContent: 'center' }}>{s.icon}</Box>
+                  <Typography sx={{ fontWeight: 800, color: COLORS.ink, lineHeight: 1.1, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>{s.value}</Typography>
+                  <Typography sx={{ fontSize: '0.68rem', color: COLORS.ink, fontWeight: 700, mt: 0.2 }}>{s.label}</Typography>
+                </Box>
+              ))}
             </Box>
-          ))}
-        </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setError('')}>{error}</Alert>
-        )}
+            {error && (
+              <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setError('')}>{error}</Alert>
+            )}
 
-        {/* Filtros */}
-        <Box sx={{ ...cardSx, p: { xs: 2, sm: 3 }, mb: 3 }}>
-          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FilterIcon /> Filtros de Búsqueda
-          </Typography>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, alignItems: 'end' }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Categoría</InputLabel>
-              <Select
-                value={filtros.categoria}
-                onChange={(e) => setFiltros(prev => ({ ...prev, categoria: e.target.value }))}
-                label="Categoría"
-              >
-                <MenuItem value="">Todas las categorías</MenuItem>
-                {categorias.map((cat) => (
-                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Disciplina</InputLabel>
-              <Select
-                value={filtros.disciplina}
-                onChange={(e) => setFiltros(prev => ({ ...prev, disciplina: e.target.value }))}
-                label="Disciplina"
-              >
-                <MenuItem value="">Todas las disciplinas</MenuItem>
-                {disciplinas.map((disc) => (
-                  <MenuItem key={disc} value={disc}>{disc}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              fullWidth
-              size="small"
-              label="Año Competitivo"
-              type="number"
-              value={filtros.ano_competitivo}
-              onChange={(e) => setFiltros(prev => ({ ...prev, ano_competitivo: e.target.value }))}
-              inputProps={{ min: 2020, max: 2030 }}
-            />
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Género</InputLabel>
-              <Select
-                value={filtros.genero}
-                onChange={(e) => setFiltros(prev => ({ ...prev, genero: e.target.value }))}
-                label="Género"
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="masculino">Masculino</MenuItem>
-                <MenuItem value="femenino">Femenino</MenuItem>
-                <MenuItem value="mixto">Mixto</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-            <Button variant="outlined" onClick={limpiarFiltros} size="small" sx={{ color: COLORS.purple, borderColor: COLORS.purple }}>
-              Limpiar filtros
-            </Button>
-          </Box>
-        </Box>
-
-        {/* Mejor marca por disciplina (obtenida del backend) */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <MedalIcon /> Mejor Marca por Disciplina
-          </Typography>
-          <Typography variant="body2" sx={{ color: COLORS.purple, mb: 2 }}>
-            El atleta con la mejor marca en cada disciplina/categoría/género, dentro de los filtros de arriba — para saber a quién convocar.
-          </Typography>
-
-          {cargandoMarcas ? (
-            <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
-              <CircularProgress size={28} sx={{ color: COLORS.burgundy }} />
-            </Box>
-          ) : mejoresMarcas.length === 0 ? (
-            <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
-              <Typography variant="body2" sx={{ color: COLORS.purple, fontWeight: 700 }}>
-                No hay marcas registradas con los filtros actuales.
+            {/* Filtros */}
+            <Box sx={{ ...cardSx, p: { xs: 2, sm: 3 }, mb: 3 }}>
+              <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FilterIcon /> Filtros de Búsqueda
               </Typography>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, alignItems: 'end' }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Categoría</InputLabel>
+                  <Select
+                    value={filtros.categoria}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, categoria: e.target.value }))}
+                    label="Categoría"
+                  >
+                    <MenuItem value="">Todas las categorías</MenuItem>
+                    {categorias.map((cat) => (
+                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel>Disciplina</InputLabel>
+                  <Select
+                    value={filtros.disciplina}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, disciplina: e.target.value }))}
+                    label="Disciplina"
+                  >
+                    <MenuItem value="">Todas las disciplinas</MenuItem>
+                    {disciplinas.map((disc) => (
+                      <MenuItem key={disc} value={disc}>{disc}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Año Competitivo"
+                  type="number"
+                  value={filtros.ano_competitivo}
+                  onChange={(e) => setFiltros(prev => ({ ...prev, ano_competitivo: e.target.value }))}
+                  inputProps={{ min: 2020, max: 2030 }}
+                />
+
+                <FormControl fullWidth size="small">
+                  <InputLabel>Género</InputLabel>
+                  <Select
+                    value={filtros.genero}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, genero: e.target.value }))}
+                    label="Género"
+                  >
+                    <MenuItem value="">Todos</MenuItem>
+                    <MenuItem value="masculino">Masculino</MenuItem>
+                    <MenuItem value="femenino">Femenino</MenuItem>
+                    <MenuItem value="mixto">Mixto</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <Button variant="outlined" onClick={limpiarFiltros} size="small" sx={{ color: COLORS.purple, borderColor: COLORS.purple }}>
+                  Limpiar filtros
+                </Button>
+              </Box>
             </Box>
-          ) : (
-            <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                      <TableCell sx={estilosCabeceraTabla}>Disciplina</TableCell>
-                      <TableCell sx={estilosCabeceraTabla}>Categoría</TableCell>
-                      <TableCell sx={estilosCabeceraTabla}>Género</TableCell>
-                      <TableCell sx={estilosCabeceraTabla}>Mejor marca</TableCell>
-                      <TableCell sx={estilosCabeceraTabla}>Atleta</TableCell>
-                      <TableCell sx={estilosCabeceraTabla}>Club</TableCell>
-                      <TableCell sx={estilosCabeceraTabla} align="center">Candidatos</TableCell>
-                      <TableCell sx={estilosCabeceraTabla} align="center">Ver más</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {mejoresMarcas.map((combo) => {
-                      const mejor = combo.mejorAtleta;
-                      const clave = `${combo.disciplina}|${combo.categoria}|${combo.genero}`;
-                      return (
-                        <TableRow key={clave} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{combo.disciplina}</TableCell>
+
+            {/* Mejor marca por disciplina (o por categoría, si ya se filtró a una sola disciplina) */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 0.5 }}>
+                {filtros.disciplina ? 'Mejor Marca por Categoría' : 'Mejor Marca por Disciplina'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: COLORS.purple, mb: 2 }}>
+                {filtros.disciplina
+                  ? `El atleta con la mejor marca en ${filtros.disciplina} por cada categoría/género, dentro de los filtros de arriba — para saber a quién convocar.`
+                  : 'El atleta con la mejor marca en cada disciplina/categoría/género, dentro de los filtros de arriba — para saber a quién convocar.'}
+              </Typography>
+
+              {cargandoMarcas ? (
+                <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
+                  <CircularProgress size={28} sx={{ color: COLORS.burgundy }} />
+                </Box>
+              ) : mejoresMarcas.length === 0 ? (
+                <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+                    No hay marcas registradas con los filtros actuales.
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ ...cardSx, overflow: 'hidden' }}>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                          <TableCell sx={estilosCabeceraTabla}>Disciplina</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Categoría</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Género</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Mejor marca</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Atleta</TableCell>
+                          <TableCell sx={estilosCabeceraTabla}>Club</TableCell>
+                          <TableCell sx={estilosCabeceraTabla} align="center">Candidatos</TableCell>
+                          <TableCell sx={estilosCabeceraTabla} align="center">Ver más</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {mejoresMarcas.map((combo) => {
+                          const mejor = combo.mejorAtleta;
+                          const clave = `${combo.disciplina}|${combo.categoria}|${combo.genero}`;
+                          return (
+                            <TableRow key={clave} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
+                              <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{combo.disciplina}</TableCell>
+                              <TableCell sx={{ borderColor: COLORS.line }}>
+                                <Chip label={combo.categoria} size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }} />
+                              </TableCell>
+                              <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{combo.genero}</TableCell>
+                              <TableCell sx={{ borderColor: COLORS.line }}>
+                                <Chip label={mejor.texto || '—'} size="small" sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }} />
+                              </TableCell>
+                              <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{mejor.nombre}</TableCell>
+                              <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{mejor.club_nombre}</TableCell>
+                              <TableCell sx={{ borderColor: COLORS.line }} align="center">{combo.totalCandidatos}</TableCell>
+                              <TableCell sx={{ borderColor: COLORS.line }} align="center">
+                                {combo.totalCandidatos > 1 && (
+                                  <Button size="small" onClick={() => setComboSeleccionado(combo)} sx={{ color: COLORS.burgundy, fontWeight: 700, textTransform: 'none' }}>
+                                    Ver top {Math.min(5, combo.totalCandidatos)}
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
+            </Box>
+
+            {/* Encabezado de resultados + exportar */}
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+              <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
+                Resultados Filtrados ({resultadosFiltrados.length})
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={exportarExcel}
+                disabled={resultadosFiltrados.length === 0}
+                sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700, textTransform: 'none' }}
+              >
+                Exportar a Excel
+              </Button>
+            </Box>
+
+            {/* Tabla de resultados */}
+            {resultadosFiltrados.length === 0 ? (
+              <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
+                <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
+                  <TrophyIcon sx={{ fontSize: 32, color: COLORS.purple }} />
+                </Avatar>
+                <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
+                  No hay resultados que coincidan con los filtros aplicados
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ ...cardSx, overflow: 'hidden' }}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: COLORS.burgundy }}>
+                        <TableCell sx={estilosCabeceraTabla}>Evento</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Atleta</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Categoría</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Lugar</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Club</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Año</TableCell>
+                        <TableCell sx={estilosCabeceraTabla}>Pruebas</TableCell>
+                        <TableCell sx={estilosCabeceraTabla} align="center">Acciones</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {resultadosFiltrados.map((resultado) => (
+                        <TableRow key={resultado.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
                           <TableCell sx={{ borderColor: COLORS.line }}>
-                            <Chip label={combo.categoria} size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }} />
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
+                              {resultado.evento_titulo || 'Evento no encontrado'}
+                            </Typography>
                           </TableCell>
-                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{combo.genero}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{obtenerNombreCompleto(resultado)}</TableCell>
                           <TableCell sx={{ borderColor: COLORS.line }}>
-                            <Chip label={mejor.texto || '—'} size="small" sx={{ bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }} />
+                            <Chip
+                              label={resultado.categoria || 'N/A'}
+                              size="small"
+                              sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
+                            />
                           </TableCell>
-                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink, fontWeight: 700 }}>{mejor.nombre}</TableCell>
-                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{mejor.club_nombre}</TableCell>
-                          <TableCell sx={{ borderColor: COLORS.line }} align="center">{combo.totalCandidatos}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <ChipPosicion posicion={resultado.posicion} />
+                          </TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.club_nombre || 'Independiente'}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.ano_competitivo}</TableCell>
+                          <TableCell sx={{ borderColor: COLORS.line }}>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {resultado.pruebas?.map((prueba, index) => (
+                                <Chip
+                                  key={index}
+                                  label={`${prueba.nombre}: ${prueba.marca}${prueba.unidad ? ' ' + prueba.unidad : ''}`}
+                                  size="small"
+                                  sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
+                                />
+                              ))}
+                            </Box>
+                          </TableCell>
                           <TableCell sx={{ borderColor: COLORS.line }} align="center">
-                            {combo.totalCandidatos > 1 && (
-                              <Button size="small" onClick={() => setComboSeleccionado(combo)} sx={{ color: COLORS.burgundy, fontWeight: 700, textTransform: 'none' }}>
-                                Ver top {Math.min(5, combo.totalCandidatos)}
-                              </Button>
-                            )}
+                            <IconButton size="small" onClick={() => manejarVerDetalles(resultado)} title="Ver detalles" sx={{ color: COLORS.burgundy }}>
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
                           </TableCell>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          )}
-        </Box>
-
-        {/* Encabezado de resultados + exportar */}
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-          <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800 }}>
-            Resultados Filtrados ({resultadosFiltrados.length})
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<DownloadIcon />}
-            onClick={exportarExcel}
-            disabled={resultadosFiltrados.length === 0}
-            sx={{ bgcolor: COLORS.burgundy, '&:hover': { bgcolor: COLORS.burgundyDark }, fontWeight: 700, textTransform: 'none' }}
-          >
-            Exportar a Excel
-          </Button>
-        </Box>
-
-        {/* Tabla de resultados */}
-        {resultadosFiltrados.length === 0 ? (
-          <Box sx={{ ...cardSx, textAlign: 'center', py: 6 }}>
-            <Avatar sx={{ bgcolor: COLORS.lineSoft, width: 64, height: 64, mx: 'auto', mb: 2 }}>
-              <TrophyIcon sx={{ fontSize: 32, color: COLORS.purple }} />
-            </Avatar>
-            <Typography variant="h6" sx={{ color: COLORS.purple, fontWeight: 700 }}>
-              No hay resultados que coincidan con los filtros aplicados
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ ...cardSx, overflow: 'hidden' }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: COLORS.burgundy }}>
-                    <TableCell sx={estilosCabeceraTabla}>Evento</TableCell>
-                    <TableCell sx={estilosCabeceraTabla}>Atleta</TableCell>
-                    <TableCell sx={estilosCabeceraTabla}>Categoría</TableCell>
-                    <TableCell sx={estilosCabeceraTabla}>Lugar</TableCell>
-                    <TableCell sx={estilosCabeceraTabla}>Club</TableCell>
-                    <TableCell sx={estilosCabeceraTabla}>Año</TableCell>
-                    <TableCell sx={estilosCabeceraTabla}>Pruebas</TableCell>
-                    <TableCell sx={estilosCabeceraTabla} align="center">Acciones</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {resultadosFiltrados.map((resultado) => (
-                    <TableRow key={resultado.id} hover sx={{ '&:hover': { bgcolor: COLORS.lineSoft } }}>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>
-                          {resultado.evento_titulo || 'Evento no encontrado'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{obtenerNombreCompleto(resultado)}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Chip
-                          label={resultado.categoria || 'N/A'}
-                          size="small"
-                          sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontWeight: 600 }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <ChipPosicion posicion={resultado.posicion} />
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.club_nombre || 'Independiente'}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line, color: COLORS.ink }}>{resultado.ano_competitivo}</TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }}>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {resultado.pruebas?.map((prueba, index) => (
-                            <Chip
-                              key={index}
-                              label={`${prueba.nombre}: ${prueba.marca}${prueba.unidad ? ' ' + prueba.unidad : ''}`}
-                              size="small"
-                              sx={{ bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }}
-                            />
-                          ))}
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ borderColor: COLORS.line }} align="center">
-                        <IconButton size="small" onClick={() => manejarVerDetalles(resultado)} title="Ver detalles" sx={{ color: COLORS.burgundy }}>
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-        )}
-        </>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+          </>
         )}
       </Container>
 
@@ -585,37 +588,37 @@ const ReportesEntrenador = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
           <Box sx={{ overflowX: 'auto' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: COLORS.lineSoft }}>
-                <TableCell sx={{ fontWeight: 700, color: COLORS.ink, width: 50 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Atleta</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Club</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Marca</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {comboSeleccionado?.candidatos.map((a, i) => (
-                <TableRow key={`${a.atleta_id}-${i}`}>
-                  <TableCell sx={{ fontWeight: 700, color: i === 0 ? COLORS.burgundy : COLORS.ink }}>{i + 1}°</TableCell>
-                  <TableCell sx={{ color: COLORS.ink, fontWeight: i === 0 ? 700 : 400, whiteSpace: 'nowrap' }}>{a.nombre}</TableCell>
-                  <TableCell sx={{ color: COLORS.ink, whiteSpace: 'nowrap' }}>{a.club_nombre}</TableCell>
-                  <TableCell>
-                    <Chip label={a.texto || '—'} size="small" sx={i === 0
-                      ? { bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }
-                      : { bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
-                  </TableCell>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: COLORS.lineSoft }}>
+                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink, width: 50 }}>#</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Atleta</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink, whiteSpace: 'nowrap' }}>Club</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: COLORS.ink }}>Marca</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {comboSeleccionado?.candidatos.map((a, i) => (
+                  <TableRow key={`${a.atleta_id}-${i}`}>
+                    <TableCell sx={{ fontWeight: 700, color: i === 0 ? COLORS.burgundy : COLORS.ink }}>{i + 1}°</TableCell>
+                    <TableCell sx={{ color: COLORS.ink, fontWeight: i === 0 ? 700 : 400, whiteSpace: 'nowrap' }}>{a.nombre}</TableCell>
+                    <TableCell sx={{ color: COLORS.ink, whiteSpace: 'nowrap' }}>{a.club_nombre}</TableCell>
+                    <TableCell>
+                      <Chip label={a.texto || '—'} size="small" sx={i === 0
+                        ? { bgcolor: COLORS.burgundy, color: '#fff', fontWeight: 700 }
+                        : { bgcolor: 'transparent', border: `1px solid ${COLORS.line}`, color: COLORS.ink }} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setComboSeleccionado(null)} sx={{ color: COLORS.purple, fontWeight: 600 }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Box >
   );
 };
 
