@@ -59,7 +59,6 @@ import Convocatoria from './features/club/ConvocatoriaClub.jsx'
 import MisConvocatoriasClub from './features/club/MisConvocatoriasClub.jsx'
 
 // Módulos Entrenador
-import GestionarAtletasEntrenador from './features/entrenador/GestionarAtletas.jsx'
 import PerfilEntrenador from './features/entrenador/PerfilEntrenador.jsx'
 import EventosEntrenador from './features/entrenador/EventosEntrenador.jsx'
 import ReportesEntrenador from './features/entrenador/ReportesEntrenador.jsx'
@@ -131,7 +130,6 @@ const App = () => {
 
           {/* Rutas Entrenador */}
           <Route path="/entrenador" element={<LayoutConEncabezado><PaginaPrincipalEntrenador /></LayoutConEncabezado>} />
-          <Route path="/entrenador/gestionar-atletas" element={<LayoutConEncabezado><GestionarAtletasEntrenador /></LayoutConEncabezado>} />
           <Route path="/entrenador/eventos" element={<LayoutConEncabezado><EventosEntrenador /></LayoutConEncabezado>} />
           <Route path="/entrenador/reportes" element={<LayoutConEncabezado><ReportesEntrenador /></LayoutConEncabezado>} />
           <Route path="/entrenador/buscar-clubes" element={<LayoutConEncabezado><BuscarClubes /></LayoutConEncabezado>} />

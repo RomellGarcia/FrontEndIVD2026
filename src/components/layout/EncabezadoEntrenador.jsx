@@ -33,9 +33,6 @@ const EncabezadoEntrenador = () => {
       case 'perfil':
         navigate('/entrenador/perfil');
         break;
-      case 'gestionarAtletas':
-        navigate('/entrenador/gestionar-atletas');
-        break;
       case 'buscarClubes':
         navigate('/entrenador/buscar-clubes');
         break;
@@ -109,7 +106,6 @@ const EncabezadoEntrenador = () => {
 
   const menu = [
     { texto: 'Inicio', key: 'home' },
-    { texto: 'Gestionar Atletas', key: 'gestionarAtletas' },
     { texto: 'Buscar Clubes', key: 'buscarClubes' },
     { texto: 'Eventos', key: 'eventos' },
     { texto: 'Reportes', key: 'reportes' },
