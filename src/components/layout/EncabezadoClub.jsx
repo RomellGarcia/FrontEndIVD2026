@@ -22,6 +22,7 @@ const EncabezadoClub = () => {
     if (pathname.startsWith('/club/mis-convocatorias')) return 'misConvocatorias';
     if (pathname.startsWith('/club/convocatoria')) return 'convocatorias';
     if (pathname.startsWith('/club/resultados')) return 'resultados';
+    if (pathname.startsWith('/club/reportes')) return 'reportes';
     if (pathname.startsWith('/club/perfil')) return 'perfil';
     return 'inicio';
   };
@@ -51,6 +52,9 @@ const EncabezadoClub = () => {
         break;
       case 'resultados':
         navigate('/club/resultados');
+        break;
+      case 'reportes':
+        navigate('/club/reportes');
         break;
       case 'perfil':
         navigate('/club/perfil');
@@ -124,6 +128,7 @@ const EncabezadoClub = () => {
     { texto: 'Convocatorias', key: 'convocatorias' },
     { texto: 'Mis Convocatorias', key: 'misConvocatorias' },
     { texto: 'Resultados', key: 'resultados' },
+    { texto: 'Reportes', key: 'reportes' },
     { texto: 'Perfil', key: 'perfil' },
   ];
 

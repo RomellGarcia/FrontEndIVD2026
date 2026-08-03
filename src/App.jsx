@@ -54,6 +54,7 @@ import EventosClub from './features/club/EventosClub.jsx'
 import GestionAtletas from './features/club/GestionarAtletas.jsx'
 import PerfilClub from './features/club/PerfilClub.jsx'
 import ResultadosClub from './features/club/ResultadosClub.jsx'
+import ReportesClub from './features/club/ReportesClub.jsx'
 import Convocatoria from './features/club/ConvocatoriaClub.jsx'
 import MisConvocatoriasClub from './features/club/MisConvocatoriasClub.jsx'
 
@@ -120,6 +121,7 @@ const App = () => {
           <Route path="/club/eventos" element={<LayoutConEncabezado><EventosClub /></LayoutConEncabezado>} />
           <Route path="/club/gestionAtletas" element={<LayoutConEncabezado><GestionAtletas /></LayoutConEncabezado>} />
           <Route path="/club/resultados" element={<LayoutConEncabezado><ResultadosClub /></LayoutConEncabezado>} />
+          <Route path="/club/reportes" element={<LayoutConEncabezado><ReportesClub /></LayoutConEncabezado>} />
           <Route path="/club/convocatoria" element={<LayoutConEncabezado><Convocatoria /></LayoutConEncabezado>} />
           <Route path="/club/mis-convocatorias" element={<LayoutConEncabezado><MisConvocatoriasClub /></LayoutConEncabezado>} />
           <Route path="/club/politicaspca" element={<LayoutConEncabezado><PoliticasPCA /></LayoutConEncabezado>} />
