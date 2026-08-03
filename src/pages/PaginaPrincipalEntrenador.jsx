@@ -110,14 +110,24 @@ const PaginaPrincipalEntrenador = () => {
       setCargando(true);
       if (!isAuthenticated()) { setError('Usuario no autenticado'); return; }
 
-      if (user.clubId) {
+      let clubId = null;
+      try {
+        const perfilRes = await entrenadorAPI.getPerfil();
+        const perfil = perfilRes.data.entrenador || null;
+        setPerfilEntrenador(perfil);
+        clubId = perfil?.club_id || null;
+      } catch {
+        setPerfilEntrenador(null);
+      }
+
+      if (clubId) {
         try {
-          const clubRes = await clubesAPI.getById(user.clubId);
+          const clubRes = await clubesAPI.getById(clubId);
           setInfoClub(clubRes.data.club || clubRes.data);
         } catch { setInfoClub(null); }
 
         try {
-          const atletasRes = await clubesAPI.getAtletas(user.clubId);
+          const atletasRes = await clubesAPI.getAtletas(clubId);
           const lista = atletasRes.data.atletas || atletasRes.data || [];
           setAtletasDelClub(lista);
           setEstadisticas(prev => ({ ...prev, atletasActivos: lista.length }));
@@ -137,13 +147,6 @@ const PaginaPrincipalEntrenador = () => {
       } catch {
         setEventosProximos([]);
         setEstadisticas(prev => ({ ...prev, eventosProximos: 0 }));
-      }
-
-      try {
-        const perfilRes = await entrenadorAPI.getPerfil();
-        setPerfilEntrenador(perfilRes.data.entrenador || null);
-      } catch {
-        setPerfilEntrenador(null);
       }
     } catch (err) {
       console.error('Error al cargar datos:', err);
