@@ -8,7 +8,7 @@ import {
 import {
     Download as DownloadIcon, FilterList as FilterIcon,
     Visibility as VisibilityIcon, TrendingUp as TrendingUpIcon, People as PeopleIcon,
-    EmojiEvents as TrophyIcon, MilitaryTech as MedalIcon,
+    EmojiEvents as TrophyIcon,
 } from '@mui/icons-material';
 import { resultadosAPI, clubesAPI, catalogosAPI } from '../../api/index.js';
 import { useAuth } from '../../components/common/AuthContext.jsx';
@@ -142,6 +142,7 @@ const ReportesClub = () => {
             setCargandoMarcas(true);
             const res = await resultadosAPI.getMejoresMarcas({
                 categoria: filtros.categoria || undefined,
+                disciplina: filtros.disciplina || undefined,
                 club: nombreClub || undefined,
                 ano_competitivo: filtros.ano_competitivo || undefined,
                 genero: filtros.genero || undefined,
@@ -348,13 +349,16 @@ const ReportesClub = () => {
                         </Box>
                     </Box>
 
-                    {/* Mejor marca por disciplina (obtenida del backend) */}
+                    {/* Mejor marca por disciplina */}
                     <Box sx={{ mb: 4 }}>
-                        <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <MedalIcon /> Mejor Marca por Disciplina
+                        <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 0.5 }}>
+                            {filtros.disciplina ? 'Mejor Marca por Categoría' : 'Mejor Marca por Disciplina'}
                         </Typography>
                         <Typography variant="body2" sx={{ color: COLORS.purple, mb: 2 }}>
                             El atleta con la mejor marca en cada disciplina/categoría/género, dentro de los filtros de arriba — para saber a quién convocar.
+                            {filtros.disciplina
+                                ? `El atleta con la mejor marca en ${filtros.disciplina} por cada categoría/género, dentro de los filtros de arriba — para saber a quién convocar.`
+                                : 'El atleta con la mejor marca en cada disciplina/categoría/género, dentro de los filtros de arriba — para saber a quién convocar.'}
                         </Typography>
 
                         {cargandoMarcas ? (

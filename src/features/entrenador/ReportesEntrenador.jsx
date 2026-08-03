@@ -68,11 +68,13 @@ const ReportesEntrenador = () => {
   const [cargando, setCargando] = useState(true);
   const [resultados, setResultados] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [disciplinas, setDisciplinas] = useState([]);
   const [idClub, setIdClub] = useState(null);
   const [nombreClub, setNombreClub] = useState('');
   const [sinClub, setSinClub] = useState(false);
   const [filtros, setFiltros] = useState({
     categoria: '',
+    disciplina: '',
     ano_competitivo: '',
     genero: ''
   });
@@ -110,9 +112,10 @@ const ReportesEntrenador = () => {
       setIdClub(club_id);
       setNombreClub(club_nombre || '');
 
-      const [resultadosRes, categoriasRes] = await Promise.all([
+      const [resultadosRes, categoriasRes, disciplinasRes] = await Promise.all([
         resultadosAPI.getByClub(club_id),
         catalogosAPI.getCategorias(),
+        catalogosAPI.getDisciplinas(),
       ]);
 
       let data = resultadosRes.data.resultados || resultadosRes.data || [];
@@ -121,6 +124,9 @@ const ReportesEntrenador = () => {
 
       const listaCategorias = categoriasRes.data.categorias || categoriasRes.data || [];
       setCategorias(listaCategorias.map((c) => c.nombre));
+
+      const listaDisciplinas = disciplinasRes.data.disciplinas || disciplinasRes.data || [];
+      setDisciplinas(listaDisciplinas.map((d) => d.nombre));
     } catch (error) {
       console.error('Error al cargar datos:', error);
       setError('Error al cargar los datos para los reportes');
@@ -154,6 +160,9 @@ const ReportesEntrenador = () => {
     let resultadosFiltrados = [...resultados];
     if (filtros.categoria) {
       resultadosFiltrados = resultadosFiltrados.filter(r => r.categoria === filtros.categoria);
+    }
+    if (filtros.disciplina) {
+      resultadosFiltrados = resultadosFiltrados.filter(r => r.disciplina === filtros.disciplina);
     }
     if (filtros.ano_competitivo) {
       resultadosFiltrados = resultadosFiltrados.filter(r => r.ano_competitivo === parseInt(filtros.ano_competitivo));
@@ -210,7 +219,7 @@ const ReportesEntrenador = () => {
 
   // Limpia todos los filtros
   const limpiarFiltros = () => {
-    setFiltros({ categoria: '', ano_competitivo: '', genero: '' });
+    setFiltros({ categoria: '', disciplina: '', ano_competitivo: '', genero: '' });
   };
 
   const resultadosFiltrados = aplicarFiltros();
@@ -291,7 +300,7 @@ const ReportesEntrenador = () => {
             <FilterIcon /> Filtros de Búsqueda
           </Typography>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2, alignItems: 'end' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, alignItems: 'end' }}>
             <FormControl fullWidth size="small">
               <InputLabel>Categoría</InputLabel>
               <Select
@@ -302,6 +311,20 @@ const ReportesEntrenador = () => {
                 <MenuItem value="">Todas las categorías</MenuItem>
                 {categorias.map((cat) => (
                   <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>Disciplina</InputLabel>
+              <Select
+                value={filtros.disciplina}
+                onChange={(e) => setFiltros(prev => ({ ...prev, disciplina: e.target.value }))}
+                label="Disciplina"
+              >
+                <MenuItem value="">Todas las disciplinas</MenuItem>
+                {disciplinas.map((disc) => (
+                  <MenuItem key={disc} value={disc}>{disc}</MenuItem>
                 ))}
               </Select>
             </FormControl>
