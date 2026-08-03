@@ -12,6 +12,10 @@ import {
   Chip,
   Divider,
   IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -116,6 +120,11 @@ const PerfilEntrenador = () => {
   const [guardando, setGuardando] = useState(false);
 
   const [telefono, setTelefono] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [apellidoPaterno, setApellidoPaterno] = useState('');
+  const [apellidoMaterno, setApellidoMaterno] = useState('');
+  const [sexo, setSexo] = useState('');
+  const [municipio, setMunicipio] = useState('');
   const [anosExperiencia, setAnosExperiencia] = useState('');
   const [lugarEntrenamiento, setLugarEntrenamiento] = useState('');
   const [lugarEntrenamientoEditable, setLugarEntrenamientoEditable] = useState(true);
@@ -141,6 +150,11 @@ const PerfilEntrenador = () => {
       if (data) {
         setPerfil(data);
         setTelefono(data.telefono || '');
+        setNombre(data.nombre || '');
+        setApellidoPaterno(data.apellido_paterno || '');
+        setApellidoMaterno(data.apellido_materno || '');
+        setSexo((data.genero || '').toLowerCase());
+        setMunicipio(data.municipio || '');
         setAnosExperiencia(data.anos_experiencia ?? '');
         setLugarEntrenamiento(data.lugar_entrenamiento || '');
         setLugarEntrenamientoEditable(data.lugar_entrenamiento_editable !== false);
@@ -183,6 +197,11 @@ const PerfilEntrenador = () => {
       setGuardando(true);
       await entrenadorAPI.updatePerfil({
         telefono,
+        nombre,
+        apellido_paterno: apellidoPaterno,
+        apellido_materno: apellidoMaterno,
+        genero: sexo,
+        municipio,
         anos_experiencia: anosExperiencia === '' ? null : Number(anosExperiencia),
         ...(lugarEntrenamientoEditable && { lugar_entrenamiento: lugarEntrenamiento }),
         certificaciones,
@@ -362,7 +381,18 @@ const PerfilEntrenador = () => {
               <Chip label="Campos editables" size="small" sx={{ alignSelf: 'flex-start', bgcolor: 'transparent', border: `1px solid ${COLORS.purple}`, color: COLORS.purple, fontSize: '0.75rem' }} />
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <TextField label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Apellido Paterno" value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)} fullWidth size="small" sx={fieldFocusSx} />
+                <TextField label="Apellido Materno" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)} fullWidth size="small" sx={fieldFocusSx} />
                 <TextField label="Teléfono" value={telefono} onChange={(e) => setTelefono(e.target.value)} fullWidth size="small" sx={fieldFocusSx} />
+                <FormControl fullWidth size="small" sx={fieldFocusSx}>
+                  <InputLabel>Sexo</InputLabel>
+                  <Select value={sexo} onChange={(e) => setSexo(e.target.value)} label="Sexo">
+                    <MenuItem value="masculino">Masculino</MenuItem>
+                    <MenuItem value="femenino">Femenino</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField label="Municipio" value={municipio} onChange={(e) => setMunicipio(e.target.value)} fullWidth size="small" sx={fieldFocusSx} />
                 <TextField label="Años de experiencia" type="number" value={anosExperiencia} onChange={(e) => setAnosExperiencia(e.target.value)} fullWidth size="small" inputProps={{ min: 0 }} sx={fieldFocusSx} />
               </Box>
 
@@ -412,7 +442,6 @@ const PerfilEntrenador = () => {
               </Divider>
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <TextField label="Nombre completo" value={nombreCompleto} fullWidth disabled size="small" />
                 <TextField label="CURP" value={perfil.curp || ''} fullWidth disabled size="small" />
                 <TextField
                   label="Fecha de Nacimiento"
@@ -421,8 +450,8 @@ const PerfilEntrenador = () => {
                   fullWidth disabled size="small"
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
-                <TextField label="Género" value={perfil.genero || ''} fullWidth disabled size="small" />
-                <TextField label="Correo Electrónico" value={perfil.email || ''} fullWidth disabled size="small" sx={{ gridColumn: { sm: '1 / -1' } }} />
+                <TextField label="Estado de Nacimiento" value={perfil.estado_nacimiento || ''} fullWidth disabled size="small" />
+                <TextField label="Correo Electrónico" value={perfil.email || ''} fullWidth disabled size="small" />
               </Box>
               <Typography variant="caption" sx={{ color: COLORS.purple, opacity: 0.8 }}>
                 Estos datos vienen de tu cuenta de usuario. Si necesitas corregir alguno, contacta al administrador.
@@ -437,6 +466,8 @@ const PerfilEntrenador = () => {
                 <ReadOnlyField icon={<PersonIcon fontSize="small" />} label="Género" value={perfil.genero} />
                 <ReadOnlyField icon={<PhoneIcon fontSize="small" />} label="Teléfono" value={telefono} />
                 <ReadOnlyField icon={<EmailIcon fontSize="small" />} label="Correo electrónico" value={perfil.email} />
+                <ReadOnlyField icon={<LocationOnIcon fontSize="small" />} label="Estado de nacimiento" value={perfil.estado_nacimiento} />
+                <ReadOnlyField icon={<LocationOnIcon fontSize="small" />} label="Municipio" value={municipio} />
                 <ReadOnlyField icon={<WorkHistoryIcon fontSize="small" />} label="Años de experiencia" value={anosExperiencia !== '' ? `${anosExperiencia} años` : null} />
                 <ReadOnlyField icon={<LocationOnIcon fontSize="small" />} label="Lugar de entrenamiento" value={lugarEntrenamiento} />
               </Box>
