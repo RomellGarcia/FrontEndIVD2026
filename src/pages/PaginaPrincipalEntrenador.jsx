@@ -295,7 +295,7 @@ const PaginaPrincipalEntrenador = () => {
                         primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{a.nombre} {a.apellido_paterno} {a.apellido_materno || ''}</Typography>}
                         secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{a.edad ? `${a.edad} años` : ''} · {a.genero || ''} · {a.municipio || 'Sin municipio'}</Typography>}
                       />
-                      <ChipEstado label={a.genero === 'femenino' ? 'F' : 'M'} positivo={a.genero === 'femenino'} />
+                      <ChipEstado label={a.genero?.toLowerCase() === 'femenino' ? 'F' : 'M'} positivo={a.genero?.toLowerCase() === 'femenino'} />
                     </ListItem>
                     {i < atletasDelClub.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>

@@ -143,7 +143,7 @@ const PaginaPrincipalAdministrativa = () => {
         eventos: eventos
           .filter(e => new Date(e.fecha) >= new Date())
           .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
-          .slice(0, 5),
+          .slice(0, 3),
         resultados: resultados.slice(0, 5),
       });
     } catch (err) {
@@ -243,7 +243,7 @@ const PaginaPrincipalAdministrativa = () => {
                         primary={<Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ink }}>{a.nombre} {a.apellido_paterno} {a.apellido_materno || ''}</Typography>}
                         secondary={<Typography variant="caption" sx={{ color: COLORS.purple }}>{a.municipio || 'Sin municipio'} · {a.club_nombre || 'Independiente'}</Typography>}
                       />
-                      <EstadoChip label={a.genero === 'femenino' ? 'F' : 'M'} positivo={a.genero === 'femenino'} />
+                      <EstadoChip label={a.genero?.toLowerCase() === 'femenino' ? 'F' : 'M'} positivo={a.genero?.toLowerCase() === 'femenino'} />
                     </ListItem>
                     {i < actividadReciente.atletas.length - 1 && <Divider sx={{ borderColor: COLORS.line }} />}
                   </React.Fragment>
