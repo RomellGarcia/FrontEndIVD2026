@@ -367,11 +367,6 @@ const ReportesEntrenador = () => {
               <Typography variant="h6" sx={{ color: COLORS.burgundy, fontWeight: 800, mb: 2 }}>
                 {filtros.disciplina ? 'Mejor Marca por Categoría' : 'Mejor Marca por Disciplina'}
               </Typography>
-              <Typography variant="body2" sx={{ color: COLORS.purple, mb: 2 }}>
-                {filtros.disciplina
-                  ? `El atleta con la mejor marca en ${filtros.disciplina} por cada categoría/género, dentro de los filtros de arriba — para saber a quién convocar.`
-                  : 'El atleta con la mejor marca en cada disciplina/categoría/género, dentro de los filtros de arriba — para saber a quién convocar.'}
-              </Typography>
 
               {cargandoMarcas ? (
                 <Box sx={{ ...cardSx, textAlign: 'center', py: 4 }}>
